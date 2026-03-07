@@ -9,16 +9,17 @@ import SwiftUI
 
 struct LaunchView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-        
-            Text("KCT")
-            Text("(Korea Citizenship Test)")
+        ZStack {
+            Color.orange.ignoresSafeArea()
+            VStack {
+                Text("KCT")
+                    .font(.system(size: 60, weight: .bold))
+                Text("Korea Citizenship Test")
+                    .font(.system(size: 24, weight: .bold))
+            }
+            .foregroundStyle(.white)
+            .padding()
         }
-        .background()
-        .padding()
     }
 }
 

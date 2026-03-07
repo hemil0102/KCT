@@ -11,7 +11,7 @@ import SwiftUI
 struct KCTApp: App {
     var body: some Scene {
         WindowGroup {
-            LaunchView()
+            ContentView()
         }
     }
 }
