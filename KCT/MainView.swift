@@ -11,23 +11,31 @@ struct MainView: View {
     var body: some View {
         TabView {
             NavigationStack {
-                Text("홈 화면")
-                    .navigationTitle("홈")
+                Text("화면")
+                    .navigationTitle("면접 문제집")
             }
             .tabItem {
-                Label("홈", systemImage: "house")
+                Label("면접 문제집", systemImage: "house")
             }
 
             NavigationStack {
-                Text("검색 화면")
-                    .navigationTitle("검색")
+                Text("화면")
+                    .navigationTitle("문제 풀이")
             }
             .tabItem {
-                Label("검색", systemImage: "magnifyingglass")
+                Label("문제 풀이", systemImage: "document")
+            }
+            
+            NavigationStack {
+                Text("화면")
+                    .navigationTitle("문제 기록")
+            }
+            .tabItem {
+                Label("문제 기록", systemImage: "heart")
             }
 
             NavigationStack {
-                Text("설정 화면")
+                Text("화면")
                     .navigationTitle("설정")
             }
             .tabItem {
