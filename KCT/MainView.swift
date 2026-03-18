@@ -11,8 +11,18 @@ struct MainView: View {
     var body: some View {
         TabView {
             NavigationStack {
-                QuestionListView()
-                    .navigationTitle("면접 문제집")
+                VStack(spacing: 0) {
+                    GeometryReader { proxy in
+                        VStack(spacing: 0) {
+                            TopView()
+                                .frame(height: proxy.size.height * 0.3)
+
+                            QuestionListView()
+                                .frame(height: proxy.size.height * 0.7)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    }
+                }
             }
             .tabItem {
                 Label("면접 문제집", systemImage: "house")

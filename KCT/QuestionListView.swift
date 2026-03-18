@@ -42,7 +42,7 @@ struct QuestionListView: View {
                 .padding(12)
                 .frame(minHeight: 120)
                 .foregroundStyle(.primary)
-                .font(.body)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
                 .background(Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
