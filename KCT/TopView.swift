@@ -11,8 +11,8 @@ struct TopView: View {
     var body: some View {
         ZStack {
             Color.orange.ignoresSafeArea()
-            Text("한걸음씩 천천히, 느려도 괜찮아요 :)")
-                .font(.system(size: 40, weight: .heavy, design: .rounded))
+            Text("우리 엄마 천천히 화이팅 :)")
+                .font(.system(size: 32, weight: .heavy, design: .rounded))
                 .foregroundStyle(.white)
         }
     }

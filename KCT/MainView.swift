@@ -15,10 +15,10 @@ struct MainView: View {
                     GeometryReader { proxy in
                         VStack(spacing: 0) {
                             TopView()
-                                .frame(height: proxy.size.height * 0.3)
+                                .frame(height: proxy.size.height * 0.2)
 
                             QuestionListView()
-                                .frame(height: proxy.size.height * 0.7)
+                                .frame(height: proxy.size.height * 0.8)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
