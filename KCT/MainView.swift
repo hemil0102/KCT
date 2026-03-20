@@ -12,16 +12,9 @@ struct MainView: View {
         TabView {
             NavigationStack {
                 VStack(spacing: 0) {
-                    GeometryReader { proxy in
-                        VStack(spacing: 0) {
-                            TopView()
-                                .frame(height: proxy.size.height * 0.2)
-
-                            QuestionListView()
-                                .frame(height: proxy.size.height * 0.8)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    }
+                    TopView()
+                        .frame(height: 160)
+                    QuestionListView()
                 }
             }
             .tabItem {
