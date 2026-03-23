@@ -101,6 +101,7 @@ struct QuestionListView: View {
                     )
 
                 VStack(alignment: .leading, spacing: 16) {
+                    Text("카테고리: \(question.category)")
                     Text("질문: \(question.title)")
                     Text("답변: \(question.answer)")
                 }
