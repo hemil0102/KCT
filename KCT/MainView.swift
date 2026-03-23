@@ -13,7 +13,7 @@ struct MainView: View {
             NavigationStack {
                 VStack(spacing: 0) {
                     TopView()
-                        .frame(height: 160)
+                        .frame(height: 60)
                     QuestionListView()
                 }
             }

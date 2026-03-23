@@ -34,6 +34,7 @@ struct QuestionListView: View {
         let unique = Set(questions.map { $0.category })
         return ["전체"] + unique.sorted()
     }
+    
     private var levels: [String] {
         let unique = Set(questions.map { $0.level })
         return ["전체"] + unique.sorted()
@@ -110,8 +111,10 @@ struct QuestionListView: View {
                 .background(Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
+            .padding(.bottom, 4)
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
