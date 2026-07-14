@@ -2,62 +2,43 @@
 //  QuestionListView.swift
 //  KCT
 //
-//  Created by harryho on 3/12/26.
+//  1a 디자인 반영 — 카테고리/난이도 필터 + 즐겨찾기 카드 리스트
 //
 
 import SwiftUI
 
-struct Question: Identifiable, Hashable {
-    let id = UUID()
-    let title: String   // 질문
-    let answer: String  // 답변
-    let category: String // 분류
-    let level: String // 난이도
-}
-
-// 샘플 데이터 (실제 앱에서는 ViewModel이나 외부에서 주입 가능)
-private let sampleQuestions: [Question] = [
-    Question(title: "우리 나라의 국호는 무엇인가요?", answer: "대한민국", category: "나라", level: "하"),
-    Question(title: "수도의 이름은 무엇인가요?", answer: "서울", category: "나라", level: "하"),
-    Question(title: "한글을 만든 왕은 누구인가요?", answer: "세종대왕", category: "인물", level: "하"),
-]
-
 struct QuestionListView: View {
-    let questions: [Question] = sampleQuestions
-    
-    // 선택 상태
+    let store: QuestionStore
+    @AppStorage("questionFontSize") private var fontSizeRaw: String = QuestionFontSize.medium.rawValue
+
     @State private var selectedCategory: String = "전체"
     @State private var selectedLevel: String = "전체"
 
-    // 선택지(데이터에서 추출 + "전체")
-    private var categories: [String] {
-        let unique = Set(questions.map { $0.category })
-        return ["전체"] + unique.sorted()
+    private var fontSize: QuestionFontSize {
+        QuestionFontSize(rawValue: fontSizeRaw) ?? .medium
     }
-    
-    private var levels: [String] {
-        let unique = Set(questions.map { $0.level })
+
+    private var categories: [String] {
+        let unique = Set(store.questions.map { $0.category })
         return ["전체"] + unique.sorted()
     }
 
-    // 필터된 결과
+    private var levels: [String] {
+        let unique = Set(store.questions.map { $0.level })
+        return ["전체"] + unique.sorted()
+    }
+
     private var filteredQuestions: [Question] {
-        questions.filter { q in
+        store.questions.filter { q in
             let matchCategory = (selectedCategory == "전체") || (q.category == selectedCategory)
             let matchLevel = (selectedLevel == "전체") || (q.level == selectedLevel)
             return matchCategory && matchLevel
         }
     }
-    
+
     var body: some View {
-        HStack{
-            Text("귀화 질문 목록")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .padding(.leading, 16)
-            
-            Spacer()
-            
-            HStack(spacing: 16) {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
                 Menu {
                     Picker("카테고리", selection: $selectedCategory) {
                         ForEach(categories, id: \.self) { cat in
@@ -65,11 +46,7 @@ struct QuestionListView: View {
                         }
                     }
                 } label: {
-                    HStack {
-                        Text("카테고리:")
-                        Text(selectedCategory)
-                            .fontWeight(.semibold)
-                    }
+                    filterChip("카테고리: \(selectedCategory)")
                 }
 
                 Menu {
@@ -79,51 +56,89 @@ struct QuestionListView: View {
                         }
                     }
                 } label: {
-                    HStack {
-                        Text("난이도:")
-                        Text(selectedLevel)
-                            .fontWeight(.semibold)
-                    }
+                    filterChip("난이도: \(selectedLevel)")
                 }
-            }
-            .padding(.trailing, 16)
-        }
-        
-        List(filteredQuestions) { question in
-            ZStack(alignment: .topLeading) {
-                // 외곽 영역 라운드를 지정하는 라운드 네모
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                    )
 
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("카테고리: \(question.category)")
-                    Text("질문: \(question.title)")
-                    Text("답변: \(question.answer)")
-                }
-                .padding(12)
-                .frame(minHeight: 120)
-                .foregroundStyle(.primary)
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .background(Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Spacer()
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
             .padding(.bottom, 4)
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+
+            List(filteredQuestions) { question in
+                QuestionCard(question: question, fontSize: fontSize.titleSize) {
+                    store.toggleFavorite(question)
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .padding(.bottom, 4)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(Color(.systemGroupedBackground))
-        .padding(.vertical, 12)
+    }
+
+    private func filterChip(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 14, weight: .bold, design: .rounded))
+            .foregroundStyle(KCTTheme.chipText)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(KCTTheme.chipBg)
+            .clipShape(Capsule())
+    }
+}
+
+struct QuestionCard: View {
+    let question: Question
+    var fontSize: CGFloat = 19
+    var onToggleFavorite: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("\(question.category) · \(question.level)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(KCTTheme.orangeBottom)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(KCTTheme.chipBg.opacity(0.6))
+                    .clipShape(Capsule())
+
+                Spacer()
+
+                Button(action: onToggleFavorite) {
+                    Image(systemName: question.isFavorite ? "heart.fill" : "heart")
+                        .foregroundStyle(question.isFavorite ? .red : .gray.opacity(0.4))
+                        .font(.system(size: 18))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text(question.title)
+                .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                .foregroundStyle(KCTTheme.textDark)
+
+            Text("답변 보기 ›")
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .foregroundStyle(KCTTheme.textMuted)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: Color.orange.opacity(0.06), radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(KCTTheme.cardBorder, lineWidth: 1)
+        )
+        .padding(.horizontal, 20)
     }
 }
 
 #Preview {
-    QuestionListView()
+    QuestionListView(store: QuestionStore())
 }
