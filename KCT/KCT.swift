@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct KCT: App {
@@ -13,5 +14,6 @@ struct KCT: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: QuestionProgress.self)
     }
 }
