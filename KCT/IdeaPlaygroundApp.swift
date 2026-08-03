@@ -1,14 +1,14 @@
 //
-//  KCTApp.swift
-//  KCT
+//  IdeaPlaygroundApp.swift
+//  IdeaPlayground
 //
-//  Created by harryho on 2/26/26.
+//  Created by harryho on 7/1/26.
 //
 
 import SwiftUI
 
 @main
-struct KCTApp: App {
+struct IdeaPlaygroundApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
