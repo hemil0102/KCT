@@ -14,6 +14,6 @@ struct KCT: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: QuestionProgress.self)
+        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self])
     }
 }

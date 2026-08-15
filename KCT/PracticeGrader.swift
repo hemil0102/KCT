@@ -10,16 +10,16 @@ import Foundation
 
 enum PracticeGrader {
     /// O/X에서 "맞다"에 해당하는 선택 값.
-    static let trueLabel = "O"
+    static let trueLabel = "맞아요"
     /// O/X에서 "아니다"에 해당하는 선택 값.
-    static let falseLabel = "X"
+    static let falseLabel = "아니에요"
 
     /// 결정적 채점 결과. `nil`이면 모델 채점(AnswerGrader)이 필요하다.
     static func grade(_ item: PracticeItem, userAnswer: String) -> Bool? {
         switch item.payload {
         case .choices(_, let correct):
             return userAnswer == correct
-        case .trueFalse(_, let isTrue):
+        case .trueFalse(_, _, let isTrue):
             return (userAnswer == trueLabel) == isTrue
         case .freeText:
             return nil

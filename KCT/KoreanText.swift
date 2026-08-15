@@ -17,6 +17,12 @@ struct KoreanText: UIViewRepresentable {
     var font: UIFont
     var color: UIColor = .black
     var lineSpacing: CGFloat = 8
+    /// 본문에서 강조할 부분. (예: O/X에서 판단 대상인 답)
+    var highlight: String?
+    var highlightColor: UIColor = UIColor(AppColor.signature)
+    /// 형광펜으로 칠할 부분. (질문이 묻는 대상)
+    var marker: String?
+    var markerColor: UIColor = UIColor(AppColor.marker)
 
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
@@ -33,14 +39,43 @@ struct KoreanText: UIViewRepresentable {
         paragraph.lineBreakStrategy = .hangulWordPriority   // 한글은 단어 중간에서 끊지 않음
         paragraph.lineSpacing = lineSpacing
 
-        label.attributedText = NSAttributedString(
-            string: Self.keepingNumbersWithUnits(text),
+        let displayed = Self.keepingNumbersWithUnits(text)
+        let attributed = NSMutableAttributedString(
+            string: displayed,
             attributes: [
                 .font: font,
                 .foregroundColor: color,
                 .paragraphStyle: paragraph,
             ]
         )
+
+        // 묻는 대상은 형광펜(배경색)으로 칠한다.
+        if let marker, !marker.isEmpty {
+            let target = Self.keepingNumbersWithUnits(marker)
+            let range = (displayed as NSString).range(of: target)
+            if range.location != NSNotFound {
+                attributed.addAttribute(.backgroundColor, value: markerColor, range: range)
+            }
+        }
+
+        // 강조 구간은 시그니처 색 + 굵은 밑줄로 표시한다.
+        // 색과 밑줄 두 가지 신호를 주어 색 구분이 어려운 분도 알아볼 수 있게 한다.
+        if let highlight, !highlight.isEmpty {
+            let target = Self.keepingNumbersWithUnits(highlight)
+            let range = (displayed as NSString).range(of: target)
+            if range.location != NSNotFound {
+                attributed.addAttributes(
+                    [
+                        .foregroundColor: highlightColor,
+                        .underlineStyle: NSUnderlineStyle.thick.rawValue,
+                        .underlineColor: highlightColor,
+                    ],
+                    range: range
+                )
+            }
+        }
+
+        label.attributedText = attributed
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {

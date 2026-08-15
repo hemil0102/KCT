@@ -12,6 +12,9 @@ import SwiftUI
 import SwiftData
 
 struct QuizView: View {
+    /// 이번 세션의 성격. 실전 모드에서는 형광펜 같은 도움 장치를 끈다.
+    var sessionMode: SessionMode = .practice
+
     @Environment(\.modelContext) private var modelContext
     /// 문제별 학습 진척. (SwiftData에서 로드)
     @Query private var progresses: [QuestionProgress]
@@ -39,6 +42,12 @@ struct QuizView: View {
 
     /// 기록 초기화 확인창 표시 여부
     @State private var showResetConfirm = false
+
+    /// "답을 고르세요" 안내 표시 여부. (답을 고르면 사라진다)
+    @State private var showsAnswerHint = false
+
+    /// 백그라운드 분석 작업. 세션이 바뀌면 취소한다.
+    @State private var focusWarmingTask: Task<Void, Never>?
 
     private let grader = AnswerGrader()
 
@@ -75,10 +84,9 @@ struct QuizView: View {
         userAnswer.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// 하단 버튼 문구. 아직 답을 고르지 않았으면 무엇을 해야 할지 안내한다.
+    /// 하단 버튼 문구. (무엇을 해야 하는지는 지문 위 안내가 담당한다)
     private var nextButtonTitle: String {
-        if isAnswerEmpty { return "문제를 풀어보세요." }
-        return currentIndex == quiz.count - 1 ? "제출" : "다음  →"
+        currentIndex == quiz.count - 1 ? "제출" : "다음  →"
     }
 
     var body: some View {
@@ -108,7 +116,7 @@ struct QuizView: View {
     /// 현재 문제의 지문을 소리 내어 읽는다. (다 풀었으면 읽지 않음)
     private func speakCurrentQuestion() {
         guard !quiz.isEmpty, currentIndex < quiz.count else { return }
-        speaker.speak(quiz[currentIndex].question.question)
+        speaker.speak(quiz[currentIndex].displayText)
     }
 
     // MARK: - 문제 풀이 화면
@@ -117,78 +125,109 @@ struct QuizView: View {
         let item = quiz[currentIndex]
 
         return VStack(spacing: 0) {
-            // 진행 상황 (문제 유형은 표기하지 않는다)
-            HStack {
-                Text("연습 진행률 \(currentIndex + 1) / \(quiz.count)")
-                    .font(.title3.weight(.semibold))
-                Spacer()
-            }
-            .foregroundStyle(.black)
+            // 진행 상황 + 다시 읽기. (문제 유형은 표기하지 않는다)
+            HStack(spacing: 16) {
+                progressBar
 
-            progressBar
-                .padding(.top, 16)
+                // 읽기 흐름을 끊지 않도록 지문 위쪽에 둔다.
+                Button {
+                    speaker.speak(item.displayText)
+                } label: {
+                    // 보조 행동: 같은 알약·같은 색 계열이되 채우지 않아 주 행동보다 가볍게.
+                    Label("다시 읽기", systemImage: "speaker.wave.2.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(signature)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(AppColor.secondaryBackground, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     // 지문: 왼쪽 정렬 + 한글 단어 단위 줄바꿈
+                    // (O/X는 진술문을 보여주고, 판단 대상인 답을 시그니처 색으로 강조한다)
                     KoreanText(
-                        text: item.question.question,
-                        font: .systemFont(ofSize: 30, weight: .bold)
+                        text: item.displayText,
+                        font: .systemFont(ofSize: 30, weight: .bold),
+                        highlight: item.highlightText,
+                        marker: sessionMode.showsFocusHighlight ? item.markerText : nil
                     )
                     .padding(.top, 32)
 
-                    // 다시 읽기 버튼 (문제 진입 시 자동 재생되므로 "다시" 읽기)
-                    Button {
-                        speaker.speak(item.question.question)
-                    } label: {
-                        Label("다시 읽기", systemImage: "speaker.wave.2.fill")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(AppColor.softBackground, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
+                    VStack(alignment: .leading, spacing: 12) {
+                        // 무엇을 해야 하는지 알려 주는 한 줄 안내.
+                        // 보기 묶음의 라벨 역할이라 작고 차분하게 둔다.
+                        Text(item.actionGuide)
+                            .font(.system(size: 21, weight: .semibold))
+                            .foregroundStyle(textMuted)
 
-                    inputArea(for: item)
-                        .padding(.top, 8)
+                        inputArea(for: item)
+                    }
+                    .padding(.top, 8)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 4)
                 .padding(.bottom, 24)
             }
 
-            // 다음/제출 버튼
+            // 아직 답을 고르지 않고 다음을 누른 경우의 안내. (답을 고르면 사라진다)
+            if showsAnswerHint {
+                Text("문제를 고르면 다음으로 갈 수 있어요.")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(.black, in: Capsule())
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // 다음/제출 버튼. 비활성처럼 보이지만 눌리며, 답이 없으면 안내를 띄운다.
             Button {
-                submit()
+                if isAnswerEmpty {
+                    showAnswerHint()
+                } else {
+                    submit()
+                }
             } label: {
                 Text(nextButtonTitle)
                     .font(.system(size: 23, weight: .bold))
-                    .foregroundStyle(isAnswerEmpty ? .black : .white)
+                    .foregroundStyle(isAnswerEmpty ? AppColor.disabledText : .white)
                     .frame(maxWidth: .infinity, minHeight: 56)
                     .background(isAnswerEmpty ? AppColor.disabledBackground : signature,
-                                in: RoundedRectangle(cornerRadius: 12))
+                                in: Capsule())
             }
             .buttonStyle(.plain)
-            .disabled(isAnswerEmpty)
         }
         .padding(24)
-    }
-
-    /// 진행 막대. 기본 ProgressView보다 5배 두껍고 색을 넣어 시인성을 높였다.
-    private var progressBar: some View {
-        GeometryReader { geometry in
-            // 1번 문제부터 진척이 보이도록 현재 문제까지 포함해 계산한다.
-            let ratio = quiz.isEmpty ? 0 : Double(currentIndex + 1) / Double(quiz.count)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(AppColor.softBackground)
-                Capsule()
-                    .fill(signature)
-                    .frame(width: geometry.size.width * ratio)
+        .animation(.easeInOut(duration: 0.2), value: showsAnswerHint)
+        // 답을 고르면 안내를 거둔다.
+        .onChange(of: userAnswer) { _, newValue in
+            if !newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                showsAnswerHint = false
             }
         }
-        .frame(height: 20)
+    }
+
+    /// 답을 고르라는 안내를 띄운다. (진동으로도 알려 준다)
+    private func showAnswerHint() {
+        showsAnswerHint = true
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    /// 진행 막대. 문제 수만큼 칸을 나눠, 숫자 없이도 전체 개수와 현재 위치를 함께 보여준다.
+    private var progressBar: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<max(quiz.count, 1), id: \.self) { index in
+                Capsule()
+                    .fill(index <= currentIndex ? signature : AppColor.softBackground)
+            }
+        }
+        .frame(height: 14)
         .animation(.easeInOut(duration: 0.25), value: currentIndex)
     }
 
@@ -202,15 +241,11 @@ struct QuizView: View {
                     choiceButton(option, isSelected: userAnswer == option)
                 }
             }
-        case .trueFalse(let shownAnswer, _):
-            VStack(spacing: 20) {
-                Text("제시된 답: \(shownAnswer)")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(.black)
-                HStack(spacing: 14) {
-                    choiceButton(PracticeGrader.trueLabel, isSelected: userAnswer == PracticeGrader.trueLabel)
-                    choiceButton(PracticeGrader.falseLabel, isSelected: userAnswer == PracticeGrader.falseLabel)
-                }
+        case .trueFalse:
+            // 판단 대상(진술문)은 위 본문에 이미 있으므로 버튼만 둔다.
+            HStack(spacing: 14) {
+                choiceButton(PracticeGrader.trueLabel, isSelected: userAnswer == PracticeGrader.trueLabel)
+                choiceButton(PracticeGrader.falseLabel, isSelected: userAnswer == PracticeGrader.falseLabel)
             }
         case .freeText:
             ZStack {
@@ -235,24 +270,36 @@ struct QuizView: View {
         }
     }
 
-    /// 탭하면 선택되는 큰 보기/OX 버튼. (고대비 미니멀)
+    /// 탭하면 선택되는 큰 보기/OX 버튼.
+    ///
+    /// 선택은 "상태"이므로 옅은 배경 + 굵은 테두리 + 체크로 표시하고,
+    /// 꽉 채운 시그니처 색은 "다음" 버튼(행동)에만 쓴다.
     private func choiceButton(_ label: String, isSelected: Bool) -> some View {
         Button {
             userAnswer = label
         } label: {
-            Text(label)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(isSelected ? .white : .black)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, minHeight: 58)
-                .background(isSelected ? signature : Color.white,
-                            in: RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(isSelected ? signature : .black, lineWidth: 1.5)
-                )
+            HStack(spacing: 10) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(isSelected ? signature : Color.black.opacity(0.3))
+
+                Text(label)
+                    .font(.system(size: 22, weight: isSelected ? .bold : .semibold))
+                    .foregroundStyle(.black)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .background(isSelected ? AppColor.softBackground : Color.white,
+                        in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? signature : Color.black.opacity(0.35),
+                            lineWidth: isSelected ? 3 : 1.5)
+            )
         }
         .buttonStyle(.plain)
     }
@@ -332,7 +379,7 @@ struct QuizView: View {
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 60)
-                    .background(signature, in: RoundedRectangle(cornerRadius: 14))
+                    .background(signature, in: Capsule())
             }
             .buttonStyle(.plain)
 
@@ -378,7 +425,7 @@ struct QuizView: View {
                 }
             }
 
-            Text(item.question.question)
+            Text(item.displayText)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.black)
 
@@ -411,12 +458,29 @@ struct QuizView: View {
             byID[question.id] = progress
         }
 
-        quiz = SessionBuilder().build(size: sessionSize, progressByID: byID)
+        let store = FocusStore(modelContext: modelContext)
+        quiz = SessionBuilder().build(
+            size: sessionSize,
+            progressByID: byID,
+            focusByID: store.focuses(for: Question.all)
+        )
         currentIndex = 0
         userAnswer = ""
         submittedAnswers = [:]
         results = [:]
         speakCurrentQuestion()   // 첫 문제도 자동으로 읽어준다
+
+        // 어머니가 문제를 푸는 동안, 아직 분석하지 않은 문제를 뒤에서 채워 둔다.
+        warmFocusCache()
+    }
+
+    /// 백그라운드로 묻는 대상을 분석해 캐시에 채운다. (화면을 막지 않는다)
+    private func warmFocusCache() {
+        focusWarmingTask?.cancel()
+        let store = FocusStore(modelContext: modelContext)
+        focusWarmingTask = Task {
+            await store.analyzeMissing(in: Question.all)
+        }
     }
 
     /// 학습 기록(진척)을 모두 지우고 처음부터 다시 시작한다.
@@ -449,6 +513,7 @@ struct QuizView: View {
 
         submittedAnswers[item.id] = trimmed
         userAnswer = ""
+        showsAnswerHint = false
         currentIndex += 1
 
         if isFinished {
@@ -498,5 +563,5 @@ struct QuizView: View {
 
 #Preview {
     QuizView()
-        .modelContainer(for: QuestionProgress.self, inMemory: true)
+        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
 }

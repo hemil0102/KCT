@@ -24,7 +24,13 @@ struct SessionBuilder {
     ///   - size: 출제할 문제 수
     ///   - progressByID: 문제 id → 진척
     ///   - now: 기준 시각 (복습 판정용)
-    func build(size: Int, progressByID: [Int: QuestionProgress], now: Date = .now) -> [PracticeItem] {
+    ///   - focusByID: 문제 id → 묻는 대상. 없으면 규칙 기반으로 즉시 계산된다.
+    func build(
+        size: Int,
+        progressByID: [Int: QuestionProgress],
+        focusByID: [Int: QuestionFocus] = [:],
+        now: Date = .now
+    ) -> [PracticeItem] {
         func prog(_ question: Question) -> QuestionProgress? { progressByID[question.id] }
 
         let unlocked = Question.all.filter(isUnlocked)
@@ -75,7 +81,12 @@ struct SessionBuilder {
         return chosen.enumerated().map { index, question in
             let isBookend = chosen.count >= 2 && (index == 0 || index == chosen.count - 1)
             let mode = isBookend ? .binaryChoice : (prog(question)?.mode ?? .binaryChoice)
-            return PracticeItem.make(question, mode: mode, affectsProgress: !isBookend)
+            return PracticeItem.make(
+                question,
+                mode: mode,
+                affectsProgress: !isBookend,
+                focus: focusByID[question.id]
+            )
         }
     }
 
