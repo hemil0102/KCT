@@ -45,11 +45,12 @@ struct QuizView: View {
     /// 이번 세션 문제 수
     private let sessionSize = 5
 
-    // MARK: 색상 (고대비 — 흰 배경에서 또렷하게)
-    private let correctGreen = Color(red: 0.12, green: 0.52, blue: 0.30)
-    private let reviewBlue = Color(red: 0.10, green: 0.40, blue: 0.72)
-    private let masterOrange = Color(red: 0.80, green: 0.46, blue: 0.08)
-    private let textMuted = Color(red: 0.26, green: 0.26, blue: 0.28)   // 진한 회색 (연회색 금지)
+    // MARK: 색상 (시그니처 #745CF4 기준 · 흰 배경에서 또렷하게)
+    private let signature = AppColor.signature
+    private let correctGreen = AppColor.correct
+    private let reviewBlue = AppColor.review
+    private let masterOrange = AppColor.mastered
+    private let textMuted = AppColor.textMuted
 
     /// 모든 문제를 다 풀었는지 여부
     private var isFinished: Bool { !quiz.isEmpty && currentIndex >= quiz.count }
@@ -74,6 +75,12 @@ struct QuizView: View {
         userAnswer.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /// 하단 버튼 문구. 아직 답을 고르지 않았으면 무엇을 해야 할지 안내한다.
+    private var nextButtonTitle: String {
+        if isAnswerEmpty { return "문제를 풀어보세요." }
+        return currentIndex == quiz.count - 1 ? "제출" : "다음  →"
+    }
+
     var body: some View {
         Group {
             if quiz.isEmpty {
@@ -92,6 +99,16 @@ struct QuizView: View {
         .onAppear {
             if quiz.isEmpty { startSession() }
         }
+        // 문제에 진입하면 지문을 자동으로 읽어준다.
+        .onChange(of: currentIndex) { _, _ in
+            speakCurrentQuestion()
+        }
+    }
+
+    /// 현재 문제의 지문을 소리 내어 읽는다. (다 풀었으면 읽지 않음)
+    private func speakCurrentQuestion() {
+        guard !quiz.isEmpty, currentIndex < quiz.count else { return }
+        speaker.speak(quiz[currentIndex].question.question)
     }
 
     // MARK: - 문제 풀이 화면
@@ -100,47 +117,43 @@ struct QuizView: View {
         let item = quiz[currentIndex]
 
         return VStack(spacing: 0) {
-            // 진행 상황 + 현재 모드 표시
+            // 진행 상황 (문제 유형은 표기하지 않는다)
             HStack {
-                Text("문제 \(currentIndex + 1) / \(quiz.count)")
+                Text("연습 진행률 \(currentIndex + 1) / \(quiz.count)")
                     .font(.title3.weight(.semibold))
                 Spacer()
-                Text(item.mode.title)
-                    .font(.title3.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.08), in: Capsule())
             }
             .foregroundStyle(.black)
 
-            ProgressView(value: Double(currentIndex), total: Double(quiz.count))
-                .tint(.black)
+            progressBar
                 .padding(.top, 16)
 
             ScrollView {
-                VStack(spacing: 24) {
-                    Text(item.question.question)
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundStyle(.black)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 32)
+                VStack(alignment: .leading, spacing: 24) {
+                    // 지문: 왼쪽 정렬 + 한글 단어 단위 줄바꿈
+                    KoreanText(
+                        text: item.question.question,
+                        font: .systemFont(ofSize: 30, weight: .bold)
+                    )
+                    .padding(.top, 32)
 
-                    // 문제 읽어주기 버튼
+                    // 다시 읽기 버튼 (문제 진입 시 자동 재생되므로 "다시" 읽기)
                     Button {
                         speaker.speak(item.question.question)
                     } label: {
-                        Label("문제 읽어주기", systemImage: "speaker.wave.2.fill")
+                        Label("다시 읽기", systemImage: "speaker.wave.2.fill")
                             .font(.title3.weight(.semibold))
                             .foregroundStyle(.black)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 12)
-                            .background(Color.black.opacity(0.08), in: Capsule())
+                            .background(AppColor.softBackground, in: Capsule())
                     }
                     .buttonStyle(.plain)
 
                     inputArea(for: item)
                         .padding(.top, 8)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 4)
                 .padding(.bottom, 24)
             }
@@ -149,17 +162,34 @@ struct QuizView: View {
             Button {
                 submit()
             } label: {
-                Text(currentIndex == quiz.count - 1 ? "제출" : "다음  →")
+                Text(nextButtonTitle)
                     .font(.system(size: 23, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(isAnswerEmpty ? .black : .white)
                     .frame(maxWidth: .infinity, minHeight: 56)
-                    .background(isAnswerEmpty ? Color.gray : Color.black,
+                    .background(isAnswerEmpty ? AppColor.disabledBackground : signature,
                                 in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
             .disabled(isAnswerEmpty)
         }
         .padding(24)
+    }
+
+    /// 진행 막대. 기본 ProgressView보다 5배 두껍고 색을 넣어 시인성을 높였다.
+    private var progressBar: some View {
+        GeometryReader { geometry in
+            // 1번 문제부터 진척이 보이도록 현재 문제까지 포함해 계산한다.
+            let ratio = quiz.isEmpty ? 0 : Double(currentIndex + 1) / Double(quiz.count)
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(AppColor.softBackground)
+                Capsule()
+                    .fill(signature)
+                    .frame(width: geometry.size.width * ratio)
+            }
+        }
+        .frame(height: 20)
+        .animation(.easeInOut(duration: 0.25), value: currentIndex)
     }
 
     /// 모드별 입력 영역.
@@ -217,11 +247,11 @@ struct QuizView: View {
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, minHeight: 58)
-                .background(isSelected ? Color.black : Color.white,
+                .background(isSelected ? signature : Color.white,
                             in: RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(.black, lineWidth: 1.5)
+                        .stroke(isSelected ? signature : .black, lineWidth: 1.5)
                 )
         }
         .buttonStyle(.plain)
@@ -233,11 +263,11 @@ struct QuizView: View {
         VStack(spacing: 28) {
             ZStack {
                 Circle()
-                    .fill(correctGreen.opacity(0.12))
+                    .fill(AppColor.softBackground)
                     .frame(width: 120, height: 120)
                 ProgressView()
                     .controlSize(.large)
-                    .tint(correctGreen)
+                    .tint(signature)
                     .scaleEffect(1.6)
             }
 
@@ -262,7 +292,7 @@ struct QuizView: View {
                 .font(.system(size: 34, weight: .bold))
                 .foregroundStyle(.black)
 
-            // 누적 정답 강조 카드 (진초록 배경 · 흰 글씨)
+            // 누적 정답 강조 카드 (시그니처 배경 · 흰 글씨)
             VStack(spacing: 6) {
                 Text("지금까지 맞힌 문제")
                     .font(.title3.weight(.semibold))
@@ -276,7 +306,7 @@ struct QuizView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 24)
-            .background(correctGreen, in: RoundedRectangle(cornerRadius: 24))
+            .background(signature, in: RoundedRectangle(cornerRadius: 24))
 
             if masteredCount > 0 {
                 Label("완전히 익힌 문제 \(masteredCount)개", systemImage: "star.fill")
@@ -302,7 +332,7 @@ struct QuizView: View {
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 60)
-                    .background(.black, in: RoundedRectangle(cornerRadius: 14))
+                    .background(signature, in: RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
 
@@ -386,6 +416,7 @@ struct QuizView: View {
         userAnswer = ""
         submittedAnswers = [:]
         results = [:]
+        speakCurrentQuestion()   // 첫 문제도 자동으로 읽어준다
     }
 
     /// 학습 기록(진척)을 모두 지우고 처음부터 다시 시작한다.
@@ -407,6 +438,7 @@ struct QuizView: View {
         userAnswer = ""
         submittedAnswers = [:]
         results = [:]
+        speakCurrentQuestion()
     }
 
     /// 현재 답을 기록하고 다음 문제로 넘어간다. 마지막 문제면 채점을 시작한다.
