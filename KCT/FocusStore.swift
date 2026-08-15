@@ -18,11 +18,18 @@ import SwiftData
 
 @MainActor
 struct FocusStore {
+    /// 모델 분석 층을 쓸지 여부.
+    ///
+    /// 지금은 꺼 둔다 — 모델이 "묻는 대상" 대신 질문 문장 전체를 돌려주는 경우가 많아
+    /// 지문이 통째로 형광펜 처리되기 때문이다. 규칙 기반만으로도 충분히 동작한다.
+    /// (다시 켜려면 true로 바꾸면 되고, 강조 길이 제한 같은 검증을 함께 넣는 것이 좋다)
+    static let usesModelAnalysis = false
+
     let modelContext: ModelContext
 
     /// 문제들의 묻는 대상을 모아 온다. (캐시 우선, 없으면 규칙 기반)
     func focuses(for questions: [Question]) -> [Int: QuestionFocus] {
-        let cached = cachedRecords()
+        let cached = Self.usesModelAnalysis ? cachedRecords() : [:]
 
         var result: [Int: QuestionFocus] = [:]
         for question in questions {
@@ -39,7 +46,7 @@ struct FocusStore {
     /// 아직 분석하지 않은 문제를 백그라운드에서 모델로 분석해 캐시에 저장한다.
     /// 화면을 막지 않으며, 실패하면 규칙 기반 결과가 계속 쓰인다.
     func analyzeMissing(in questions: [Question], limit: Int = 5) async {
-        guard FocusAnalyzer.isAvailable else { return }
+        guard Self.usesModelAnalysis, FocusAnalyzer.isAvailable else { return }
 
         let cached = cachedRecords()
         let pending = questions.filter { question in

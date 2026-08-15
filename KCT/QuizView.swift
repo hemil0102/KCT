@@ -15,6 +15,9 @@ struct QuizView: View {
     /// 이번 세션의 성격. 실전 모드에서는 형광펜 같은 도움 장치를 끈다.
     var sessionMode: SessionMode = .practice
 
+    /// 출제할 문제집. (번들 JSON → 나중에 서버에서 교체)
+    @Environment(QuestionCatalog.self) private var catalog
+
     @Environment(\.modelContext) private var modelContext
     /// 문제별 학습 진척. (SwiftData에서 로드)
     @Query private var progresses: [QuestionProgress]
@@ -452,17 +455,17 @@ struct QuizView: View {
     /// 진척을 반영해 이번 세션을 구성한다. (없는 문제는 진척을 새로 만든다)
     private func startSession() {
         var byID = Dictionary(progresses.map { ($0.questionID, $0) }, uniquingKeysWith: { first, _ in first })
-        for question in Question.all where byID[question.id] == nil {
+        for question in catalog.questions where byID[question.id] == nil {
             let progress = QuestionProgress(questionID: question.id)
             modelContext.insert(progress)
             byID[question.id] = progress
         }
 
         let store = FocusStore(modelContext: modelContext)
-        quiz = SessionBuilder().build(
+        quiz = SessionBuilder(catalog: catalog).build(
             size: sessionSize,
             progressByID: byID,
-            focusByID: store.focuses(for: Question.all)
+            focusByID: store.focuses(for: catalog.questions)
         )
         currentIndex = 0
         userAnswer = ""
@@ -478,8 +481,9 @@ struct QuizView: View {
     private func warmFocusCache() {
         focusWarmingTask?.cancel()
         let store = FocusStore(modelContext: modelContext)
+        let questions = catalog.questions
         focusWarmingTask = Task {
-            await store.analyzeMissing(in: Question.all)
+            await store.analyzeMissing(in: questions)
         }
     }
 
@@ -490,14 +494,14 @@ struct QuizView: View {
 
         // @Query가 즉시 갱신되지 않을 수 있으므로, 새 진척을 직접 만들어 세션을 구성한다.
         var byID: [Int: QuestionProgress] = [:]
-        for question in Question.all {
+        for question in catalog.questions {
             let progress = QuestionProgress(questionID: question.id)
             modelContext.insert(progress)
             byID[question.id] = progress
         }
         try? modelContext.save()
 
-        quiz = SessionBuilder().build(size: sessionSize, progressByID: byID)
+        quiz = SessionBuilder(catalog: catalog).build(size: sessionSize, progressByID: byID)
         currentIndex = 0
         userAnswer = ""
         submittedAnswers = [:]
@@ -563,5 +567,6 @@ struct QuizView: View {
 
 #Preview {
     QuizView()
+        .environment(QuestionCatalog.bundled())
         .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
 }

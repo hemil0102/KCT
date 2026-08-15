@@ -2,7 +2,8 @@
 //  Question.swift
 //  KCT
 //
-//  귀화 시험 문제 데이터 모델과 고정 문제집.
+//  귀화 시험 문제의 데이터 모델.
+//  문제 목록 자체는 `QuestionCatalog`이 들고 있다. (번들 JSON → 나중에 서버)
 //
 
 import Foundation
@@ -11,8 +12,11 @@ import Foundation
 ///
 /// 문제 내용은 변하지 않는 "고정 데이터"이므로, 맞은/틀린 기록 같은
 /// 사용자별 진행 상태는 여기에 두지 않는다. (진행 상태는 `QuestionProgress`로 분리)
+///
+/// 오답 보기를 만들 때 필요한 "다른 문제들의 정답"은 인자로 받는다.
+/// 문제 하나가 전체 문제집을 알고 있으면 문제집을 갈아끼울 수 없기 때문이다.
 struct Question: Identifiable, Codable, Hashable {
-    /// 문제 고유 번호
+    /// 문제 고유 번호. 진척(`QuestionProgress`)이 이 값으로 연결되므로 절대 재사용하지 않는다.
     let id: Int
     /// 상위 분류 (예: "역사")
     let category: String
@@ -37,121 +41,26 @@ extension Question {
         statementFormat.replacingOccurrences(of: "{답}", with: candidate)
     }
 
-    /// 선다형 보기를 만든다. 정답 1개 + 다른 문제 정답에서 뽑은 오답 (count-1)개, 섞어서 반환.
-    /// - Parameter count: 총 보기 수 (2지선다=2, 4지선다=4)
-    func makeChoices(count: Int) -> (options: [String], correct: String) {
-        let pool = Set(Question.all.map(\.answer)).subtracting([answer])
-        let distractors = Array(pool.shuffled().prefix(max(0, count - 1)))
+    /// 선다형 보기를 만든다. 정답 1개 + 오답 (count-1)개를 섞어서 반환.
+    /// - Parameters:
+    ///   - count: 총 보기 수 (2지선다=2, 4지선다=4)
+    ///   - answerPool: 오답을 뽑아 올 정답 모음. (보통 문제집 전체의 정답)
+    func makeChoices(count: Int, answerPool: [String]) -> (options: [String], correct: String) {
+        let distractors = Array(
+            Set(answerPool).subtracting([answer]).shuffled().prefix(max(0, count - 1))
+        )
         return ((distractors + [answer]).shuffled(), answer)
     }
 
     /// O/X 문항을 만든다. 절반 확률로 정답을, 절반 확률로 오답을 넣은 진술문을 보여준다.
     /// - Returns: 보여줄 진술문, 그 안에 들어간 답, 진술이 참인지 여부.
-    func makeTrueFalse() -> (statement: String, candidate: String, isTrue: Bool) {
-        let presentTrue = Bool.random()
+    func makeTrueFalse(answerPool: [String]) -> (statement: String, candidate: String, isTrue: Bool) {
         let candidate: String
-        if presentTrue {
+        if Bool.random() {
             candidate = answer
         } else {
-            let pool = Set(Question.all.map(\.answer)).subtracting([answer])
-            candidate = pool.randomElement() ?? answer
+            candidate = Set(answerPool).subtracting([answer]).randomElement() ?? answer
         }
         return (statement(with: candidate), candidate, candidate == answer)
     }
-}
-
-extension Question {
-    /// 귀화 시험 문제집 — 역사 10문제. (질문 · 정답 · 진술문 · 고유 난이도)
-    static let all: [Question] = [
-        Question(
-            id: 1,
-            category: "역사",
-            unit: "역사1",
-            question: "우리나라 역사상 최초의 국가로 기원전 2333년 10월 3일에 세워진 나라의 이름은 무엇입니까?",
-            answer: "고조선",
-            statementFormat: "우리나라 역사상 최초의 국가로 기원전 2333년 10월 3일에 세워진 나라는 {답}이다.",
-            difficulty: 1
-        ),
-        Question(
-            id: 2,
-            category: "역사",
-            unit: "역사1",
-            question: "한국의 최초 국가 이름은 무엇입니까?",
-            answer: "고조선",
-            statementFormat: "한국의 최초 국가 이름은 {답}이다.",
-            difficulty: 1
-        ),
-        Question(
-            id: 3,
-            category: "역사",
-            unit: "역사1",
-            question: "도읍지를 아사달로 삼아 고조선을 세운 왕(시조)는 누구입니까?",
-            answer: "단군왕검",
-            statementFormat: "도읍지를 아사달로 삼아 고조선을 세운 왕(시조)은 {답}이다.",
-            difficulty: 1
-        ),
-        Question(
-            id: 4,
-            category: "역사",
-            unit: "역사1",
-            question: "천제인 환인의 손자이며, 환웅의 아들로 서기전 2333년 아사달에 도읍을 정한 고조선을 세운 사람은 누구입니까?",
-            answer: "단군왕검",
-            statementFormat: "천제인 환인의 손자이며, 환웅의 아들로 서기전 2333년 아사달에 도읍을 정한 고조선을 세운 사람은 {답}이다.",
-            difficulty: 1
-        ),
-        Question(
-            id: 5,
-            category: "역사",
-            unit: "역사1",
-            question: "우리 나라에 최초의 국가인 고조선을 세운 사람은 누구입니까?",
-            answer: "단군왕검",
-            statementFormat: "우리나라 최초의 국가인 고조선을 세운 사람은 {답}이다.",
-            difficulty: 1
-        ),
-        Question(
-            id: 6,
-            category: "역사",
-            unit: "역사1",
-            question: "아사달에 도읍을 정하고 우리나라에 최초의 고조선이라는 나라를 세웠으며, 우리 민족의 시조로서 천제인 환인의 손자이며 환웅의 아들인 이 사람 누구입니까?",
-            answer: "단군왕검",
-            statementFormat: "아사달에 도읍을 정하고 우리나라 최초의 나라인 고조선을 세웠으며, 우리 민족의 시조로서 천제인 환인의 손자이며 환웅의 아들인 사람은 {답}이다.",
-            difficulty: 1
-        ),
-        Question(
-            id: 7,
-            category: "역사",
-            unit: "역사2",
-            question: "민족의 시조 단군에 관한 신화로 '삼국유사'를 통해 전해지는 신화는 무엇입니까?",
-            answer: "단군신화",
-            statementFormat: "민족의 시조 단군에 관한 신화로 '삼국유사'를 통해 전해지는 신화는 {답}이다.",
-            difficulty: 2
-        ),
-        Question(
-            id: 8,
-            category: "역사",
-            unit: "역사2",
-            question: "단군의 출생과 고조선에 대한 신화로 곰이 쑥과 마늘을 먹고 사람이 되어 환웅과 결혼을 해서 아들 낳았다는 이야기의 신화는 무엇입니까?",
-            answer: "단군신화",
-            statementFormat: "곰이 쑥과 마늘을 먹고 사람이 되어 환웅과 결혼해 아들을 낳았다는 이야기의 신화는 {답}이다.",
-            difficulty: 2
-        ),
-        Question(
-            id: 9,
-            category: "역사",
-            unit: "역사2",
-            question: "삼국시대의 세 나라의 이름을 말해 보세요.",
-            answer: "고구려, 백제, 신라",
-            statementFormat: "삼국시대의 세 나라는 {답}이다.",
-            difficulty: 1
-        ),
-        Question(
-            id: 10,
-            category: "역사",
-            unit: "역사2",
-            question: "고구려를 세운 왕(시조)이며 활을 잘 쏘았던 사람은 누구입니까?",
-            answer: "주몽",
-            statementFormat: "고구려를 세운 왕(시조)이며 활을 잘 쏘았던 사람은 {답}이다.",
-            difficulty: 2
-        ),
-    ]
 }

@@ -71,23 +71,26 @@ struct PracticeItem: Identifiable {
 
 extension PracticeItem {
     /// 문제와 모드를 받아 페이로드를 자동 파생해 출제 항목을 만든다. (출제 시 1회 계산)
-    /// - Parameter focus: 캐시·서버에서 가져온 분석 결과. 없으면 규칙 기반으로 즉시 계산한다.
+    /// - Parameters:
+    ///   - answerPool: 오답 보기를 뽑아 올 정답 모음. (보통 문제집 전체의 정답)
+    ///   - focus: 캐시·서버에서 가져온 분석 결과. 없으면 규칙 기반으로 즉시 계산한다.
     static func make(
         _ question: Question,
         mode: DifficultyMode,
+        answerPool: [String],
         affectsProgress: Bool = true,
         focus: QuestionFocus? = nil
     ) -> PracticeItem {
         let payload: ModePayload
         switch mode {
         case .binaryChoice:
-            let c = question.makeChoices(count: 2)
+            let c = question.makeChoices(count: 2, answerPool: answerPool)
             payload = .choices(options: c.options, correct: c.correct)
         case .multipleChoice:
-            let c = question.makeChoices(count: 4)
+            let c = question.makeChoices(count: 4, answerPool: answerPool)
             payload = .choices(options: c.options, correct: c.correct)
         case .trueOrFalse:
-            let t = question.makeTrueFalse()
+            let t = question.makeTrueFalse(answerPool: answerPool)
             payload = .trueFalse(statement: t.statement, candidate: t.candidate, isTrue: t.isTrue)
         case .typing:
             payload = .freeText(accepted: [question.answer])

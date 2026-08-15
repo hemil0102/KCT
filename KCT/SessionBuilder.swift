@@ -12,6 +12,9 @@
 import Foundation
 
 struct SessionBuilder {
+    /// 출제할 문제집.
+    let catalog: QuestionCatalog
+
     /// 스토리 모드 게이트 seam. 프로토타입에서는 항상 개방(true).
     /// 향후 스토리 모드가 "읽은 콘텐츠"만 true로 바꾼다.
     var isUnlocked: (Question) -> Bool = { _ in true }
@@ -33,7 +36,7 @@ struct SessionBuilder {
     ) -> [PracticeItem] {
         func prog(_ question: Question) -> QuestionProgress? { progressByID[question.id] }
 
-        let unlocked = Question.all.filter(isUnlocked)
+        let unlocked = catalog.questions.filter(isUnlocked)
 
         // 마스터 문제 (복습용, 랜덤 순서)
         let mastered = unlocked.filter { prog($0)?.isMastered == true }.shuffled()
@@ -84,6 +87,7 @@ struct SessionBuilder {
             return PracticeItem.make(
                 question,
                 mode: mode,
+                answerPool: catalog.answerPool,
                 affectsProgress: !isBookend,
                 focus: focusByID[question.id]
             )
