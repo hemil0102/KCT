@@ -51,6 +51,55 @@ find . -name "*.swift" -exec sed -i '' 's/옛이름/새이름/g' {} +
 
 ---
 
+## 만들어진 DocC 문서를 어떻게 읽나
+
+**Q** — `KCT.docc` 를 만들었다는데, 그 문서를 어디서 보나?
+
+**A** — Xcode 안에서 읽습니다. 세 경로가 있고, 실제로는 2번을 가장 많이 씁니다.
+
+**1) 문서 브라우저로 통째로**
+
+```
+Product → Build Documentation        (⌃⇧⌘D)
+```
+
+**Developer Documentation** 창이 열립니다. 사이드바의 **Workspace Documentation → KCT** 가 랜딩 페이지이고, 그 아래 「먼저 읽을 개념」 5개를 순서대로 읽으면 됩니다.
+
+한 번 빌드하면 결과가 남으므로 다음부터는 `⇧⌘0` (Window → Developer Documentation) 으로 바로 엽니다.
+
+**2) 코드에서 바로 튀어 들어가기**
+
+| 하고 싶은 것 | 방법 |
+|---|---|
+| 요약만 빨리 | 심볼에 **`Option+클릭`** → Quick Help 팝업 |
+| 전체 문서로 | 그 팝업 아래 **Open in Developer Documentation** |
+| 정의 코드로 | **`⌘+클릭`** |
+
+**3) 검색** — 문서 창 왼쪽 위 검색창에 타입 이름을 치면 바로 갑니다.
+
+**⚠️ 함정 두 가지**
+
+- **평소 빌드(`⌘B`)로는 문서가 만들어지지 않습니다.** `⌃⇧⌘D` 를 따로 눌러야 합니다. 주석을 고쳤는데 문서에 반영이 안 돼 보이면 대개 이것입니다.
+- **`private` 멤버는 문서에 나오지 않습니다.** 코드엔 있는데 문서에 없으면 이 이유입니다. 그래서 `SessionBuilder` 의 단계별 함수들은 `private` 을 떼어 뒀습니다.
+
+**터미널에서 검증만 하고 싶을 때** — 링크가 다 연결됐는지 확인하는 데 유용합니다. DocC 는 못 찾는 심볼 링크에 경고를 냅니다.
+
+```sh
+xcodebuild docbuild -scheme KCT \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -derivedDataPath /tmp/kct-docs CODE_SIGNING_ALLOWED=NO
+```
+
+`-derivedDataPath` 를 따로 준 이유는 평소 빌드 캐시를 건드리지 않기 위해서입니다. 확인 뒤 그 폴더는 지웁니다(200MB 넘습니다).
+
+**교훈** — 문서는 "쓰는 것" 과 "보는 것" 이 다른 동작입니다. `⌃⇧⌘D` 를 눌러야 보입니다.
+
+**참고 문서**
+
+- [Documenting apps, frameworks, and packages](https://developer.apple.com/documentation/Xcode/documenting-apps-frameworks-and-packages)
+
+---
+
 ## `.docc` 는 소스 폴더에 둬도 앱에 안 실린다 — `.md` 와 다르다
 
 **Q** — 평범한 `.md` 는 소스 폴더에 두면 앱 번들로 복사된다고 했는데(아래 항목), 그럼 DocC 카탈로그(`KCT.docc`) 안의 `.md` 들도 실려 나가나?
