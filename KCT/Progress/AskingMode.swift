@@ -18,7 +18,7 @@
 //  QuestionProgress 가 문제별로 이 값을 기억한다 (modeRaw 로 저장)
 //    → SessionBuilder.shapeRound() 가 그 값을 읽어 출제 방식을 정한다
 //    → QuizItem.make() 가 방식에 맞는 재료(ModePayload)를 만든다
-//    → 채점 후 QuestionProgress.record() 가 한 칸 올리거나 내린다
+//    → 채점 후 QuestionProgress.moveLadder() 가 한 칸 올리거나 내린다
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuestionProgress(저장), SessionBuilder(배정), QuizItem(재료 만들기)

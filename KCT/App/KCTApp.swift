@@ -10,12 +10,12 @@
 //  ├─ catalog              앱이 쓸 문제집. 번들 JSON 에서 읽는다
 //  ├─ WindowGroup          RootView 를 담는 창
 //  ├─ .environment(catalog)      아래 모든 화면이 문제집을 꺼내 쓸 수 있게
-//  └─ .modelContainer(for:)      SwiftData 저장소 — 진척과 하이라이트 캐시
+//  └─ .modelContainer(for:)      SwiftData 저장소 — 진척 · 하이라이트 캐시 · 관찰 기록
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  앱 실행
 //    → QuestionCatalog.bundled() : questions.json 을 읽어 문제집 준비
-//    → modelContainer : QuestionProgress·QuestionFocusRecord 를 저장할 곳 마련
+//    → modelContainer : QuestionProgress·QuestionFocusRecord·ObsRecord 를 저장할 곳 마련
 //    → RootView → QuizView 가 environment 에서 둘을 꺼내 회차를 시작
 //
 //  ── 연결 ──────────────────────────────────────────────
@@ -51,6 +51,6 @@ struct KCTApp: App {
                 .environment(catalog)
         }
         // 디스크에 남길 타입들. 이 목록에 없으면 저장되지 않는다.
-        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self])
+        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self, ObsRecord.self])
     }
 }

@@ -218,3 +218,86 @@ static let usesModelAnalysis = false
 **다시 켤 때 함께 넣을 것** — `true` 로 바꾸는 것만으로는 같은 문제가 재발합니다. **강조 길이 제한**(예: 지문의 절반을 넘으면 버림) 같은 검증을 함께 넣어야 합니다. 지금 있는 검증은 "지문에 실제로 있는 문자열인가" 하나뿐입니다.
 
 **교훈** — 꺼둔 코드에는 **왜 껐는지와 다시 켤 조건**을 주석으로 남깁니다. 이유 없이 꺼진 코드는 다음 사람이 버그로 오해하거나, 그냥 켜서 같은 문제를 다시 만듭니다.
+
+---
+
+## 결과 화면의 "맞힌 문제" 가 5문제 중 3개만 세는 줄 알았다 — 버그가 아니라 설계가 샌 것
+
+**Q** — 어머니가 5문제를 다 맞혔는데 누적 정답 수가 3만 늘었다. 카운터 버그인가?
+
+**A** — 버그가 아니라 **설계가 화면으로 샌 것**입니다.
+
+``SessionBuilder/shapeRound(_:progressByID:focusByID:)`` 가 회차의 **첫·마지막 문항**을 격려용으로 만들면서 ``QuizItem/affectsProgress`` 를 `false` 로 둡니다. 그런데 그때는 채점 후 진척 반영이 `record(correct:now:)` **함수 하나**였고, `affectsProgress == false` 면 그 함수를 **통째로 건너뛰었습니다.** 그래서 세는 일까지 같이 건너뛰었습니다.
+
+CBL 기록의 「15문제 중 9개」가 정확히 `15 × 3/5 = 9` 였습니다. **어머니가 겪은 사실과 화면의 숫자가 어긋난 것**입니다.
+
+**고친 방법** — 한 함수를 셋으로 갈랐습니다.
+
+| 함수 | 언제 | 무엇을 |
+|---|---|---|
+| ``QuestionProgress/countAttempt(correct:now:)`` | **모든 문항** | 센다 · `isIntroduced` 를 켠다 |
+| ``QuestionProgress/moveLadder(correct:now:)`` | 격려용 제외 | 사다리를 옮긴다 |
+| ``QuestionProgress/nudgeLadder(correct:)`` | 격려용만 | 바닥 칸에서만 한 칸 올린다 |
+
+**교훈** — "이건 진척에 반영하지 않는다" 는 판단이 **여러 가지 일을 한꺼번에 끄고 있었습니다.** 한 함수가 두 가지 일(세기 · 사다리)을 하면, 그 함수를 건너뛰는 조건이 **의도하지 않은 쪽까지** 끕니다. 조건으로 통째로 건너뛰는 함수를 만들 때는, **그 안의 일이 전부 같은 조건에 걸리는 게 맞는지** 확인합니다.
+
+---
+
+## Supabase 로 올리는데 계속 401 — 키 문제가 아니었다
+
+**Q** — 앱에서 `POST /rest/v1/obs_record` 가 8번 다 `401` 인데, 같은 키로 터미널 curl 은 `201` 이 된다. 키를 잘못 옮겨 적었나?
+
+**A** — 키는 멀쩡했습니다. 범인은 **업서트**였습니다.
+
+앱은 주소에 `?on_conflict=device_id,session_id,question_id` 를, 헤더에 `Prefer: resolution=ignore-duplicates` 를 붙이고 있었습니다. **중복이 와도 서버가 조용히 무시하게** 하려던 것입니다.
+
+그런데 PostgREST 는 업서트를 `INSERT ... ON CONFLICT` 로 바꾸고, 그러려면 **UPDATE 권한까지** 요구합니다. 우리 표는 일부러 **입력만** 열어 뒀습니다. 권한이 모자라면 익명 요청에 **`401`** 이 돌아옵니다.
+
+**가른 방법** — 앱과 똑같은 요청을 curl 로 두 번 보냈습니다.
+
+```
+on_conflict + Prefer 없음  → 201
+on_conflict + Prefer 있음  → 401
+```
+
+**401 과 403 을 구분하는 것이 핵심이었습니다.** RLS 정책에 걸리면 `403` 에 `new row violates row-level security policy` 가 옵니다. `401` 은 그 앞 단계 — 값이 심사받기도 전입니다. 그래서 처음부터 "정책이 아니라 권한/인증" 쪽을 봐야 했습니다.
+
+**고친 방법** — 업서트를 버렸습니다. UPDATE 정책을 여는 것은 **기록을 고칠 수 있게 만드는 일**이라 하지 않았습니다. 대신 표의 `unique` 제약도 함께 없애고, 중복은 **볼 때** 걸러냅니다.
+
+```sql
+select distinct on (device_id, session_id, question_id) *
+from public.obs_record
+order by device_id, session_id, question_id, received_at;
+```
+
+**교훈** — 「저장할 때 막기」와 「볼 때 걸러내기」는 맞바꿀 수 있습니다. **쌓기만 하고 덮어쓰지 않는 기록**이라면 후자가 싸고, 표를 잠근 상태를 지킬 수 있습니다.
+
+---
+
+## 한 회차 5줄인데 서버에 10줄이 들어갔다 — `@MainActor` 도 재진입은 못 막는다
+
+**Q** — `@MainActor` 를 붙였는데 왜 업로드가 두 번 일어나나?
+
+**A** — `@MainActor` 는 두 코드가 **같은 순간에** 도는 것만 막습니다. `await` 에서 **잠시 비켜 준 사이에 다른 호출이 끼어드는 것**(재진입, reentrancy)은 막지 않습니다.
+
+```
+A : 안 올라간 줄 5개를 꺼낸다
+B : 안 올라간 줄 5개를 꺼낸다   ← A 가 아직 uploadedAt 표시를 안 남겼다
+A : 5줄 POST
+B : 같은 5줄 POST              ← 표에 10줄
+```
+
+`uploadPending()` 을 두 곳에서 부릅니다 — 회차 시작(`start()`)과 채점 끝(`gradeAll()`). 둘이 겹치는 순간이 있었습니다. 서버 기록의 `received_at` 이 **7마이크로초 차이**로 두 개였습니다.
+
+**고친 방법** — ``ObsUploader`` 에 `static var isUploading` 깃발을 두고, 함수 첫머리에서 `guard` 로 막고 `defer` 로 반드시 내립니다.
+
+```swift
+guard !Self.isUploading else { return }
+Self.isUploading = true
+defer { Self.isUploading = false }
+```
+
+`static` 인 이유 — ``ObsUploader`` 는 부를 때마다 새로 만들어지는 `struct` 라, 보통 프로퍼티에 두면 매번 새것이라 소용이 없습니다.
+
+**교훈 둘** — ① `async` 함수는 **자기가 이미 돌고 있을 수 있다**고 가정합니다. ② 깃발은 **부르는 쪽**이 아니라 **규칙이 깨지는 쪽**에 둡니다. 부르는 곳마다 조심하게 만들면 언젠가 한 곳을 빠뜨립니다.
+

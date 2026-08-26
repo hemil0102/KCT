@@ -10,13 +10,14 @@
 //  ├─ catalog                  문제집 (어떤 문제가 있는지)
 //  ├─ isUnlocked               스토리 모드 게이트. 지금은 항상 열림
 //  ├─ masteredReviewSlots      마스터 복습용으로 남겨 둘 칸 수 (1칸)
+//  ├─ newcomerSlots            신규 도입용으로 남겨 둘 칸 수 (2칸)
 //  ├─ build()                  계획 전체를 지휘 — 아래 넷을 순서대로 부른다
 //  │   ├─ Queues               후보를 세 줄로 나눠 담은 것 (복습·신규·마스터)
 //  │   │   ├─ reviewQueue()    복습 줄 세우기 (예정 시각 이른 순 → 쉬운 순)
 //  │   │   ├─ newcomerQueue()  신규 줄 세우기 (쉬운 순 + 단원 번갈아)
 //  │   │   │   └─ introduceOrder()   단원 라운드로빈
 //  │   │   └─ masteredQueue()  마스터 줄 세우기 (랜덤)
-//  │   ├─ fillSlots()          size 칸을 채운다 (마스터용 1칸 예약)
+//  │   ├─ fillSlots()          size 칸을 채운다 (신규 2칸·마스터 1칸 먼저 예약)
 //  │   └─ shapeRound()         묻는 방식 배정 + 첫·마지막을 격려용 2지선다로
 //
 //  ── 흐름 ──────────────────────────────────────────────
@@ -24,7 +25,7 @@
 //    → build(size:progressByID:focusByID:)
 //    → 후보 걸러내기 : isUnlocked 로 열린 문제만
 //    → 세 줄로 나누기 : 복습 / 신규 / 마스터
-//    → fillSlots()   : 학습(복습+신규)으로 먼저 채우고, 마스터 1칸을 끼워 넣고, 섞는다
+//    → fillSlots()   : 신규 2칸·마스터 1칸을 떼어 두고 나머지를 복습으로 채운 뒤 섞는다
 //    → shapeRound()  : 각 문제에 진척이 기억한 묻는 방식을 붙인다
 //                      단 첫·마지막은 2지선다 + 진척 무영향(격려용)
 //    → QuizItem 배열로 돌려줌
@@ -32,8 +33,8 @@
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizSession.start()
 //  기대는 것    : QuestionCatalog(문제), QuestionProgress(진척 읽기만), QuizItem(출제 항목)
-//  건드리지 않는 것 : 진척 저장 — 채점 후 QuizSession 이 record() 로 반영한다.
-//                    여기서는 진척을 **읽기만** 한다
+//  건드리지 않는 것 : 진척 저장 — 채점 후 QuizSession 이 countAttempt·moveLadder·
+//                    nudgeLadder 로 반영한다. 여기서는 진척을 **읽기만** 한다
 //
 
 import Foundation
@@ -71,6 +72,13 @@ struct SessionBuilder {
     /// 마스터한 문제도 계속 만나야 잊지 않습니다. 다만 새 문제를 배울 자리를
     /// 잡아먹지 않도록 한 칸으로 제한합니다.
     private let masteredReviewSlots = 1
+    
+    /// 매 회차에 새 문제를 들일 칸 수.
+    ///
+    /// 이 예약이 없으면 복습 줄이 회차 크기만큼 차는 순간 **신규가 영영 차례를
+    /// 못 받습니다.** 실제로 20문항 중 다섯 개만 네 회차 내리 나왔습니다(2026-08-26).
+    /// 신규가 남아 있는 동안만 떼어 두므로, 문제집을 다 돌면 저절로 사라집니다.
+    private let newcomerSlots = 2
 
     // MARK: - 계획 세우기 (입구)
 
@@ -118,10 +126,6 @@ struct SessionBuilder {
         let newcomers: [Question]
         /// 마스터한 문제. 복습용이라 랜덤.
         let mastered: [Question]
-
-        /// 학습 중인 문제 줄. **복습이 신규보다 늘 앞선다** — 배운 것을 굳히는 편이
-        /// 새것을 들이는 것보다 먼저다.
-        var learning: [Question] { review + newcomers }
     }
 
     /// 복습 줄을 세운다. 다음 출제 예정이 이른 순, 같으면 쉬운 순.
@@ -188,28 +192,39 @@ struct SessionBuilder {
 
     /// `size` 개의 칸을 채운다.
     ///
-    /// 순서가 규칙입니다. 학습 문제로 먼저 채우되 **마스터 복습용 한 칸을 미리
-    /// 비워 두고**, 그 칸을 마스터 문제로 메운 뒤, 그래도 남으면 학습 문제로 마저 채웁니다.
-    /// 마지막에 섞는 이유는 마스터 문제가 항상 끝자리에만 오지 않게 하기 위해서입니다.
+    /// 먼저 떼어 두고, 그다음에 채웁니다. 신규에 2칸, 마스터에 1칸을 미리
+    /// 떼어 둔 뒤 남은 자리를 복습이 씁니다. 떼어 두지 않고 "복습 먼저, 남으면 신규"
+    /// 로 하면 복습 줄이 5개가 되는 순간 신규가 영원히 못 들어옵니다.
+    ///
+    /// 떼어 두는 칸은 그 줄에 실제로 있는 만큼만 뗍니다. 신규가 다 떨어지면
+    /// 2칸을 떼지 않으므로, 문제집을 다 돈 뒤에는 이 규칙이 저절로 사라집니다.
+    ///
+    /// 마지막에 섞는 이유: 마스터·신규가 늘 같은 자리에 오면 "이제 쉬운 거 나올
+    /// 차례" 라는 패턴이 생깁니다. 신규 2칸은 다섯 자리 어디에나 옵니다.
     func fillSlots(size: Int, from queues: Queues) -> [Question] {
         var chosen: [Question] = []
 
-        // 마스터 문제가 하나도 없으면 칸을 비워 둘 필요가 없다.
-        let reserved = queues.mastered.isEmpty ? 0 : masteredReviewSlots
-        let learningSlots = max(0, size - reserved)
-
-        for question in queues.learning where chosen.count < learningSlots {
-            chosen.append(question)
-        }
-        for question in queues.mastered where chosen.count < size {
-            chosen.append(question)
-        }
-        // 학습·마스터가 모두 모자라면 남은 학습 문제로 마저 채운다.
-        for question in queues.learning where chosen.count < size {
-            if !chosen.contains(where: { $0.id == question.id }) {
+        // 한 줄에서 뽑되, 이미 고른 문제는 건너뛰고, 상한에 닿으면 멈춘다.
+        func take(_ queue: [Question], upTo limit: Int) {
+            for question in queue where chosen.count < limit {
+                guard !chosen.contains(where: { $0.id == question.id }) else {
+                    continue
+                }
                 chosen.append(question)
             }
         }
+        
+        // 줄이 비어 있으면 그 몫은 떼지 않는다.
+        let masteredReserve = min(masteredReviewSlots, queues.mastered.count)
+        let newcomerReserve = min(newcomerSlots, queues.newcomers.count)
+        
+        take(queues.review, upTo: max(0, size - masteredReserve - newcomerReserve))
+        take(queues.newcomers, upTo: max(0, size - masteredReserve))
+        take(queues.mastered, upTo: size)
+        
+        // 세 줄을 다 훑고도 남으면 남은 것으로 마저 채운다.
+        take(queues.review, upTo: size)
+        take(queues.newcomers, upTo: size)
 
         return chosen.shuffled()
     }

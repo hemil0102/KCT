@@ -14,11 +14,18 @@
 //  ├─ results                  채점 결과 (문제 id → 결과)
 //  ├─ isGrading                채점 중인가
 //  ├─ needsAnswerHint          "답을 고르세요" 안내를 띄울까
+//  ├─ sessionID                이번 회차를 묶는 번호 (관찰 기록용)
+//  ├─ shownAt / firstTouchAt   지금 문제가 뜬 시각 / 처음 답에 손댄 시각
+//  ├─ timingByID               채점 전까지 잠깐 들고 있는 시간 (문제 id → ObsTiming)
+//  ├─ wasFirstEverByID         처음 보는 문항이었나 — start() 에서 미리 읽어 둔다
 //  ├─ start()                  회차 구성 — 진척 확보 → 출제 계획 → 초기화 → 캐시 워밍
 //  ├─ submitCurrent()          답 기록 → 다음 문제. 마지막이면 채점 시작
 //  ├─ eraseAllProgress()       학습 기록 전체 삭제 후 새 회차
 //  ├─ gradeAll()               제출된 답을 모두 채점하고 진척에 반영
-//  └─ judge()                  규칙으로 먼저, 안 되면 의미로 — 한 문제의 정오답 판정
+//  ├─ judge()                  규칙으로 먼저, 안 되면 의미로 — 한 문제의 정오답 판정
+//  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
+//  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
+//  └─ uploadObservations()     안 올라간 기록을 뒤에서 밀어 올린다 (기다리지 않는다)
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  화면 진입
@@ -30,7 +37,11 @@
 //    → submitCurrent() → 답 기록 → currentIndex += 1
 //    → 마지막 문제였다면 gradeAll()
 //        → judge() : RuleGrader 로 즉시 판정, nil 이면 MeaningGrader(모델)
-//        → 격려용 슬롯이 아니면 QuestionProgress.record() 로 승급·강등
+//        → QuestionProgress.countAttempt() 로 모든 문항을 센다 (격려용 포함)
+//        → 격려용 슬롯이면 nudgeLadder() 로 2지선다 → O/X 한 칸만
+//        → 아니면 moveLadder() 로 사다리를 올리거나 내린다
+//        → saveObsRecord() 로 관찰 기록 한 줄을 남긴다 (진척과 무관하게)
+//        → uploadObservations() 로 뒤에서 서버에 올린다 (기다리지 않는다)
 //        → modelContext.save()
 //
 //  ── 연결 ──────────────────────────────────────────────
@@ -95,6 +106,7 @@ final class QuizSession {
             rawAnswer = newValue
             if !newValue.trimmingCharacters(in: .whitespaces).isEmpty {
                 needsAnswerHint = false
+                if firstTouchAt == nil { firstTouchAt = .now }
             }
         }
     }
@@ -106,6 +118,45 @@ final class QuizSession {
 
     /// 백그라운드 하이라이트 분석 작업. 회차가 바뀌면 취소한다.
     private var focusWarmingTask: Task<Void, Never>?
+
+    // MARK: - 관찰 기록용 상태
+
+    /// 한 문항에서 잰 시간.
+    ///
+    /// ``ObsRecord`` 를 그 자리에서 만들지 못하는 이유가 있습니다 — **정오답은
+    /// 채점이 끝나야 정해지는데, 시간은 「다음」을 누른 순간에 이미 지나갑니다.**
+    /// 그 사이를 이 값이 메웁니다.
+    private struct ObsTiming {
+        let askedAt: Date
+        let secToFirstTouch: Double?
+        let secToSubmit: Double
+    }
+
+    /// 이번 회차를 묶는 번호. ``start()`` 마다 새로 만든다.
+    ///
+    /// 이것 하나로 나중에 「이번 회차 평균 대기」와 「회차에 걸린 총 시간」을 셉니다.
+    private var sessionID = UUID()
+
+    /// 지금 문제가 화면에 뜬 시각.
+    ///
+    /// 화면이 알려 주지 않고 **여기서 스스로 찍습니다.** ``start()`` 직후와
+    /// ``submitCurrent()`` 로 다음 문제로 넘어간 직후가 그 순간입니다.
+    /// 화면에 `onAppear` 를 심으면 화면이 판단을 하게 되어 규칙이 흩어집니다.
+    private var shownAt: Date?
+
+    /// 지금 문제에서 **처음** 답에 손댄 시각. 답을 바꿔도 처음 것만 남는다.
+    private var firstTouchAt: Date?
+
+    /// 문제 id → 이번 회차에 잰 시간. 채점이 끝나면 ``ObsRecord`` 로 옮긴다.
+    private var timingByID: [Int: ObsTiming] = [:]
+
+    /// 문제 id → **이번이 처음 보는 문항이었나.**
+    ///
+    /// - Important: 채점 뒤에 읽으면 **전부 `false`** 가 됩니다.
+    ///   ``QuestionProgress/countAttempt(correct:now:)`` 가
+    ///   ``QuestionProgress/isIntroduced`` 를 켜 버리기 때문입니다.
+    ///   그래서 ``start()`` 에서, 아직 아무것도 일어나지 않았을 때 미리 읽어 둡니다.
+    private var wasFirstEverByID: [Int: Bool] = [:]
 
     init(catalog: QuestionCatalog, modelContext: ModelContext, size: Int = 5) {
         self.catalog = catalog
@@ -150,6 +201,9 @@ final class QuizSession {
     func start() {
         let progressByID = ensureProgressExists()
 
+        // 채점이 isIntroduced 를 켜기 전에 "처음 보는 문항" 을 미리 읽어 둔다.
+        wasFirstEverByID = progressByID.mapValues { !$0.isIntroduced }
+
         let store = FocusStore(modelContext: modelContext)
         items = SessionBuilder(catalog: catalog).build(
             size: size,
@@ -161,6 +215,9 @@ final class QuizSession {
 
         // 어머니가 문제를 푸는 동안, 아직 분석하지 않은 문제를 뒤에서 채워 둔다.
         warmFocusCache()
+
+        // 지난번에 못 올린 기록이 있으면 여기서 따라잡는다.
+        uploadObservations()
     }
 
     /// 학습 기록을 모두 지우고 처음부터 다시 시작한다.
@@ -184,9 +241,17 @@ final class QuizSession {
         guard !trimmed.isEmpty else { return }
 
         submittedAnswers[item.id] = trimmed
+
+        // 시간을 여기서 잰다 — 화면이 바뀌기 전이 마지막 기회다.
+        recordTiming(for: item)
+
         rawAnswer = ""
         needsAnswerHint = false
         currentIndex += 1
+
+        // 다음 문제가 뜬 시각. 마지막이었다면 쓰이지 않고 버려진다.
+        shownAt = .now
+        firstTouchAt = nil
 
         if isFinished {
             Task { await gradeAll() }
@@ -212,14 +277,27 @@ final class QuizSession {
 
         for item in items {
             let isCorrect = await judge(item, answer: submittedAnswers[item.id] ?? "")
-
-            // 격려용(첫·마지막) 슬롯은 진척에 반영하지 않는다.
-            if item.affectsProgress, let progress = progressByID[item.id] {
-                progress.record(correct: isCorrect)
+            
+            // 관찰 기록은 진척과 무관하게 남는다 — 아래 guard 에 걸려도 사라지면 안 된다.
+            saveObsRecord(for: item, isCorrect: isCorrect)
+            
+            guard let progress = progressByID[item.id] else { continue }
+            
+            // 센다 — 격려용도 포함. 어머니가 맞힌 것은 맞힌 것이다.
+            progress.countAttempt(correct: isCorrect)
+            
+            if item.affectsProgress {
+                // 사다리는 격려용을 뺀다. 일부러 쉽게 낸 문제로 승급하면 안 된다.
+                progress.moveLadder(correct: isCorrect)
+            } else {
+                // 격려용은 바닥 칸에서만 한 칸 — 2지선다에 갇히지 않게.
+                progress.nudgeLadder(correct: isCorrect)
             }
         }
-
         try? modelContext.save()
+
+        // 방금 남긴 다섯 줄을 곧바로 보낸다. 실패해도 다음 회차가 다시 보낸다.
+        uploadObservations()
     }
 
     /// 한 문제를 판정한다. **규칙으로 먼저, 안 되면 뜻으로.**
@@ -264,6 +342,53 @@ final class QuizSession {
         return Dictionary(rows.map { ($0.questionID, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
+    // MARK: - 관찰 기록
+
+    /// 지금 문항에서 잰 시간을 채점 때까지 들고 있는다.
+    ///
+    /// ``shownAt`` 이 `nil` 이면 지금을 기준으로 삼습니다 — 0초로 적으면
+    /// "0초 만에 풀었다" 는 거짓말이 되고, 기록을 통째로 버리면 그 문항이 사라집니다.
+    private func recordTiming(for item: QuizItem) {
+        let asked = shownAt ?? .now
+        let now = Date.now
+        
+        timingByID[item.id] = ObsTiming(
+            askedAt: asked,
+            secToFirstTouch: firstTouchAt.map { $0.timeIntervalSince(asked) },
+            secToSubmit: now.timeIntervalSince(asked))
+    }
+ 
+    /// 이 문항에서 일어난 일을 ``ObsRecord`` 한 줄로 남긴다.
+    ///
+    /// - Important: **정오답이 정해진 뒤에만** 부를 수 있습니다.
+    ///   시간을 못 잰 문항(``timingByID`` 에 없는 경우)은 **조용히 건너뜁니다** —
+    ///   추측한 값으로 채우면 나중에 그 줄이 참인지 알 수 없게 됩니다.
+    private func saveObsRecord(for item: QuizItem, isCorrect: Bool) {
+        guard let timing = timingByID[item.id] else { return }
+        
+        modelContext.insert(
+            ObsRecord(
+                sessionID: sessionID,
+                askedAt: timing.askedAt,
+                questionID: item.id,
+                secToFirstTouch: timing.secToFirstTouch,
+                secToSubmit: timing.secToSubmit,
+                isCorrect: isCorrect,
+                modeRaw: item.mode.rawValue,
+                wasFirstEver: wasFirstEverByID[item.id] ?? false,
+                affectsProgress: item.affectsProgress
+            )
+        )
+    }
+
+    /// 안 올라간 관찰 기록을 뒤에서 밀어 올린다.
+    ///
+    /// **기다리지 않습니다.** 네트워크가 느려도 화면은 그대로 돌아갑니다 —
+    /// 어머니는 업로드가 있는 줄도 모르는 채로 다음 문제를 봅니다.
+    private func uploadObservations() {
+            Task { await ObsUploader(modelContext: modelContext).uploadPending() }
+        }
+
     // MARK: - 뒷정리
 
     /// 답과 채점 결과를 처음 상태로 되돌린다.
@@ -273,6 +398,12 @@ final class QuizSession {
         needsAnswerHint = false
         submittedAnswers = [:]
         results = [:]
+
+        // 관찰 기록도 회차 단위로 새로 시작한다.
+        sessionID = UUID()
+        shownAt = .now
+        firstTouchAt = nil
+        timingByID = [:]
     }
 
     /// 백그라운드로 묻는 대상을 분석해 캐시에 채운다. (화면을 막지 않는다)

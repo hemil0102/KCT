@@ -145,3 +145,7 @@ Info.plist
 KakaoLogin/Info.plist
 *.plist
 .env
+
+# Supabase — 저장소가 공개이므로 실제 키가 든 파일은 올리지 않는다.
+# 빈 껍데기는 SupabaseConfig.example.swift 로 저장소 루트에 있다 (소스 폴더 밖이라 컴파일되지 않는다).
+KCT/Observation/SupabaseConfig.swift

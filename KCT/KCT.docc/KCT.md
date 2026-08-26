@@ -63,6 +63,11 @@
 - ``AskingMode``
 - ``QuestionProgress``
 
+### 관찰 기록 — 무슨 일이 있었나
+
+- ``ObsRecord``
+- ``ObsUploader``
+
 ### 이번 회차 출제 구성
 
 - ``SessionBuilder``

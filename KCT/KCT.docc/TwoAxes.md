@@ -33,7 +33,7 @@
 binaryChoice(0) → trueOrFalse(1) → multipleChoice(2) → typing(3) → 마스터
 ```
 
-``QuestionProgress/record(correct:now:)`` 가 이 이동을 담당합니다.
+``QuestionProgress/moveLadder(correct:now:)`` 가 이 이동을 담당합니다.
 맞히면 한 칸 위, 틀리면 한 칸 아래. 최고 칸(``AskingMode/typing``)에서 맞히면
 ``QuestionProgress/isMastered`` 가 켜집니다.
 
@@ -54,14 +54,25 @@ binaryChoice(0) → trueOrFalse(1) → multipleChoice(2) → typing(3) → 마�
 하지만 아예 사라지지는 않습니다 — ``SessionBuilder`` 가 매 회차 **한 칸을 마스터
 복습용으로 비워 둡니다.** 익힌 것도 계속 만나야 잊지 않기 때문입니다.
 
-### 격려용 슬롯은 축 B를 건드리지 않는다
+### 격려용 슬롯은 축 B를 거의 건드리지 않는다
 
-회차의 첫 문제와 마지막 문제는 진척과 무관하게 항상 2지선다로 냅니다.
+회차의 첫 문제와 마지막 문제는 진척과 무관하게 **항상 2지선다**로 냅니다.
+마스터한 문항이 와도 그렇습니다 — ``SessionBuilder/shapeRound(_:progressByID:focusByID:)``
+가 그 자리에서는 진척을 **조회하지도 않습니다.**
 쉽게 시작하고 쉽게 끝나야 계속하고 싶어집니다.
 
-대신 그 두 문제는 ``QuizItem/affectsProgress`` 가 `false` 라서
-``QuestionProgress/record(correct:now:)`` 를 부르지 않습니다.
+그 두 문제는 ``QuizItem/affectsProgress`` 가 `false` 라서
+``QuestionProgress/moveLadder(correct:now:)`` 를 부르지 않습니다.
 **일부러 쉽게 낸 문제를 맞혔다고 승급시키면 사다리가 망가집니다.**
+
+대신 두 가지는 일어납니다.
+
+| 무엇 | 왜 |
+|---|---|
+| ``QuestionProgress/countAttempt(correct:now:)`` 로 **맞힌 개수에 센다** | 어머니가 실제로 맞힌 것은 맞힌 것이다. 결과 화면의 숫자가 겪은 사실과 어긋나면 안 된다 |
+| ``QuestionProgress/nudgeLadder(correct:)`` 로 **바닥 칸에서만 한 칸** | 격려용에 자주 걸리는 문항이 2지선다에 갇히는 것을 막는다. `2지선다 → O/X` 딱 하나만 열려 있고, 그 위로는 격려용이 **아닌** 자리에서 맞혀야 한다 |
+
+틀려도 **강등하지 않습니다.** 쉽게 내 준 문제로 벌하지 않는다는 것이 이 슬롯의 뜻입니다.
 
 ## 문제 id는 영구 고정
 

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "questions": [
     {
       "id": 1,
@@ -89,6 +89,96 @@
       "question": "고구려를 세운 왕(시조)이며 활을 잘 쏘았던 사람은 누구입니까?",
       "answer": "주몽",
       "statementFormat": "고구려를 세운 왕(시조)이며 활을 잘 쏘았던 사람은 {답}이다.",
+      "difficulty": 2
+    },
+    {
+      "id": 11,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "일제의 지배에 맞서 1919년에 만세운동을 벌인 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "삼일절",
+      "statementFormat": "일제의 지배에 맞서 1919년에 만세운동을 벌인 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 12,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "대한민국 헌법을 만들어 공포한 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "제헌절",
+      "statementFormat": "대한민국 헌법을 만들어 공포한 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 13,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "1945년에 일본으로부터 나라를 되찾은 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "광복절",
+      "statementFormat": "1945년에 일본으로부터 나라를 되찾은 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 14,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "단군왕검이 고조선을 세운 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "개천절",
+      "statementFormat": "단군왕검이 고조선을 세운 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 15,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "세종대왕이 한글을 만든 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "한글날",
+      "statementFormat": "세종대왕이 한글을 만든 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 16,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "나라를 위해 목숨을 바친 분들을 기리는 6월 6일 기념일은 무엇입니까?",
+      "answer": "현충일",
+      "statementFormat": "나라를 위해 목숨을 바친 분들을 기리는 6월 6일 기념일은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 17,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "대한민국을 상징하는 국기의 이름은 무엇입니까?",
+      "answer": "태극기",
+      "statementFormat": "대한민국을 상징하는 국기의 이름은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 18,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "대한민국의 국가(나라 노래)는 무엇입니까?",
+      "answer": "애국가",
+      "statementFormat": "대한민국의 국가(나라 노래)는 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 19,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "대한민국을 상징하는 꽃(국화)은 무엇입니까?",
+      "answer": "무궁화",
+      "statementFormat": "대한민국을 상징하는 꽃(국화)은 {답}이다.",
+      "difficulty": 1
+    },
+    {
+      "id": 20,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "애국가를 작곡한 사람은 누구입니까?",
+      "answer": "안익태",
+      "statementFormat": "애국가를 작곡한 사람은 {답}이다.",
       "difficulty": 2
     }
   ]

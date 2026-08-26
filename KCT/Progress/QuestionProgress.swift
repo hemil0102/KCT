@@ -10,19 +10,24 @@
 //  ├─ questionID                어느 문제인지. 문제당 하나(.unique)
 //  ├─ modeRaw / mode            지금 사다리의 몇 칸인가 (AskingMode)
 //  ├─ isMastered                직접입력까지 맞혔는가
-//  ├─ isIntroduced              한 번이라도 출제됐는가 (신규/복습을 가르는 기준)
+//  ├─ isIntroduced              한 번이라도 출제됐는가 — 격려용 포함 (신규/복습 기준)
 //  ├─ totalAttempts / totalCorrect   시도·정답 누적 (결과 화면의 "지금까지 맞힌 문제")
-//  ├─ lastSeenAt / nextDueAt    마지막으로 본 때 / 다음에 낼 때
-//  ├─ record(correct:now:)      채점 결과 반영 — 승급·강등 + 다음 시점 계산
-//  └─ nextDue(...)              간격 규칙: 틀리면 즉시, 맞으면 하루, 마스터는 1년
+//  ├─ lastSeenAt / nextDueAt    마지막으로 본 때 / 다음에 낼 때 (nextDueAt 은 지금 늘 nil)
+//  ├─ countAttempt(correct:now:)  본 것을 센다 — 격려용 포함 모든 출제
+//  ├─ moveLadder(correct:now:)    사다리 한 칸 이동 — 격려용 제외
+//  ├─ nudgeLadder(correct:)       격려용 정답 — 2지선다 → O/X 한 칸만
+//  └─ nextDue(...)              간격 규칙 — ⚠️ 정의만 있고 지금 아무도 부르지 않는다
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession.start()
 //    → 진척이 없는 문제에 이 객체를 새로 만든다 (modeRaw = 0, isIntroduced = false)
 //  SessionBuilder
-//    → isMastered · isIntroduced · nextDueAt 을 **읽어서** 출제 순서를 정한다
+//    → isMastered · isIntroduced 를 **읽어서** 출제 순서를 정한다
+//      (nextDueAt 도 읽지만 늘 nil 이라 사실상 난이도·id 순이 된다)
 //  QuizSession.gradeAll()
-//    → record(correct:) 로 사다리를 한 칸 올리거나 내리고 nextDueAt 을 다시 잡는다
+//    → countAttempt(correct:) 로 모든 문항을 센다 (결과 화면의 누적 숫자)
+//    → 격려용이면 nudgeLadder(correct:) 로 바닥 칸(2지선다)에서만 한 칸 올린다
+//    → 격려용이 아니면 moveLadder(correct:) 로 사다리를 옮긴다
 //    → modelContext.save() 로 디스크에 남는다
 //
 //  ── 연결 ──────────────────────────────────────────────
@@ -56,9 +61,15 @@ final class QuestionProgress {
     /// 직접입력까지 맞혀 마스터했는지.
     var isMastered: Bool
 
-    /// 한 번이라도 출제된 적 있는지.
+    /// 한 번이라도 출제된 적 있는지. **격려용 슬롯으로 나온 것도 포함합니다.**
     ///
     /// 스케줄러가 **신규 문제와 복습 문제를 가르는 기준**입니다.
+    ///
+    /// - Note: 격려용을 포함하는 이유 — 화면에 나와서 어머니가 답했으면 "본 것"입니다.
+    ///   제외했더니 격려용에 걸린 문항이 계속 신규 줄로 돌아가 2지선다에 갇혔습니다.
+    ///   다만 이때 ``nextDueAt`` 은 `nil` 로 남아 복습 줄 맨 앞에 섭니다 —
+    ///   문항 수가 적을 때는 티가 안 나지만, 늘어나면 "매 회차 반드시 나오는 문항"이
+    ///   생깁니다. **그때 다시 정할 자리입니다.**
     var isIntroduced: Bool
 
     /// 이 문제를 시도한 총 횟수.
@@ -91,36 +102,74 @@ final class QuestionProgress {
     /// 잘못된 데이터로 앱이 죽는 것보다 쉬운 문제를 한 번 더 내는 편이 낫습니다.
     var mode: AskingMode { AskingMode(rawValue: modeRaw) ?? .binaryChoice }
 
-    /// 채점 결과를 반영해 사다리를 올리거나 내리고, 다음 출제 시점을 정한다.
+    /// 본 것을 센다. **격려용 슬롯을 포함해 모든 출제에서** 부른다.
+    ///
+    /// 사다리(``moveLadder(correct:now:)``)와 나눈 이유가 있습니다. 첫·마지막 문항은
+    /// 일부러 쉽게 낸 격려용이라 사다리에 반영하면 안 되지만, **어머니가 실제로 맞힌
+    /// 것은 맞다.** 둘을 한 함수에 두었더니 결과 화면의 "지금까지 맞힌 문제"가
+    /// 5문제 중 3개만 세어, 화면의 숫자와 어머니가 겪은 사실이 어긋났습니다.
     ///
     /// - Parameters:
     ///   - correct: 맞혔는지
     ///   - now: 기준 시각. 테스트에서 고정할 수 있게 열어 둔다
-    ///
-    /// - Important: 격려용(첫·마지막) 슬롯에서는 **호출하지 않습니다.**
-    ///   그 슬롯은 일부러 쉽게 낸 것이므로, 맞혔다고 승급시키면 사다리가 망가집니다.
-    ///   호출 여부는 ``QuizItem/affectsProgress`` 가 정합니다.
-    func record(correct: Bool, now: Date = .now) {
+    func countAttempt(correct: Bool, now: Date = .now) {
         totalAttempts += 1
         if correct { totalCorrect += 1 }
         lastSeenAt = now
         isIntroduced = true
-
+    }
+    
+    /// 사다리를 한 칸 올리거나 내린다.
+    ///
+    /// - Important: 격려용(첫·마지막) 슬롯에서는 **호출하지 않습니다.**
+    ///   일부러 쉽게 낸 문제로 승급하면 사다리가 망가집니다.
+    ///   호출 여부는 ``QuizItem/affectsProgress`` 가 정합니다.
+    ///
+    /// - Note: ``isIntroduced`` 는 여기가 아니라 ``countAttempt(correct:now:)`` 에
+    ///   있습니다. "한 번이라도 나왔는가" 는 사다리가 아니라 **일어난 사실**이라
+    ///   격려용도 켜져야 합니다.
+    ///
+    /// - Note: `now` 는 **지금 쓰이지 않습니다.** 원래 여기서 ``nextDueAt`` 을
+    ///   ``nextDue(mastered:correct:from:)`` 로 다시 잡았는데, `record()` 를 셋으로
+    ///   나눌 때 그 줄이 빠졌습니다. 인자를 남겨 두는 이유는 되살릴 때 이 이름이
+    ///   DocC 링크(`moveLadder(correct:now:)`)로 여러 문서에 이미 박혀 있기 때문입니다.
+    func moveLadder(correct: Bool, now: Date = .now) {
         if correct {
             if mode == .mastery {
-                isMastered = true                                          // 직접입력 정답 → 마스터
+                isMastered = true
             } else {
-                modeRaw = min(AskingMode.mastery.rawValue, modeRaw + 1)     // 한 칸 승급
+                modeRaw = min(AskingMode.mastery.rawValue, modeRaw + 1)
             }
         } else {
-            modeRaw = max(AskingMode.binaryChoice.rawValue, modeRaw - 1)    // 한 칸 강등
+            modeRaw = max(AskingMode.binaryChoice.rawValue, modeRaw - 1)
             isMastered = false
         }
-
-        nextDueAt = Self.nextDue(mastered: isMastered, correct: correct, from: now)
     }
 
+    /// 격려용 슬롯에서 맞혔을 때 **바닥 칸에서만 한 칸** 올려 준다.
+    ///
+    /// 격려용은 일부러 2지선다로 내므로 사다리에 반영하면 안 되지만, 그렇다고
+    /// 아무 일도 없으면 **격려용에 자주 걸리는 문항이 2지선다에 갇힙니다.**
+    /// 그래서 딱 한 칸 — `2지선다 → O/X` 만 열어 둡니다.
+    /// 그 위로는 격려용이 **아닌** 자리에서 맞혀야 올라갑니다.
+    ///
+    /// 틀려도 **강등하지 않습니다.** 쉽게 내 준 문제로 벌하지 않는다는 것이
+    /// 격려용 슬롯의 뜻입니다.
+    ///
+    /// - Note: ``nextDueAt`` 은 건드리지 않습니다. 다음 출제 시점은 사다리를
+    ///   제대로 탄 결과에만 따라갑니다. ``isMastered`` 도 마찬가지입니다 —
+    ///   마스터 문항이 격려용으로 나와 2지선다를 맞혀도 아무 일이 없습니다.
+    func nudgeLadder(correct: Bool) {
+        guard correct, mode == .binaryChoice else { return }
+        modeRaw = AskingMode.trueOrFalse.rawValue
+    }
+    
     /// 다음 출제 예정 시각 — 간격 반복(spaced repetition)의 간격 규칙.
+    ///
+    /// - Important: ⚠️ **이 함수는 지금 아무도 부르지 않습니다.** 간격 반복은
+    ///   동작하지 않는 상태이고, ``nextDueAt`` 은 모든 문항에서 `nil` 입니다.
+    ///   지우지 않고 두는 이유 — 규칙이 아니라 **호출 한 줄이 빠진 것**이라,
+    ///   로그(0-b)로 실제 간격을 본 뒤 되살릴 자리입니다.
     ///
     /// | 상황 | 다음 출제 |
     /// |---|---|

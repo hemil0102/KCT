@@ -62,9 +62,19 @@ if let byRule = RuleGrader.grade(item, userAnswer: answer) {
 
 ## 결과가 진척으로 이어지는 곳
 
-판정이 끝나면 ``QuestionProgress/record(correct:now:)`` 가 사다리를 움직이고
-다음 출제 시점을 정합니다. 단 ``QuizItem/affectsProgress`` 가 `false` 인
-격려용 슬롯은 건너뜁니다.
+판정이 끝나면 두 가지가 일어납니다. **세는 일과 사다리를 옮기는 일이 갈라져 있습니다.**
+
+- ``QuestionProgress/countAttempt(correct:now:)`` — **모든 문항**을 맞힌 개수에 센다
+- ``QuestionProgress/moveLadder(correct:now:)`` — 사다리를 한 칸 움직인다.
+  ``QuizItem/affectsProgress`` 가 `false` 인 **격려용 슬롯은 건너뜁니다**
+  (대신 ``QuestionProgress/nudgeLadder(correct:)`` 가 바닥 칸에서만 한 칸 올려 줍니다)
+
+> Note: 이름에 `now:` 가 있지만 **지금은 쓰이지 않습니다.** 원래 여기서
+> ``QuestionProgress/nextDueAt`` 을 다시 잡았는데, `record()` 를 셋으로 나눌 때
+> 그 줄이 빠졌습니다. 되살릴 자리는 <doc:SessionPlanning> 의 「아직 쓰이지 않는 것」에
+> 적어 두었습니다.
+
+자세한 것은 <doc:TwoAxes> 의 「격려용 슬롯」 절에 있습니다.
 
 ``GradingResult`` 는 두 채점기가 함께 쓰는 결과 타입입니다.
 규칙 채점일 때는 `reason` 을 빈 문자열로 둡니다 — 설명할 것이 없기 때문입니다.
