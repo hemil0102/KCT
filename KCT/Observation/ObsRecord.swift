@@ -16,6 +16,7 @@
 //  ├─ modeRaw / mode           어떤 방식으로 물었나 (AskingMode)
 //  ├─ wasFirstEver             이번이 어머니가 이 문항을 처음 본 때인가
 //  ├─ affectsProgress          격려용 슬롯이었나 (false 면 일부러 쉽게 낸 것)
+//  ├─ chosen                   어머니가 실제로 낸 답 (틀렸을 때 무엇을 골랐나)
 //  ├─ uploadedAt               서버로 올라간 시각. nil 이면 아직 안 올라간 것
 //  └─ hesitationSec            고르고 나서 망설인 초 (secToSubmit - secToFirstTouch)
 //
@@ -101,6 +102,25 @@ final class ObsRecord {
     /// 이걸 안 남기면 격려용의 쉬운 정답이 통계에 섞여 **실력이 좋아 보입니다.**
     var affectsProgress: Bool
 
+    /// 어머니가 실제로 낸 답.
+    ///
+    /// ## 왜 필요한가
+    ///
+    /// `isCorrect` 만으로는 **왜 틀렸는지**를 못 가립니다. 정답이 "단군왕검" 인
+    /// 문항을 틀렸을 때 —
+    ///
+    /// | 고른 것 | 무슨 일인가 | 할 일 |
+    /// |---|---|---|
+    /// | 단군신화 | 고대사끼리 **헷갈림** | 보기를 갈라 준다 |
+    /// | 태극기 | 그냥 **모르심** | 힌트를 준다 |
+    /// | 고조선 | 「사람」과 「나라」를 **혼동** | 묻는 대상을 강조한다 |
+    ///
+    /// 셋이 완전히 다른 문제인데 지금은 전부 `false` 한 줄로만 남습니다.
+    ///
+    /// - Note: 한때 "너무 복잡하지 않게" 라는 이유로 뺐던 필드입니다.
+    ///   2026-08-28 관찰에서 **넣을 이유가 생겨** 되살렸습니다.
+    // ⌨️ ③
+
     /// 서버로 올라간 시각. `nil` 이면 **아직 안 올라간 것**이다.
     ///
     /// 이 한 줄이 재시도 큐 전부입니다. 회차를 시작할 때 `nil` 인 줄을 모아
@@ -108,8 +128,10 @@ final class ObsRecord {
     /// **다음번에 따라잡습니다.** 업로드 실패를 화면에 알릴 필요가 없어지는 것도
     /// 이 필드 덕입니다 — 알려 봐야 어머니는 할 수 있는 일이 없습니다.
     ///
-    /// - Note: `init` 에 인자를 더하지 않습니다. 옵셔널 저장 프로퍼티는 **자동으로
-    ///   `nil` 로 시작**하므로, 새로 만든 줄은 전부 "아직 안 올라감" 으로 태어납니다.
+    /// - Note: 이 필드는 `init` 에 인자를 더하지 않습니다. 옵셔널 저장 프로퍼티는
+    ///   **자동으로 `nil` 로 시작**하므로, 새로 만든 줄은 전부 "아직 안 올라감"
+    ///   으로 태어납니다. 반면 ``chosen`` 은 **만들 때 이미 아는 값**이라
+    ///   `init` 으로 받습니다.
     var uploadedAt: Date?
     
     init(
@@ -122,6 +144,7 @@ final class ObsRecord {
         modeRaw: Int,
         wasFirstEver: Bool,
         affectsProgress: Bool
+        // ⌨️ ④ 윗줄 끝에 쉼표를 붙이고, 여기에 인자 한 줄
     ) {
         self.sessionID = sessionID
         self.askedAt = askedAt
@@ -132,6 +155,7 @@ final class ObsRecord {
         self.modeRaw = modeRaw
         self.wasFirstEver = wasFirstEver
         self.affectsProgress = affectsProgress
+        // ⌨️ ⑤ 대입 한 줄
     }
     
     /// 저장된 숫자를 묻는 방식으로 읽는다. 알 수 없는 값이면 가장 쉬운 칸으로 본다.

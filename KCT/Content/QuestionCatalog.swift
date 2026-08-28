@@ -10,6 +10,7 @@
 //  ├─ version                  문제집 버전. 서버 것이 더 높을 때만 교체
 //  ├─ questions                문제 목록
 //  ├─ answerPool               오답 보기용 정답 모음 (문제집이 바뀔 때만 다시 계산)
+//  ├─ answerPool(excluding:)   같은 계열을 뺀 정답 모음 — 근접 오답을 없앤다
 //  ├─ bundled()                앱에 들어 있는 기본 문제집으로 만들기
 //  ├─ replace(with:)           문제집 통째 교체 — 안전한 시점에만
 //  └─ question(id:)            id 로 한 개 찾기
@@ -82,6 +83,24 @@ final class QuestionCatalog {
         questions = payload.questions
         answerPool = Self.makeAnswerPool(from: payload.questions)
     }
+
+    /// 같은 계열(``Question/category``)을 뺀 정답 모음.
+    ///
+    /// ## 왜 필요한가
+    ///
+    /// 오답 보기는 ``answerPool`` 에서 **무작위로** 뽑힙니다. 그래서 정답이
+    /// "단군왕검" 인 문항은 회차마다 난이도가 달라집니다 — 보기로 "태극기" 가
+    /// 뽑히면 3초에 지워지고, "단군신화" 가 뽑히면 20초가 걸립니다.
+    /// 2026-08-28 관찰에서 오답 여덟 개 중 다섯이 이 계열에 몰렸습니다.
+    ///
+    /// **난이도를 낮추려는 것이 아니라 고정하려는 것입니다.** 매 회차 주사위를
+    /// 굴리면 무엇을 고쳐서 좋아졌는지 알 수 없습니다.
+    ///
+    /// - Parameters:
+    ///   - category: 뺄 계열. 보통 지금 내는 문항의 ``Question/category``
+    ///   - minimum: 남은 보기가 이보다 적으면 **전체 모음으로 되돌아간다.**
+    ///     문제집이 한 계열뿐일 때 보기가 비어 화면이 깨지는 것을 막는다
+    // ⌨️ ①
 
     /// id 로 문제 하나를 찾는다.
     func question(id: Int) -> Question? {

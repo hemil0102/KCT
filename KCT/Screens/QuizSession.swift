@@ -377,6 +377,8 @@ final class QuizSession {
                 modeRaw: item.mode.rawValue,
                 wasFirstEver: wasFirstEverByID[item.id] ?? false,
                 affectsProgress: item.affectsProgress
+                // 제출한 답은 이미 손에 있다. 따로 들고 다닐 필요가 없다.
+                // ⌨️ ⑥ 윗줄 끝에 쉼표를 붙이고, 여기에 한 줄
             )
         )
     }

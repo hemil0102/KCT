@@ -129,6 +129,7 @@ struct ObsUploader {
         let modeRaw: Int
         let wasFirstEver: Bool
         let affectsProgress: Bool
+        // ⌨️ ⑦ 필드 한 줄
     }
     
     // MARK: - 입구
@@ -160,6 +161,7 @@ struct ObsUploader {
                 modeRaw: record.modeRaw,
                 wasFirstEver: record.wasFirstEver,
                 affectsProgress: record.affectsProgress
+                // ⌨️ ⑧ 윗줄 끝에 쉼표를 붙이고, 여기에 한 줄
             )
         }
         
