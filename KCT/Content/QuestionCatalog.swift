@@ -84,6 +84,16 @@ final class QuestionCatalog {
         answerPool = Self.makeAnswerPool(from: payload.questions)
     }
 
+    /// id 로 문제 하나를 찾는다.
+    func question(id: Int) -> Question? {
+        questions.first { $0.id == id }
+    }
+
+    /// 정답 모음을 만든다. `Set` 을 거쳐 중복을 없앤다 — 같은 보기가 두 번 나오면 안 된다.
+    private static func makeAnswerPool(from questions: [Question]) -> [String] {
+        Array(Set(questions.map(\.answer)))
+    }
+    
     /// 같은 계열(``Question/category``)을 뺀 정답 모음.
     ///
     /// ## 왜 필요한가
@@ -100,15 +110,8 @@ final class QuestionCatalog {
     ///   - category: 뺄 계열. 보통 지금 내는 문항의 ``Question/category``
     ///   - minimum: 남은 보기가 이보다 적으면 **전체 모음으로 되돌아간다.**
     ///     문제집이 한 계열뿐일 때 보기가 비어 화면이 깨지는 것을 막는다
-    // ⌨️ ①
-
-    /// id 로 문제 하나를 찾는다.
-    func question(id: Int) -> Question? {
-        questions.first { $0.id == id }
-    }
-
-    /// 정답 모음을 만든다. `Set` 을 거쳐 중복을 없앤다 — 같은 보기가 두 번 나오면 안 된다.
-    private static func makeAnswerPool(from questions: [Question]) -> [String] {
-        Array(Set(questions.map(\.answer)))
+    func answerPool(excludingCategory category: String, atLeast minimum: Int = 3) -> [String] {
+        let narrowed = Set(questions.filter { $0.category != category }.map(\.answer))
+        return narrowed.count >= minimum ? Array(narrowed) : answerPool
     }
 }

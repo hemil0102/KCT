@@ -253,8 +253,7 @@ struct SessionBuilder {
                 question,
                 mode: mode,
                 // 같은 계열을 뺀 보기만 쓴다 — 근접 오답을 우연에 맡기지 않는다.
-                // ⌨️ ②
-                answerPool: catalog.answerPool,
+                answerPool: catalog.answerPool(excludingCategory: question.category),
                 affectsProgress: !isBookend,
                 focus: focusByID[question.id]
             )

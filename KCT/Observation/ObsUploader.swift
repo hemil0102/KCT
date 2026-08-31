@@ -118,6 +118,23 @@ struct ObsUploader {
     ///
     /// - Note: 이름을 `deviceID` 처럼 카멜케이스로 쓰지만 서버에는 `device_id` 로
     ///   갑니다. ``send(_:)`` 의 `keyEncodingStrategy` 가 바꿔 줍니다.
+    ///
+    /// ## 옵셔널도 키를 반드시 내보낸다
+    ///
+    /// PostgREST 는 배열을 한 번에 넣을 때 **모든 객체가 같은 키를 갖고 있어야**
+    /// 합니다. 아니면 `400 PGRST102 All object keys must match` 로 **회차 전체**를
+    /// 거부합니다.
+    ///
+    /// 그런데 Swift 가 `Codable` 을 자동으로 만들어 주면 옵셔널을
+    /// `encodeIfPresent` 로 처리합니다 — **`nil` 이면 키를 아예 안 씁니다.**
+    /// 그래서 한 회차 다섯 줄 중 직접입력 한 줄만 `reason` 키를 갖게 되고,
+    /// 그 순간부터 업로드가 통째로 막혔습니다 (2026-08-31).
+    ///
+    /// 그래서 `encode(to:)` 를 손으로 씁니다. `encodeIfPresent` 가 아니라
+    /// `encode` 를 쓰면 `nil` 이 **`null` 로 나가고 키는 남습니다.**
+    ///
+    /// - Important: `CodingKeys` 를 직접 적는 이유 — `encode(to:)` 를 손으로 쓰면
+    ///   Swift 가 더 이상 자동으로 만들어 주지 않습니다.
     private struct Payload: Encodable {
         let deviceID: String
         let sessionID: UUID
@@ -129,7 +146,31 @@ struct ObsUploader {
         let modeRaw: Int
         let wasFirstEver: Bool
         let affectsProgress: Bool
-        // ⌨️ ⑦ 필드 한 줄
+        let chosen: String?
+        let reason: String?
+
+        enum CodingKeys: String, CodingKey {
+            case deviceID, sessionID, askedAt, questionID
+            case secToFirstTouch, secToSubmit, isCorrect, modeRaw
+            case wasFirstEver, affectsProgress, chosen, reason
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+
+            try container.encode(deviceID, forKey: .deviceID)
+            try container.encode(sessionID, forKey: .sessionID)
+            try container.encode(askedAt, forKey: .askedAt)
+            try container.encode(questionID, forKey: .questionID)
+            try container.encode(secToFirstTouch, forKey: .secToFirstTouch)
+            try container.encode(secToSubmit, forKey: .secToSubmit)
+            try container.encode(isCorrect, forKey: .isCorrect)
+            try container.encode(modeRaw, forKey: .modeRaw)
+            try container.encode(wasFirstEver, forKey: .wasFirstEver)
+            try container.encode(affectsProgress, forKey: .affectsProgress)
+            try container.encode(chosen, forKey: .chosen)
+            try container.encode(reason, forKey: .reason)
+        }
     }
     
     // MARK: - 입구
@@ -160,8 +201,9 @@ struct ObsUploader {
                 isCorrect: record.isCorrect,
                 modeRaw: record.modeRaw,
                 wasFirstEver: record.wasFirstEver,
-                affectsProgress: record.affectsProgress
-                // ⌨️ ⑧ 윗줄 끝에 쉼표를 붙이고, 여기에 한 줄
+                affectsProgress: record.affectsProgress,
+                chosen: record.chosen,
+                reason: record.reason
             )
         }
         

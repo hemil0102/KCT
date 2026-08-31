@@ -17,6 +17,7 @@
 //  ├─ wasFirstEver             이번이 어머니가 이 문항을 처음 본 때인가
 //  ├─ affectsProgress          격려용 슬롯이었나 (false 면 일부러 쉽게 낸 것)
 //  ├─ chosen                   어머니가 실제로 낸 답 (틀렸을 때 무엇을 골랐나)
+//  ├─ reason                   모델이 그렇게 판정한 이유 (직접입력에서만 생긴다)
 //  ├─ uploadedAt               서버로 올라간 시각. nil 이면 아직 안 올라간 것
 //  └─ hesitationSec            고르고 나서 망설인 초 (secToSubmit - secToFirstTouch)
 //
@@ -119,7 +120,27 @@ final class ObsRecord {
     ///
     /// - Note: 한때 "너무 복잡하지 않게" 라는 이유로 뺐던 필드입니다.
     ///   2026-08-28 관찰에서 **넣을 이유가 생겨** 되살렸습니다.
-    // ⌨️ ③
+    var chosen: String?
+
+    /// 모델이 그렇게 판정한 이유. 직접입력이 아니면 `nil`.
+    ///
+    /// ## 왜 남기나
+    ///
+    /// 직접입력은 온디바이스 모델(``MeaningGrader``)이 채점합니다. 그런데 지금까지
+    /// **왜 그렇게 판정했는지는 만들어지자마자 버려졌습니다.** 2026-08-31 에
+    /// 「단군신화」가 「단군왕검」의 정답으로 통과했을 때, 우리는 **그 일이 있었다는
+    /// 것만 알았지 모델이 무슨 생각이었는지는 알 수 없었습니다.**
+    ///
+    /// ``chosen`` 이 «무엇을 답했나» 를 알려 줬듯, 이것은 «왜 그렇게 채점됐나» 를
+    /// 알려 줍니다. 지침을 고쳤을 때 **고쳐졌는지 확인할 유일한 창**입니다.
+    ///
+    /// - Important: 이것은 **모델의 말이지 사실이 아닙니다.** 판정이 틀렸으면
+    ///   이유도 틀립니다. 진단에 쓰되 근거로 삼지 않습니다.
+    ///
+    /// - Note: 선다형·O/X 는 ``RuleGrader`` 가 값 비교로 채점하므로 설명할 것이
+    ///   없습니다. 그때는 빈 문자열이 아니라 `nil` 로 둡니다 — **"이유가 없다"와
+    ///   "이유를 안 남겼다"는 다릅니다.**
+    var reason: String?
 
     /// 서버로 올라간 시각. `nil` 이면 **아직 안 올라간 것**이다.
     ///
@@ -143,8 +164,9 @@ final class ObsRecord {
         isCorrect: Bool,
         modeRaw: Int,
         wasFirstEver: Bool,
-        affectsProgress: Bool
-        // ⌨️ ④ 윗줄 끝에 쉼표를 붙이고, 여기에 인자 한 줄
+        affectsProgress: Bool,
+        chosen: String?,
+        reason: String?
     ) {
         self.sessionID = sessionID
         self.askedAt = askedAt
@@ -155,7 +177,8 @@ final class ObsRecord {
         self.modeRaw = modeRaw
         self.wasFirstEver = wasFirstEver
         self.affectsProgress = affectsProgress
-        // ⌨️ ⑤ 대입 한 줄
+        self.chosen = chosen
+        self.reason = reason
     }
     
     /// 저장된 숫자를 묻는 방식으로 읽는다. 알 수 없는 값이면 가장 쉬운 칸으로 본다.

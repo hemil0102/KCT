@@ -25,6 +25,10 @@
 //  ├─ judge()                  규칙으로 먼저, 안 되면 의미로 — 한 문제의 정오답 판정
 //  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
 //  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
+//  ├─ IncorrectCommentary      틀렸을 때 띄울 창의 내용 (고른 답 · 정답 · 해설)
+//  ├─ feedback                 지금 띄워야 할 창. nil 이면 창이 없다
+//  ├─ moveToNextQuestion()     다음 문제로 넘어간다 — 맞혔을 때와 창을 닫을 때 둘 다
+//  ├─ reasonForLog()           채점 이유를 로그에 남길 모양으로 다듬는다
 //  └─ uploadObservations()     안 올라간 기록을 뒤에서 밀어 올린다 (기다리지 않는다)
 //
 //  ── 흐름 ──────────────────────────────────────────────
@@ -131,6 +135,24 @@ final class QuizSession {
         let secToFirstTouch: Double?
         let secToSubmit: Double
     }
+    
+    /// 틀렸을 때 띄우는 창의 내용.
+    ///
+    /// 창에는 세 덩어리가 있고, 이 타입의 세 값과 하나씩 대응합니다 —
+    /// 「고르신 것」 · 「이 문제의 답」 · 해설.
+    ///
+    /// - Note: `private` 이 아닌 이유 — 창을 그리는 화면이 이 타입을 알아야 합니다.
+    ///   ``ObsTiming`` 은 화면이 볼 일이 없어서 `private` 입니다.
+    ///
+    /// - Note: `commentary` 가 옵셔널이 아닌 이유 — 모델이 해설을 못 만들어도
+    ///   **창은 뜨고 정답은 보여 줍니다.** 그때는 대체 문구가 들어갑니다.
+    ///   다만 **로그에는 `nil` 로 남깁니다** — 그래야 실패한 횟수를 셀 수 있습니다.
+    ///   화면에 보여줄 값과 로그에 남길 값은 달라도 됩니다(``reasonForLog(_:)`` 와 같은 방식).
+    struct IncorrectCommentary {
+        let selectedAnswer: String
+        let correctAnswer: String
+        let commentary: String
+    }
 
     /// 이번 회차를 묶는 번호. ``start()`` 마다 새로 만든다.
     ///
@@ -157,6 +179,15 @@ final class QuizSession {
     ///   ``QuestionProgress/isIntroduced`` 를 켜 버리기 때문입니다.
     ///   그래서 ``start()`` 에서, 아직 아무것도 일어나지 않았을 때 미리 읽어 둡니다.
     private var wasFirstEverByID: [Int: Bool] = [:]
+    
+    /// 지금 띄워야 할 창. `nil` 이면 **창이 없다.**
+    ///
+    /// 별도의 `Bool` 을 두지 않은 이유 — **값이 있으면 떠 있는 것**입니다.
+    /// ``ObsRecord/uploadedAt`` 이 `nil` 이면 「아직 안 올라감」인 것과 같은 방식입니다.
+    ///
+    /// `private(set)` 인 이유 — 화면은 **읽어서 그리기만** 하고, 넣고 비우는 것은
+    /// ``QuizSession`` 만 합니다.
+    private(set) var feedback: IncorrectCommentary?
 
     init(catalog: QuestionCatalog, modelContext: ModelContext, size: Int = 5) {
         self.catalog = catalog
@@ -245,17 +276,28 @@ final class QuizSession {
         // 시간을 여기서 잰다 — 화면이 바뀌기 전이 마지막 기회다.
         recordTiming(for: item)
 
+        if isFinished {
+            Task { await gradeAll() }
+        }
+    }
+    
+    /// 다음 문제로 넘어간다.
+    ///
+    /// **두 곳에서 부릅니다** — 맞혔을 때는 곧바로, 틀렸을 때는 창의 「다음 문제」를
+    /// 누를 때. 끝에서 하는 일이 양쪽 다 같아서 함수 하나로 둡니다.
+    ///
+    /// 한때 이 다섯 줄이 ``submitCurrent()`` 안에 있었습니다. 그러면 제출과 동시에
+    /// 다음 문제로 넘어가 버려서 **창이 낄 자리가 없습니다.**
+    ///
+    /// - Important: ``shownAt`` 을 ``currentIndex`` **뒤에** 찍습니다.
+    ///   그래야 「다음 문제가 뜬 시각」이 됩니다.
+    private func moveToNextQuestion() {
         rawAnswer = ""
         needsAnswerHint = false
         currentIndex += 1
 
-        // 다음 문제가 뜬 시각. 마지막이었다면 쓰이지 않고 버려진다.
         shownAt = .now
         firstTouchAt = nil
-
-        if isFinished {
-            Task { await gradeAll() }
-        }
     }
 
     /// 답 없이 다음을 누른 경우 — 안내를 띄우라고 표시한다.
@@ -376,9 +418,9 @@ final class QuizSession {
                 isCorrect: isCorrect,
                 modeRaw: item.mode.rawValue,
                 wasFirstEver: wasFirstEverByID[item.id] ?? false,
-                affectsProgress: item.affectsProgress
-                // 제출한 답은 이미 손에 있다. 따로 들고 다닐 필요가 없다.
-                // ⌨️ ⑥ 윗줄 끝에 쉼표를 붙이고, 여기에 한 줄
+                affectsProgress: item.affectsProgress,
+                chosen: submittedAnswers[item.id],
+                reason: reasonForLog(item.id)
             )
         )
     }
@@ -417,5 +459,22 @@ final class QuizSession {
         focusWarmingTask = Task {
             await store.analyzeMissing(in: questions)
         }
+    }
+    
+    /// 채점 이유를 로그에 남길 모양으로 다듬는다.
+    ///
+    /// 두 가지를 합니다.
+    ///
+    /// - **빈 문자열은 `nil` 로.** ``RuleGrader`` 가 채점한 선다형·O/X 는 설명할
+    ///   것이 없어 빈 문자열이 옵니다. 그대로 저장하면 «이유가 없는 것» 과
+    ///   «이유를 안 남긴 것» 이 구별되지 않습니다.
+    /// - **200자에서 자른다.** 모델이 길게 쏟아내면 서버의 길이 검사에 걸리는데,
+    ///   그러면 그 한 줄 때문에 **회차 다섯 줄이 통째로 거부됩니다.** 배치로
+    ///   한 번에 올리기 때문입니다.
+    private func reasonForLog(_ questionID: Int) -> String? {
+        let text = results[questionID]?.reason ?? ""
+        guard !text.isEmpty else { return nil }
+
+        return String(text.prefix(200))
     }
 }
