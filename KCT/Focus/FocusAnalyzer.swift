@@ -33,9 +33,7 @@ import FoundationModels
 
 /// 모델이 만들어 주는 분석 결과.
 ///
-/// - Note: ``QuestionFocus`` 와 모양이 비슷하지만 **다른 타입입니다.**
-///   이쪽은 "모델이 주장한 것" 이고 아직 검증되지 않았습니다.
-///   검증을 통과한 것만 ``QuestionFocus`` 가 됩니다.
+/// ``QuestionFocus`` 와 모양이 비슷하지만 다른 타입입니다 — 아직 검증되지 않은 "모델이 주장한 것" 입니다.
 @Generable
 struct GeneratedFocus {
     @Guide(description: "질문이 묻고 있는 대상. 반드시 질문 문장에 있는 표현을 그대로 인용할 것")
@@ -47,29 +45,21 @@ struct GeneratedFocus {
 
 /// 온디바이스 모델로 "묻는 대상" 을 분석하는 쪽. **하이라이트 2층.**
 ///
-/// 화면을 막지 않도록 백그라운드에서만 돌리고, 결과는 캐시에 저장해 다음부터
-/// 재사용합니다.
+/// 화면을 막지 않도록 백그라운드에서만 돌리고, 결과는 캐시에 저장해 재사용합니다.
 ///
-/// - Important: **지금 이 타입은 호출되지 않습니다.**
-///   ``FocusStore/usesModelAnalysis`` 가 `false` 이기 때문입니다.
-///   모델이 묻는 대상 대신 질문 전체를 돌려주는 일이 잦아 지문이 통째로
-///   형광펜 처리됐고, 규칙 기반(``QuestionFocusExtractor``)만으로 충분했습니다.
-///   버그를 찾다가 여기에 중단점을 걸어도 걸리지 않는 것이 정상입니다.
+/// - Important: ``FocusStore/usesModelAnalysis`` 가 `false` 라 지금은 호출되지 않습니다. 모델이 질문 전체를 돌려주는 일이 잦아 지문이 통째로 형광펜 처리됐기 때문입니다.
 struct FocusAnalyzer {
 
     /// 이 기기에서 모델을 쓸 수 있는지.
     ///
-    /// `false` 인 기기와 시뮬레이터가 있습니다. 그래서 모델을 쓰는 경로에는
-    /// 반드시 폴백이 있어야 합니다 — 여기서는 규칙 기반 층이 그 역할입니다.
+    /// `false` 인 기기와 시뮬레이터가 있으므로 모델을 쓰는 경로에는 반드시 폴백(규칙 기반 층)이 있어야 합니다.
     static var isAvailable: Bool {
         SystemLanguageModel.default.isAvailable
     }
 
     /// 질문 하나를 분석한다.
     ///
-    /// - Parameter question: 분석할 질문 문장
-    /// - Returns: 분석 결과. **모델이 지문에 없는 표현을 지어냈으면 `nil`**
-    /// - Throws: 모델을 쓸 수 없거나 응답 생성이 실패한 경우
+    /// 모델이 지문에 없는 표현을 지어냈으면 `nil` 을 돌려주고, 모델을 쓸 수 없거나 생성에 실패하면 오류를 던집니다.
     func analyze(question: String) async throws -> QuestionFocus? {
         let instructions = """
             당신은 한국어 퀴즈 질문을 분석하는 도우미입니다.

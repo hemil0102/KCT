@@ -6,6 +6,95 @@
 
 ---
 
+## 알림창의 「다음 문제」를 한 번 눌렀는데 두 문제가 넘어간다
+
+**Q** — 틀리면 뜨는 `alert` 에서 「다음 문제」를 누르면 진행 막대가 **두 칸** 찬다. 한 번만 눌렀는데.
+
+**A** — `dismissFeedback()` 이 **두 번 불렸습니다.**
+
+```swift
+isPresented: Binding(
+    get: { session?.feedback != nil },
+    set: { if !$0 { session?.dismissFeedback() } }   // ← 여기서 한 번
+)
+) {
+    Button("다음 문제") { session?.dismissFeedback() }  // ← 여기서 또 한 번
+}
+```
+
+`alert` 은 버튼을 누르면 **스스로 닫으면서** `isPresented` 에 `false` 를 씁니다. 그 쓰기가 `set` 을 부릅니다. 버튼과 `set` 양쪽에 같은 일을 시켜 둔 것이 원인이었습니다.
+
+**처음 고친 방법이 틀렸다** — 버튼의 중괄호를 비워 「`set` 만 일하게」 했더니 여전히 두 칸 넘어갔습니다. **`set` 이 몇 번 불리는지는 SwiftUI 가 정합니다.** 화면을 다시 그리는 도중에 또 부를 수 있습니다.
+
+**해결** — 「누가 부르는가」를 맞히지 않고, **몇 번 불려도 한 번만 넘어가게** 만들었습니다.
+
+```swift
+    func dismissFeedback() {
+        guard feedback != nil else { return }
+
+        feedback = nil
+        moveToNextQuestion()
+    }
+```
+
+그리고 `set` 은 아무것도 하지 않게 두고(`set: { _ in }`), 넘기는 일은 버튼 하나가 합니다. `feedback` 이 `nil` 이 되면 `get` 이 `false` 를 돌려주므로 창은 알아서 닫힙니다.
+
+**교훈** — **화면이 부르는 상태 변경 함수는 「두 번 불려도 결과가 같게」 만듭니다.** 이벤트가 몇 번 오는지는 우리가 정하지 않습니다. ``ObsUploader`` 의 `isUploading` 깃발이 같은 이유로 있었고, 그때도 증상은 「한 번인데 두 줄」이었습니다.
+
+---
+
+## 버튼에서 `async` 채점을 부르기 — `Task` 는 필요하고, `defer` 는 아니었다
+
+**Q** — 채점을 회차 끝이 아니라 **문항마다** 하려고 `submitCurrent()` 안에서 `judge()` 를 부르려는데, `judge()` 에는 `async` 가 붙어 있고 `submitCurrent()` 에는 없다. 그리고 아래 세 줄은 도대체 뭘 하는 건가?
+
+```swift
+let usesModel = (item.mode == .typing)
+if usesModel { isGrading = true }
+defer { if usesModel { isGrading = false } }
+```
+
+**A** — 두 가지가 섞여 있었습니다.
+
+### ① `Task { }` — 기다릴 수 없는 곳에서 기다리는 일을 시작하는 법
+
+`async` 함수는 **중간에 멈췄다가 나중에 이어지는** 함수입니다. 직접입력은 기기 안의 모델이 답하는 데 1~3초가 걸려서 그렇게 만들어져 있습니다.
+
+그런데 `submitCurrent()` 는 **버튼이 부르는 함수**라 `async` 가 될 수 없습니다. SwiftUI 의 버튼은 기다려 주지 않습니다.
+
+`Task { }` 는 그 틈을 메웁니다 — **「이 일을 시작해 두고, 나는 먼저 돌아간다」**.
+
+```swift
+Task { await gradeCurrent(item, answer: trimmed) }
+```
+
+이 파일에는 같은 모양이 이미 두 군데 있었습니다. `uploadObservations()` 와, 예전 `submitCurrent()` 의 `Task { await gradeAll() }` 입니다. **처음 보는 문제가 아니라 이미 쓰던 도구였습니다.**
+
+### ② `defer` — 「나갈 때 이걸 해라」
+
+`defer` 는 **함수를 어떤 길로 빠져나가든** 블록 안을 실행합니다. 그래서 「켰으면 반드시 끈다」 같은 짝을 지킬 때 씁니다. 중간에 `return` 이 여러 개거나 오류를 던질 수 있으면 값어치가 큽니다.
+
+`isGrading` 은 켜지면 화면이 「채점 중이에요」(``GradingScreen``)로 바뀌는 깃발입니다. 직접입력만 모델을 부르므로 **직접입력일 때만** 켭니다 — 선다형에도 켜면 켜자마자 꺼져서 **화면이 한 번 깜빡입니다.**
+
+### 그런데 여기서는 `defer` 가 필요 없었다
+
+`gradeCurrent()` 에는 **중간에 빠져나가는 길이 없습니다.** 항상 끝까지 갑니다. 그러면 `defer` 는 하는 일이 평범한 한 줄과 똑같으면서 읽기만 어렵습니다.
+
+```swift
+if item.mode == .typing { isGrading = true }
+
+let isCorrect = await judge(item, answer: answer)
+isGrading = false
+```
+
+끌 때는 조건도 필요 없습니다 — **켠 적이 없으면 이미 `false`** 라, 끄나 마나 같습니다. 세 줄이 두 줄이 되고 `usesModel` 이라는 이름 하나가 사라졌습니다.
+
+**교훈 둘**
+
+- **`defer` 는 「나갈 길이 여럿일 때」 쓰는 도구입니다.** 길이 하나면 그냥 마지막 줄에 적습니다. 습관으로 붙이면 읽는 사람이 「무슨 함정이 있길래」 하고 멈춥니다.
+- **「이해가 안 된다」는 대개 코드가 어려워서가 아니라 필요 없는 것이 들어 있어서입니다.** 설명이 길어지면 코드를 의심합니다.
+
+---
+
 ## 여러 파일에 sed 를 돌렸는데 아무것도 안 바뀜 — zsh 는 단어 분리를 하지 않는다
 
 **Q** — 이름 일괄 변경을 하려고 아래처럼 썼는데, `sed: ...: No such file or directory` 가 뜨고 파일이 하나도 안 바뀌었다.

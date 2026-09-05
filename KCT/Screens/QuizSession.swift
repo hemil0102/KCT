@@ -79,6 +79,7 @@ final class QuizSession {
 
     /// 뜻으로 채점하는 쪽. 직접입력에만 쓴다. (선다·O/X 는 ``RuleGrader`` 가 즉시 처리)
     private let meaningGrader = MeaningGrader()
+    private let commentaryWriter = CommentaryWriter()
 
     /// 한 회차에 낼 문제 수.
     let size: Int
@@ -149,9 +150,15 @@ final class QuizSession {
     ///   다만 **로그에는 `nil` 로 남깁니다** — 그래야 실패한 횟수를 셀 수 있습니다.
     ///   화면에 보여줄 값과 로그에 남길 값은 달라도 됩니다(``reasonForLog(_:)`` 와 같은 방식).
     struct IncorrectCommentary {
+        /// 해설이 아직 안왔을 때 창에 넣어두는 문구.
+        static let placeholder = "잠시만 같이 살펴봐요."
+        
         let selectedAnswer: String
         let correctAnswer: String
         let commentary: String
+        
+        /// 해설이 도착했는가.
+        var isReady: Bool { commentary != Self.placeholder }
     }
 
     /// 이번 회차를 묶는 번호. ``start()`` 마다 새로 만든다.
@@ -267,7 +274,8 @@ final class QuizSession {
     /// 현재 답을 기록하고 다음 문제로 넘어간다. 마지막 문제였다면 채점을 시작한다.
     func submitCurrent() {
         guard let item = current else { return }
-
+        guard !isGrading else { return }
+        
         let trimmed = rawAnswer.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
@@ -276,9 +284,7 @@ final class QuizSession {
         // 시간을 여기서 잰다 — 화면이 바뀌기 전이 마지막 기회다.
         recordTiming(for: item)
 
-        if isFinished {
-            Task { await gradeAll() }
-        }
+        Task { await gradeCurrent(item, answer: trimmed) }
     }
     
     /// 다음 문제로 넘어간다.
@@ -298,6 +304,13 @@ final class QuizSession {
 
         shownAt = .now
         firstTouchAt = nil
+        if isFinished { uploadObservations() }
+    }
+    
+    func dismissFeedback() {
+        guard feedback != nil else { return }
+        feedback = nil
+        moveToNextQuestion()
     }
 
     /// 답 없이 다음을 누른 경우 — 안내를 띄우라고 표시한다.
@@ -309,39 +322,52 @@ final class QuizSession {
     }
 
     // MARK: - 채점
+    private func gradeCurrent(_ item: QuizItem, answer: String) async {
+        // 직접입력만 모델이 판정해 시간이 걸린다. 선다·O/X 는 곧바로 다음 문제로 이어진다.
+        if item.mode == .typing { isGrading = true }
 
-    /// 제출된 답을 모두 채점하고 결과를 진척에 반영한다.
-    private func gradeAll() async {
-        isGrading = true
-        defer { isGrading = false }
-
-        let progressByID = fetchProgressByID()
-
-        for item in items {
-            let isCorrect = await judge(item, answer: submittedAnswers[item.id] ?? "")
+        let isCorrect = await judge(item, answer: answer)
+        isGrading = false
+        
+        applyProgress(for: item, isCorrect: isCorrect)
+        
+        if isCorrect {
+            saveObsRecord(for: item, isCorrect: isCorrect, explanation: nil)
+            moveToNextQuestion()
+        } else {
+            feedback = IncorrectCommentary(
+                selectedAnswer: answer,
+                correctAnswer: item.question.answer,
+                commentary: IncorrectCommentary.placeholder)
             
-            // 관찰 기록은 진척과 무관하게 남는다 — 아래 guard 에 걸려도 사라지면 안 된다.
-            saveObsRecord(for: item, isCorrect: isCorrect)
+            let text = await commentaryWriter.write(for: item)
             
-            guard let progress = progressByID[item.id] else { continue }
-            
-            // 센다 — 격려용도 포함. 어머니가 맞힌 것은 맞힌 것이다.
-            progress.countAttempt(correct: isCorrect)
-            
-            if item.affectsProgress {
-                // 사다리는 격려용을 뺀다. 일부러 쉽게 낸 문제로 승급하면 안 된다.
-                progress.moveLadder(correct: isCorrect)
-            } else {
-                // 격려용은 바닥 칸에서만 한 칸 — 2지선다에 갇히지 않게.
-                progress.nudgeLadder(correct: isCorrect)
+            if let text, feedback != nil {
+                feedback = IncorrectCommentary(
+                    selectedAnswer: answer,
+                    correctAnswer: item.question.answer,
+                    commentary: text)
             }
+            
+            saveObsRecord(for: item, isCorrect: isCorrect, explanation: text)
         }
+        
         try? modelContext.save()
-
-        // 방금 남긴 다섯 줄을 곧바로 보낸다. 실패해도 다음 회차가 다시 보낸다.
-        uploadObservations()
     }
 
+    private func applyProgress(for item: QuizItem, isCorrect: Bool) {
+        guard let progress = fetchProgressByID()[item.id] else {
+            return
+        }
+        
+        progress.countAttempt(correct: isCorrect)
+        
+        if item.affectsProgress {
+            progress.moveLadder(correct: isCorrect)
+        } else {
+            progress.nudgeLadder(correct: isCorrect)
+        }
+    }
     /// 한 문제를 판정한다. **규칙으로 먼저, 안 되면 뜻으로.**
     ///
     /// 선다·O/X 는 정답이 명확하므로 모델을 부르지 않는다 — 빠르고, 기기에
@@ -405,7 +431,7 @@ final class QuizSession {
     /// - Important: **정오답이 정해진 뒤에만** 부를 수 있습니다.
     ///   시간을 못 잰 문항(``timingByID`` 에 없는 경우)은 **조용히 건너뜁니다** —
     ///   추측한 값으로 채우면 나중에 그 줄이 참인지 알 수 없게 됩니다.
-    private func saveObsRecord(for item: QuizItem, isCorrect: Bool) {
+    private func saveObsRecord(for item: QuizItem, isCorrect: Bool, explanation: String?) {
         guard let timing = timingByID[item.id] else { return }
         
         modelContext.insert(
@@ -420,7 +446,8 @@ final class QuizSession {
                 wasFirstEver: wasFirstEverByID[item.id] ?? false,
                 affectsProgress: item.affectsProgress,
                 chosen: submittedAnswers[item.id],
-                reason: reasonForLog(item.id)
+                reason: reasonForLog(item.id),
+                explanation: explanation
             )
         )
     }
@@ -442,6 +469,7 @@ final class QuizSession {
         needsAnswerHint = false
         submittedAnswers = [:]
         results = [:]
+        feedback = nil
 
         // 관찰 기록도 회차 단위로 새로 시작한다.
         sessionID = UUID()

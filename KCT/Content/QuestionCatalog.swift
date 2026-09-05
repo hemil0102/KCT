@@ -32,13 +32,9 @@ import Observation
 
 /// 앱이 사용하는 문제집을 들고 있는 곳.
 ///
-/// 화면과 스케줄러는 **여기서만** 문제를 얻습니다. 덕분에 문제집이 번들 JSON에서
-/// 서버로 바뀌어도 고칠 곳은 이 파일과 ``QuestionSource`` 뿐입니다.
-///
-/// ## 왜 클래스인가
-///
-/// 문제집은 앱 전체가 **같은 하나**를 봐야 합니다. 값(struct)이면 복사되어
-/// 교체가 전파되지 않습니다. `@Observable` 클래스라서 교체하면 화면이 따라옵니다.
+/// 화면과 스케줄러가 여기서만 문제를 얻으므로, 출처가 번들에서 서버로 바뀌어도
+/// 고칠 곳은 이 파일과 ``QuestionSource`` 뿐입니다. 앱 전체가 같은 하나를 봐야 해서
+/// 값이 아니라 `@Observable` 클래스입니다.
 @Observable
 final class QuestionCatalog {
 
@@ -50,7 +46,7 @@ final class QuestionCatalog {
 
     /// 오답 보기를 뽑을 정답 모음.
     ///
-    /// 매번 계산하면 문제 수만큼 훑어야 하므로, **문제집이 바뀔 때만** 다시 만듭니다.
+    /// 매번 계산하면 문제 수만큼 훑어야 하므로 문제집이 바뀔 때만 다시 만듭니다.
     private(set) var answerPool: [String]
 
     init(payload: QuestionPayload) {
@@ -59,9 +55,9 @@ final class QuestionCatalog {
         self.answerPool = Self.makeAnswerPool(from: payload.questions)
     }
 
-    /// 앱에 들어 있는 기본 문제집으로 카탈로그를 만든다.
+    /// 앱에 들어 있는 기본 문제집으로 카탈로그를 만듭니다.
     ///
-    /// 읽지 못하면 빈 문제집을 돌려줍니다. 앱이 죽는 것보다는 빈 화면이 낫고,
+    /// 읽지 못하면 빈 문제집을 돌려줍니다. 앱이 죽는 것보다 빈 화면이 낫고,
     /// 개발 중에는 `assertionFailure` 가 즉시 알려 줍니다.
     static func bundled() -> QuestionCatalog {
         do {
@@ -72,10 +68,10 @@ final class QuestionCatalog {
         }
     }
 
-    /// 문제집을 통째로 교체한다. 버전이 더 높고 내용이 비어 있지 않을 때만.
+    /// 문제집을 통째로 교체합니다. 버전이 더 높고 내용이 비어 있지 않을 때만 바꿉니다.
     ///
-    /// - Important: 회차 도중에 부르면 풀고 있던 문제가 사라질 수 있습니다.
-    ///   앱 시작 시나 회차가 끝난 뒤처럼 **안전한 시점에만** 호출하세요.
+    /// - Important: 회차 도중에 부르면 풀고 있던 문제가 사라질 수 있으니 안전한 시점에만
+    ///   호출하세요.
     func replace(with payload: QuestionPayload) {
         guard payload.version > version, !payload.questions.isEmpty else { return }
 
@@ -96,20 +92,11 @@ final class QuestionCatalog {
     
     /// 같은 계열(``Question/category``)을 뺀 정답 모음.
     ///
-    /// ## 왜 필요한가
+    /// 오답이 ``answerPool`` 에서 무작위로 뽑히면 같은 문항의 난이도가 회차마다
+    /// 달라집니다. 난이도를 낮추려는 것이 아니라 고정하려는 것입니다.
     ///
-    /// 오답 보기는 ``answerPool`` 에서 **무작위로** 뽑힙니다. 그래서 정답이
-    /// "단군왕검" 인 문항은 회차마다 난이도가 달라집니다 — 보기로 "태극기" 가
-    /// 뽑히면 3초에 지워지고, "단군신화" 가 뽑히면 20초가 걸립니다.
-    /// 2026-08-28 관찰에서 오답 여덟 개 중 다섯이 이 계열에 몰렸습니다.
-    ///
-    /// **난이도를 낮추려는 것이 아니라 고정하려는 것입니다.** 매 회차 주사위를
-    /// 굴리면 무엇을 고쳐서 좋아졌는지 알 수 없습니다.
-    ///
-    /// - Parameters:
-    ///   - category: 뺄 계열. 보통 지금 내는 문항의 ``Question/category``
-    ///   - minimum: 남은 보기가 이보다 적으면 **전체 모음으로 되돌아간다.**
-    ///     문제집이 한 계열뿐일 때 보기가 비어 화면이 깨지는 것을 막는다
+    /// - Note: 남은 보기가 `minimum` 보다 적으면 전체 모음으로 되돌아갑니다 —
+    ///   문제집이 한 계열뿐일 때 보기가 비어 화면이 깨지는 것을 막습니다.
     func answerPool(excludingCategory category: String, atLeast minimum: Int = 3) -> [String] {
         let narrowed = Set(questions.filter { $0.category != category }.map(\.answer))
         return narrowed.count >= minimum ? Array(narrowed) : answerPool

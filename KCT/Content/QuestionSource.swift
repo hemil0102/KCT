@@ -30,8 +30,7 @@ import Foundation
 
 /// 문제집 파일의 내용.
 ///
-/// 배열이 아니라 **객체로 감싸 두는** 이유: 나중에 필드를 추가해도 기존 디코더가
-/// 깨지지 않습니다. 최상위가 배열이면 무엇도 덧붙일 수 없습니다.
+/// 배열이 아니라 객체로 감싸 두어야 나중에 필드를 추가해도 기존 디코더가 깨지지 않습니다.
 struct QuestionPayload: Codable {
     /// 문제집 버전. 서버 것이 더 높을 때만 내려받는다.
     let version: Int
@@ -41,19 +40,19 @@ struct QuestionPayload: Codable {
 
 /// 문제집을 읽어 오는 곳이 지켜야 할 약속.
 ///
-/// 지금은 번들 하나뿐이지만, 서버를 붙일 때 이 약속을 지키는 타입을 하나 더
-/// 만들면 ``QuestionCatalog`` 은 고치지 않아도 됩니다. 이것이 이음새(seam)입니다.
+/// 서버를 붙일 때 이 약속을 지키는 타입을 하나 더 만들면 ``QuestionCatalog`` 은
+/// 고치지 않아도 됩니다. 이것이 이음새(seam)입니다.
 protocol QuestionSource {
     func load() async throws -> QuestionPayload
 }
 
 /// 앱에 함께 넣어 둔 기본 문제집.
 ///
-/// 첫 실행과 오프라인에서 **항상 동작하게** 해 주는 안전망입니다.
-/// 서버를 붙인 뒤에도 이것은 씨앗(seed)으로 남습니다.
+/// 첫 실행과 오프라인에서도 항상 동작하게 해 주는 안전망이며, 서버를 붙인 뒤에도
+/// 씨앗으로 남습니다.
 ///
-/// - Note: 번들 리소스는 폴더 구조와 무관하게 **번들 루트에 평평하게** 놓입니다.
-///   그래서 소스가 `Content/questions.json` 에 있어도 이름만으로 찾을 수 있습니다.
+/// - Note: 번들 리소스는 루트에 평평하게 놓이므로 소스가 `Content/` 아래에 있어도
+///   이름만으로 찾습니다.
 struct BundledQuestionSource: QuestionSource {
     var fileName = "questions"
     var bundle: Bundle = .main
@@ -66,10 +65,9 @@ struct BundledQuestionSource: QuestionSource {
         try loadFromBundle()
     }
 
-    /// 번들에서 곧바로 읽는다.
+    /// 번들에서 곧바로 읽습니다.
     ///
-    /// 앱 시작 시점에 문제집이 이미 있어야 첫 화면을 그릴 수 있으므로
-    /// 비동기 버전과 별개로 **동기 방식도** 제공합니다.
+    /// 앱 시작 시점에 문제집이 이미 있어야 첫 화면을 그릴 수 있어 동기 방식도 둡니다.
     func loadFromBundle() throws -> QuestionPayload {
         guard let url = bundle.url(forResource: fileName, withExtension: "json") else {
             throw LoadError.fileNotFound(fileName)

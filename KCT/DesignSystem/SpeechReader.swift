@@ -40,9 +40,8 @@ import AVFoundation
 
 /// 문장을 소리 내어 읽어주는 도우미.
 ///
-/// 화면에서 쓰는 물건이라 전체를 메인 액터에 둡니다. `AVSpeechSynthesizer` 는
-/// 여러 스레드에서 함께 쓰기 안전하지 않으므로, 이렇게 한 곳에 묶어 두는 편이 안전합니다.
-/// 대신 **느린 오디오 세션 설정만** 백그라운드로 내보냅니다.
+/// `AVSpeechSynthesizer` 는 여러 스레드에서 함께 쓰기 안전하지 않아 전체를 메인 액터에 둡니다.
+/// 대신 느린 오디오 세션 설정만 백그라운드로 내보냅니다.
 @MainActor
 final class SpeechReader {
     private let synthesizer = AVSpeechSynthesizer()
@@ -50,15 +49,9 @@ final class SpeechReader {
     /// 사용할 한국어 음성. (한 번 계산해서 재사용)
     private lazy var voice: AVSpeechSynthesisVoice? = Self.bestKoreanVoice()
 
-    /// 오디오 세션 준비 작업.
+    /// 오디오 세션 준비 작업. 객체가 만들어지는 순간 시작하므로 보통 첫 낭독 전에 이미 끝나 있습니다.
     ///
-    /// `Task.detached` 는 "메인 액터와 상관없는 곳에서 실행해 달라"는 뜻입니다.
-    /// 객체가 만들어지는 순간 시작해 두므로, 보통 첫 낭독 전에 이미 끝나 있습니다.
-    ///
-    /// - Note: 여기서는 `Self` 대신 타입 이름 `SpeechReader` 를 그대로 씁니다.
-    ///   저장 프로퍼티의 초기값은 `self`(객체)가 아직 만들어지기 전에 계산되는데,
-    ///   `Self` 는 "실제로 만들어진 그 타입"을 뜻하므로 이 시점에는 쓸 수 없습니다.
-    ///   (컴파일 오류: *Covariant 'Self' type cannot be referenced from a stored property initializer*)
+    /// - Note: 저장 프로퍼티의 초기값에서는 `Self` 를 쓸 수 없어 타입 이름 `SpeechReader` 를 그대로 씁니다.
     private let audioSessionSetup = Task.detached(priority: .userInitiated) {
         SpeechReader.configureAudioSession()
     }
@@ -97,16 +90,14 @@ final class SpeechReader {
 
     /// 무음 스위치와 무관하게 소리가 나도록 재생 세션을 설정한다.
     ///
-    /// - Important: 메인 스레드에서 부르지 않습니다. 위 `audioSessionSetup` 을 통해서만 실행됩니다.
-    ///   `nonisolated` 는 "이 함수는 메인 액터에 속하지 않는다"는 표시입니다.
+    /// - Important: 시간이 걸리는 호출이라 메인 스레드에서 부르지 않고 `audioSessionSetup` 을 통해서만 실행합니다.
     private nonisolated static func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .spokenAudio, options: .duckOthers)
         try? session.setActive(true)
     }
 
-    /// 기기에 설치된 한국어 음성 중 가장 자연스러운 것을 고른다.
-    /// 남성 음성을 최우선으로 하고, 그다음 음질(premium > enhanced > default)을 본다.
+    /// 기기에 설치된 한국어 음성 중 가장 자연스러운 것을 고른다. 남성 음성을 최우선으로 하고, 그다음 음질(premium > enhanced > default)을 봅니다.
     private static func bestKoreanVoice() -> AVSpeechSynthesisVoice? {
         let koreanVoices = AVSpeechSynthesisVoice.speechVoices()
             .filter { $0.language.hasPrefix("ko") }

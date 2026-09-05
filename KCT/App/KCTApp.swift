@@ -29,19 +29,15 @@ import SwiftData
 
 /// 앱의 시작점.
 ///
-/// 하는 일은 **준비 두 가지**뿐입니다 — 문제집을 읽어 두고, 저장소를 연결합니다.
-/// 그 뒤의 모든 판단은 아래 화면들과 ``QuizSession`` 이 합니다.
+/// 하는 일은 준비 두 가지뿐입니다 — 문제집을 읽어 두고, 저장소를 연결합니다. 그 뒤의 판단은 아래 화면들과 ``QuizSession`` 이 합니다.
 ///
-/// - Note: 타입 이름이 `KCTApp` 인 이유는 모듈 이름(`KCT`)과 겹치지 않게 하기
-///   위해서입니다. `struct KCT` 로 두면 `KCT.무엇` 이 모듈을 가리키는지
-///   타입을 가리키는지 모호해집니다.
+/// - Note: 타입 이름이 `KCTApp` 인 것은 모듈 이름(`KCT`)과 겹쳐 모호해지지 않게 하기 위해서입니다.
 @main
 struct KCTApp: App {
 
     /// 앱이 사용할 문제집.
     ///
-    /// 지금은 번들 JSON 에서 읽습니다. 나중에 서버 문제집으로 바꿀 때는
-    /// ``QuestionCatalog/replace(with:)`` 를 **안전한 시점에** 부르면 됩니다.
+    /// 지금은 번들 JSON 에서 읽습니다. 서버 문제집으로 바꿀 때는 ``QuestionCatalog/replace(with:)`` 를 안전한 시점에 부르면 됩니다.
     @State private var catalog = QuestionCatalog.bundled()
 
     var body: some Scene {

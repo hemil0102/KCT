@@ -33,21 +33,9 @@ import UIKit
 
 /// 한국어 지문을 읽기 좋게 보여주는 텍스트 뷰.
 ///
-/// ## 왜 UILabel 을 감쌌나
-///
-/// SwiftUI 의 `Text` 는 **한글 줄바꿈 전략을 지원하지 않습니다.** 그대로 쓰면
-/// "대한민국" 이 "대한민" / "국" 으로 갈라집니다. Apple 이 한국어 UI에 권장하는
-/// `hangulWordPriority` 는 `NSParagraphStyle` 에만 있어서 UIKit 을 거쳐야 합니다.
-///
-/// ## 두 가지 강조
-///
-/// | 무엇 | 어떻게 | 언제 |
-/// |---|---|---|
-/// | ``marker`` | 형광펜 (배경색) | 질문이 묻는 대상. 연습 모드에서만 |
-/// | ``highlight`` | 색 + 굵은 밑줄 | O/X 에서 판단 대상인 답 |
-///
-/// 강조를 **두 가지 신호(색과 밑줄)로** 주는 이유는 색 구분이 어려운 분도
-/// 알아볼 수 있게 하기 위해서입니다.
+/// SwiftUI 의 `Text` 는 한글 줄바꿈 전략을 지원하지 않아 "대한민국" 이 갈라지는데, `hangulWordPriority` 는 `NSParagraphStyle` 에만 있어 UILabel 을 감쌌습니다.
+/// ``marker`` 는 형광펜(배경색)으로 묻는 대상을, ``highlight`` 는 색과 굵은 밑줄로 O/X 의 판단 대상을 강조합니다.
+/// 두 가지 신호를 함께 주는 것은 색 구분이 어려운 분도 알아볼 수 있게 하기 위해서입니다.
 struct KoreanText: UIViewRepresentable {
     let text: String
     var font: UIFont
@@ -119,7 +107,7 @@ struct KoreanText: UIViewRepresentable {
 
     /// 폭이 정해지면 그 폭에서 필요한 높이를 계산해 SwiftUI 에 알려준다.
     ///
-    /// 이것이 없으면 UIKit 뷰의 높이를 SwiftUI 가 몰라서 지문이 잘립니다.
+    /// 이것이 없으면 SwiftUI 가 UIKit 뷰의 높이를 몰라서 지문이 잘립니다.
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         guard let width = proposal.width, width > 0 else { return nil }
 
@@ -129,12 +117,9 @@ struct KoreanText: UIViewRepresentable {
 
     /// 숫자와 뒤따르는 한글이 줄바꿈으로 갈라지지 않게 묶는다.
     ///
-    /// `hangulWordPriority` 는 **한글끼리만** 붙여 주기 때문에 "2333년" 은
-    /// 숫자와 한글의 경계에서 끊어질 수 있습니다. 폭이 없는
-    /// WORD JOINER(U+2060)를 끼워 넣어 그 자리에서 줄이 갈라지지 않게 합니다.
+    /// `hangulWordPriority` 는 한글끼리만 붙여 주므로, "2333년" 사이에 폭이 없는 WORD JOINER(U+2060)를 끼워 넣습니다.
     ///
-    /// - Note: 강조·형광펜 문자열도 **같은 처리를 거친 뒤** 찾아야 합니다.
-    ///   본문에만 WORD JOINER 를 넣으면 글자가 달라져 구간을 못 찾습니다.
+    /// - Note: 강조·형광펜 문자열도 같은 처리를 거친 뒤 찾아야 구간을 찾을 수 있습니다.
     private static func keepingNumbersWithUnits(_ text: String) -> String {
         let wordJoiner: Character = "\u{2060}"
         var result = ""

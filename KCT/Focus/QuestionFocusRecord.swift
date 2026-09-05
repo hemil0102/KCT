@@ -34,16 +34,9 @@ import SwiftData
 
 /// 모델이 분석한 "묻는 대상" 을 저장해 두는 캐시.
 ///
-/// 같은 질문을 매번 다시 분석하지 않도록 한 번만 계산하고 재사용합니다.
+/// 질문 텍스트의 해시를 함께 저장해, 문구를 한 글자만 고쳐도 낡은 분석 결과가 저절로 무효화됩니다.
 ///
-/// ## 캐시 무효화
-///
-/// 캐시의 어려움은 "언제 버릴지" 입니다. 여기서는 **질문 텍스트의 해시**를 함께
-/// 저장해 두고, 꺼낼 때 현재 질문의 해시와 비교합니다. 문구를 한 글자만 고쳐도
-/// 해시가 달라지므로 낡은 분석 결과가 남아 있을 수 없습니다.
-///
-/// - Important: 지금 이 캐시는 채워지지 않습니다 —
-///   ``FocusStore/usesModelAnalysis`` 가 `false` 라서 2층이 꺼져 있습니다.
+/// - Important: ``FocusStore/usesModelAnalysis`` 가 `false` 라 지금 이 캐시는 채워지지 않습니다.
 @Model
 final class QuestionFocusRecord {
 
@@ -77,8 +70,7 @@ final class QuestionFocusRecord {
 
     /// 질문 텍스트의 **안정적인** 해시.
     ///
-    /// - Important: Swift 의 `hashValue` 는 실행할 때마다 값이 달라져 저장용으로
-    ///   쓸 수 없습니다. 앱을 껐다 켜도 같은 값이 나와야 캐시가 맞으므로 SHA256을 씁니다.
+    /// Swift 의 `hashValue` 는 실행할 때마다 값이 달라져 저장용으로 쓸 수 없으므로 SHA256을 씁니다.
     static func hash(of text: String) -> String {
         let digest = SHA256.hash(data: Data(text.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()

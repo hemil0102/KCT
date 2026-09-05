@@ -30,17 +30,13 @@
 
 import Foundation
 
-/// 퀴즈 문제 한 개.
+/// 퀴즈 문제 한 개. 변하지 않는 고정 데이터입니다.
 ///
-/// 문제 내용은 변하지 않는 **고정 데이터**입니다. 맞은/틀린 기록 같은 사용자별
-/// 상태는 여기에 두지 않고 ``QuestionProgress`` 로 분리합니다. 그래서 문제집을
-/// 새것으로 갈아끼워도 학습 기록이 살아남습니다.
+/// 맞은/틀린 기록은 ``QuestionProgress`` 로 분리해 두어, 문제집을 갈아끼워도
+/// 학습 기록이 살아남습니다. 오답 보기용 "다른 문제들의 정답" 을 인자로 받는 것도
+/// 문제 하나가 문제집 전체를 알면 교체가 불가능해지기 때문입니다.
 ///
-/// 오답 보기를 만들 때 필요한 "다른 문제들의 정답" 은 **인자로 받습니다.**
-/// 문제 하나가 문제집 전체를 알고 있으면 문제집을 갈아끼울 수 없기 때문입니다.
-///
-/// - Important: ``id`` 는 **영구 고정**입니다. ``QuestionProgress`` 가 이 값으로
-///   연결되므로, 재사용하면 학습 기록이 엉뚱한 문제에 붙습니다.
+/// - Important: ``id`` 를 재사용하면 학습 기록이 엉뚱한 문제에 붙습니다.
 struct Question: Identifiable, Codable, Hashable {
     /// 문제 고유 번호. 절대 재사용하지 않는다.
     let id: Int
@@ -57,16 +53,18 @@ struct Question: Identifiable, Codable, Hashable {
     /// 정답
     let answer: String
 
-    /// O/X 용 진술문 틀. `{답}` 자리에 답이 들어간다.
+    /// O/X 용 진술문 틀. `{답}` 자리에 답이 들어갑니다.
     ///
-    /// 의문문을 코드로 진술문으로 바꾸면 어색해져서(“누구입니까?” → “누구입니다”)
-    /// 문제마다 사람이 직접 적어 둡니다.
+    /// 의문문을 코드로 진술문으로 바꾸면 어색해져서 문제마다 사람이 직접 적어 둡니다.
     let statementFormat: String
 
-    /// [축 A] 문제 고유 난이도. **고정**이며 신규 문제의 도입 순서만 정한다.
+    /// 정답의 종류. 해설을 어떤 방식으로 쓸지 정한다.
+    let kind: AnswerKind
+    
+    /// [축 A] 문제 고유 난이도. 고정이며 신규 문제의 도입 순서만 정합니다.
     ///
-    /// - Important: 이것은 "얼마나 마스터했나"(축 B, ``QuestionProgress/mode``)와
-    ///   전혀 다른 축입니다. 두 축을 섞으면 설계가 무너집니다.
+    /// - Important: "얼마나 마스터했나"(축 B, ``QuestionProgress/mode``)와는 다른 축이며,
+    ///   두 축을 섞으면 설계가 무너집니다.
     let difficulty: Int
 }
 
@@ -79,16 +77,10 @@ extension Question {
         statementFormat.replacingOccurrences(of: "{답}", with: candidate)
     }
 
-    /// 선다형 보기를 만든다. 정답 1개 + 오답 `count - 1` 개를 섞어서 돌려준다.
+    /// 선다형 보기를 만듭니다. 정답 1개 + 오답 `count - 1` 개를 섞어 돌려줍니다.
     ///
-    /// 오답 보기(distractor)를 **다른 문제의 정답에서 뽑는** 이유: 그래야 그럴듯하고,
-    /// 문제집이 바뀌면 보기도 자동으로 따라 바뀝니다. 오답을 문제마다 손으로
-    /// 적어 두지 않아도 됩니다.
-    ///
-    /// - Parameters:
-    ///   - count: 총 보기 수 (2지선다=2, 4지선다=4)
-    ///   - answerPool: 오답을 뽑아 올 정답 모음 (보통 문제집 전체의 정답)
-    /// - Returns: 섞인 보기 목록과 그중 정답
+    /// 오답을 다른 문제의 정답에서 뽑으므로 그럴듯하고, 문제집이 바뀌면 보기도 따라
+    /// 바뀌어 문제마다 오답을 손으로 적어 둘 필요가 없습니다.
     func makeChoices(count: Int, answerPool: [String]) -> (options: [String], correct: String) {
         let distractors = Array(
             Set(answerPool).subtracting([answer]).shuffled().prefix(max(0, count - 1))
@@ -96,13 +88,10 @@ extension Question {
         return ((distractors + [answer]).shuffled(), answer)
     }
 
-    /// O/X 문항을 만든다.
+    /// O/X 문항을 만듭니다.
     ///
-    /// **절반 확률로 정답을, 절반 확률로 오답을** 진술문에 넣습니다.
-    /// 늘 정답만 넣으면 "맞아요" 만 눌러도 다 맞게 되어 O/X 가 의미를 잃습니다.
-    ///
-    /// - Parameter answerPool: 거짓 진술을 만들 때 쓸 다른 정답 모음
-    /// - Returns: 보여줄 진술문, 그 안에 들어간 답, 그 진술이 참인지 여부
+    /// 절반 확률로 정답을, 절반 확률로 오답을 넣습니다. 늘 정답만 넣으면 "맞아요" 만
+    /// 눌러도 다 맞게 되어 O/X 가 의미를 잃습니다.
     func makeTrueFalse(answerPool: [String]) -> (statement: String, candidate: String, isTrue: Bool) {
         let candidate: String
         if Bool.random() {

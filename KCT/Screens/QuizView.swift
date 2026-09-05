@@ -67,6 +67,18 @@ struct QuizView: View {
                 ProgressView()
             }
         }
+        .sheet(
+            isPresented: Binding(
+                get: { session?.feedback != nil },
+                set: { _ in }
+            )
+        ) {
+            if let session, let feedback = session.feedback {
+                FeedbackSheet(feedback: feedback) {
+                    session.dismissFeedback()
+                }
+            }
+        }
         .background(Color.white)
         .task { prepareSession() }
     }
@@ -75,16 +87,14 @@ struct QuizView: View {
 
     @ViewBuilder
     private func screen(for session: QuizSession) -> some View {
-        if session.isFinished {
-            if session.isGrading {
-                GradingScreen()
-            } else {
-                ResultScreen(
-                    session: session,
-                    onRestart: { restart(session) },
-                    onEraseProgress: { erase(session) }
-                )
-            }
+        if session.isGrading {
+            GradingScreen()
+        } else if session.isFinished {
+            ResultScreen(
+                session: session,
+                onRestart: { restart(session) },
+                onEraseProgress: { erase(session) }
+            )
         } else {
             QuestionScreen(session: session, sessionMode: sessionMode) {
                 readAloud(session.current)

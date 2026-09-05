@@ -39,67 +39,30 @@ import SwiftData
 
 /// 관찰 기록을 서버로 올리는 곳.
 ///
-/// ## 실패를 어떻게 다루나
-///
-/// **아무것도 하지 않습니다.** 오류를 던지지도, 화면에 알리지도, 재시도 타이머를
-/// 걸지도 않습니다. 올라가지 않은 줄은 ``ObsRecord/uploadedAt`` 이 `nil` 인 채로
-/// 폰에 남고, **다음 회차가 시작될 때 자연스럽게 다시 갑니다.**
-///
-/// 이 단순함이 값어치입니다. 재시도 로직은 대개 재시도 로직의 버그를 낳는데,
-/// 여기서는 "다음에 또 보낸다" 가 이미 전체 설계입니다.
-///
-/// ## 왜 `@MainActor` 인가
-///
-/// `ModelContext` 는 만들어진 곳에서만 안전하게 쓸 수 있습니다. 네트워크는
-/// `await` 하는 동안 알아서 비켜 주므로, 메인에 묶어 두어도 화면이 멈추지 않습니다.
-/// **초보 단계에서 동시성 버그를 만들지 않는 가장 싼 방법**입니다.
+/// 실패하면 아무것도 하지 않습니다 — 못 올라간 줄은 ``ObsRecord/uploadedAt`` 이 `nil` 인 채 폰에 남아 다음 회차가 시작될 때 다시 갑니다.
+/// `@MainActor` 인 것은 `ModelContext` 를 만들어진 곳에서만 쓰기 위해서이며, 네트워크는 `await` 하는 동안 비켜 주므로 화면이 멈추지 않습니다.
 @MainActor
 struct ObsUploader {
     
     let modelContext: ModelContext
     /// 한 번에 보낼 최대 줄 수.
     ///
-    /// 처음 켰거나 오래 못 올렸을 때 수천 줄을 한 요청에 밀어 넣지 않기 위해서입니다.
-    /// 남은 것은 다음번에 갑니다 — 서두를 이유가 없습니다.
+    /// 오래 못 올렸을 때 수천 줄을 한 요청에 밀어 넣지 않기 위해서이며, 남은 것은 다음번에 갑니다.
     private let batchLimit = 200
     
     /// 지금 올리는 중인가.
     ///
-    /// ## 왜 필요한가
-    ///
-    /// ``uploadPending()`` 이 겹쳐 불리면 **같은 줄이 두 번 올라갑니다.**
-    ///
-    /// ```
-    /// A : 안 올라간 줄 5개를 꺼낸다
-    /// B : 안 올라간 줄 5개를 꺼낸다   ← A 가 아직 표시를 안 남겼다
-    /// A : 5줄 POST
-    /// B : 같은 5줄 POST              ← 표에 10줄
-    /// ```
-    ///
-    /// `@MainActor` 는 두 코드가 **같은 순간에** 도는 것만 막습니다. `await` 에서
-    /// 잠시 비켜 준 사이에 다른 호출이 끼어드는 것(**재진입**)은 막지 않습니다.
-    /// 2026-08-26 에 실제로 한 회차가 10줄로 들어갔습니다.
-    ///
-    /// ## 왜 `static` 인가
-    ///
-    /// ``ObsUploader`` 는 부를 때마다 새로 만들어지는 `struct` 입니다. 보통
-    /// 프로퍼티에 깃발을 두면 **매번 새것이라 아무 소용이 없습니다.** `static` 은
-    /// 타입에 하나뿐이라 누가 어디서 부르든 같은 깃발을 봅니다.
-    ///
-    /// - Note: 깃발을 ``QuizSession`` 에 둘 수도 있지만, 그러면 **부르는 쪽마다**
-    ///   조심해야 합니다. 지켜야 할 규칙은 "겹쳐 올리지 마라" 하나이므로,
-    ///   그 규칙이 깨지는 자리에 둡니다.
+    /// `@MainActor` 는 두 코드가 같은 순간에 도는 것만 막고 `await` 사이에 끼어드는 **재진입**은 막지 못해, 2026-08-26 에 한 회차가 같은 줄을 두 번 올려 10줄로 들어갔습니다.
+    /// ``ObsUploader`` 는 부를 때마다 새로 만들어지는 `struct` 라 인스턴스 프로퍼티로는 깃발 구실을 못 하므로 `static` 으로 둡니다.
     private static var isUploading = false
 
     // MARK: - 이 기기가 누구인가
     
     /// 이 기기의 고유 번호.
     ///
-    /// 형님 시뮬레이터와 어머니 폰을 갈라야 기록이 섞이지 않습니다.
-    /// 처음 한 번 만들어 `UserDefaults` 에 넣어 두고, 그 뒤로는 같은 값을 씁니다.
+    /// 시뮬레이터와 어머니 폰의 기록을 가르려고 처음 한 번 만들어 `UserDefaults` 에 넣어 두고 계속 같은 값을 씁니다.
     ///
-    /// - Note: 개인을 식별하는 값이 아닙니다. 그냥 무작위 UUID 이고,
-    ///   앱을 지웠다 깔면 새 번호가 됩니다.
+    /// - Note: 개인을 식별하는 값이 아니라 무작위 UUID 이며, 앱을 지웠다 깔면 새 번호가 됩니다.
     static var deviceID: String {
         let key = "obs.deviceID"
         if let saved = UserDefaults.standard.string(forKey: key) { return saved }
@@ -112,29 +75,9 @@ struct ObsUploader {
     
     /// 서버 표의 한 줄에 대응하는 JSON.
     ///
-    /// ``ObsRecord`` 를 그대로 못 보내는 이유 — `@Model` 클래스는 SwiftData 가
-    /// 속을 바꿔 놓아서 `Encodable` 로 곧장 쓰기 어렵습니다. **보낼 모양을 따로
-    /// 두는 편이** 서버 표가 바뀌어도 앱 저장 구조가 안 흔들립니다.
+    /// 보낼 모양을 따로 두어야 서버 표가 바뀌어도 앱 저장 구조가 안 흔들리며, 카멜케이스 이름은 ``send(_:)`` 의 `keyEncodingStrategy` 가 스네이크케이스로 바꿔 보냅니다.
     ///
-    /// - Note: 이름을 `deviceID` 처럼 카멜케이스로 쓰지만 서버에는 `device_id` 로
-    ///   갑니다. ``send(_:)`` 의 `keyEncodingStrategy` 가 바꿔 줍니다.
-    ///
-    /// ## 옵셔널도 키를 반드시 내보낸다
-    ///
-    /// PostgREST 는 배열을 한 번에 넣을 때 **모든 객체가 같은 키를 갖고 있어야**
-    /// 합니다. 아니면 `400 PGRST102 All object keys must match` 로 **회차 전체**를
-    /// 거부합니다.
-    ///
-    /// 그런데 Swift 가 `Codable` 을 자동으로 만들어 주면 옵셔널을
-    /// `encodeIfPresent` 로 처리합니다 — **`nil` 이면 키를 아예 안 씁니다.**
-    /// 그래서 한 회차 다섯 줄 중 직접입력 한 줄만 `reason` 키를 갖게 되고,
-    /// 그 순간부터 업로드가 통째로 막혔습니다 (2026-08-31).
-    ///
-    /// 그래서 `encode(to:)` 를 손으로 씁니다. `encodeIfPresent` 가 아니라
-    /// `encode` 를 쓰면 `nil` 이 **`null` 로 나가고 키는 남습니다.**
-    ///
-    /// - Important: `CodingKeys` 를 직접 적는 이유 — `encode(to:)` 를 손으로 쓰면
-    ///   Swift 가 더 이상 자동으로 만들어 주지 않습니다.
+    /// - Important: `encode(to:)` 를 손으로 쓰는 이유 — 자동 `Codable` 은 `nil` 인 키를 아예 빼는데, PostgREST 는 배열의 모든 객체가 같은 키를 가져야 해서 한 줄만 `reason` 을 가지면 회차 전체를 `400 PGRST102` 로 거부합니다 (2026-08-31).
     private struct Payload: Encodable {
         let deviceID: String
         let sessionID: UUID
@@ -148,11 +91,12 @@ struct ObsUploader {
         let affectsProgress: Bool
         let chosen: String?
         let reason: String?
+        let explanation: String?
 
         enum CodingKeys: String, CodingKey {
             case deviceID, sessionID, askedAt, questionID
             case secToFirstTouch, secToSubmit, isCorrect, modeRaw
-            case wasFirstEver, affectsProgress, chosen, reason
+            case wasFirstEver, affectsProgress, chosen, reason, explanation
         }
 
         func encode(to encoder: Encoder) throws {
@@ -170,16 +114,15 @@ struct ObsUploader {
             try container.encode(affectsProgress, forKey: .affectsProgress)
             try container.encode(chosen, forKey: .chosen)
             try container.encode(reason, forKey: .reason)
+            try container.encode(explanation, forKey: .explanation)
         }
     }
     
     // MARK: - 입구
     
-    /// 아직 안 올라간 줄을 모아 한 번에 보낸다.
+    /// 아직 안 올라간 줄을 모아 한 번에 보냅니다.
     ///
-    /// 보낼 것이 없으면 네트워크를 건드리지 않고 곧장 돌아옵니다.
-    /// 이미 올리는 중이면 **아무것도 하지 않고 물러납니다** — ``isUploading`` 참고.
-    /// 물러난 줄은 사라지지 않습니다. 다음 회차가 다시 보냅니다.
+    /// 보낼 것이 없거나 이미 올리는 중이면 아무것도 하지 않고 물러납니다 — 물러난 줄은 사라지지 않고 다음 회차가 다시 보냅니다.
     func uploadPending() async {
         // 겹쳐 부르면 같은 줄이 두 번 올라간다. defer 로 깃발을 반드시 내린다.
         guard !Self.isUploading else { return }
@@ -203,7 +146,8 @@ struct ObsUploader {
                 wasFirstEver: record.wasFirstEver,
                 affectsProgress: record.affectsProgress,
                 chosen: record.chosen,
-                reason: record.reason
+                reason: record.reason,
+                explanation: record.explanation
             )
         }
         
@@ -216,7 +160,7 @@ struct ObsUploader {
     
     // MARK: - 안에서 하는 일
     
-    /// ``ObsRecord/uploadedAt`` 이 `nil` 인 줄을 오래된 것부터 꺼낸다.
+    /// ``ObsRecord/uploadedAt`` 이 `nil` 인 줄을 오래된 것부터 꺼냅니다.
     private func pendingRecords() -> [ObsRecord] {
         var descriptor = FetchDescriptor<ObsRecord>(
             predicate: #Predicate { $0.uploadedAt == nil },
@@ -227,36 +171,10 @@ struct ObsUploader {
         return (try? modelContext.fetch(descriptor)) ?? []
     }
     
-    /// 실제로 HTTP 로 보낸다. 성공하면 `true`.
+    /// 실제로 HTTP 로 보냅니다. 성공하면 `true` 이며, 오류는 던지지 않습니다 — 부르는 쪽이 할 수 있는 일이 다음에 다시 보내는 것 하나뿐입니다.
     ///
-    /// 헤더 둘이면 됩니다.
-    /// - `apikey` — 어느 프로젝트인지
-    /// - `Authorization: Bearer` — 같은 값. PostgREST 가 권한을 정할 때 본다
-    ///
-    /// ## 업서트를 쓰지 않는 이유
-    ///
-    /// 한때 `?on_conflict=...` 와 `Prefer: resolution=ignore-duplicates` 를 붙여
-    /// 중복을 서버가 무시하게 했습니다. 그런데 PostgREST 는 업서트에 **UPDATE 권한**
-    /// 까지 요구하고, 우리 표는 **입력만** 열려 있어서 모든 요청이 `401` 로 튕겼습니다
-    /// (2026-08-26). UPDATE 정책을 여는 것은 **기록을 고칠 수 있게 만드는 일**이라
-    /// 하지 않았습니다.
-    ///
-    /// 대신 중복을 **볼 때** 걸러냅니다 — `select distinct on (device_id, session_id,
-    /// question_id)`. 이 기록은 덮어쓰지 않고 쌓기만 하는 과거라 그래도 됩니다.
-    ///
-    /// ## 날짜에 소수점을 살린다
-    ///
-    /// `JSONEncoder` 의 기본 `.iso8601` 은 **소수점 이하를 버립니다.** 그러면
-    /// `asked_at` 이 초 단위로 잘려, 한 회차의 문항 다섯 개가 같은 초에 몰리면
-    /// **출제 순서를 되살릴 수 없습니다.** 실제로 시험 회차가 5.1초 만에 끝난 적이
-    /// 있습니다(2026-08-26). 그래서 형식을 직접 지정합니다.
-    ///
-    /// 포매터를 함수 안에서 매번 만드는 것은 낭비처럼 보이지만, 이 함수는
-    /// **회차당 많아야 한 번** 불립니다. 전역 상태를 하나 늘리는 값이 더 비쌉니다.
-    ///
-    /// - Note: 오류를 밖으로 던지지 않고 `false` 만 돌려줍니다. 부르는 쪽이
-    ///   할 수 있는 일이 "다음에 다시 보낸다" 하나뿐이라, 오류의 종류가
-    ///   행동을 바꾸지 않습니다.
+    /// 업서트를 쓰지 않는 이유 — PostgREST 업서트는 UPDATE 권한까지 요구하는데 우리 표는 입력만 열려 있어 모든 요청이 `401` 로 튕겼고(2026-08-26), 중복은 볼 때 `distinct on` 으로 걸러냅니다.
+    /// 날짜 형식을 직접 지정하는 이유 — 기본 `.iso8601` 은 소수점 이하를 버려, 한 회차가 5.1초 만에 끝났을 때 출제 순서를 되살릴 수 없었습니다(2026-08-26).
     private func send(_ payloads: [Payload]) async -> Bool {
         let path = "/rest/v1/obs_record"
         guard let url = URL(string: SupabaseConfig.projectURL + path) else { return false }
