@@ -30,7 +30,8 @@
 | 화면에 그린다 | ``QuizView`` → ``QuestionScreen`` |
 | 정오답을 판정한다 | ``RuleGrader`` → ``AnswerMatcher`` → ``AnswerChecker`` |
 | 사다리를 올리거나 내린다 | ``QuestionProgress`` |
-| 틀리면 해설을 쓴다 | ``CommentaryWriter`` |
+| 틀리면 해설을 쓴다 | ``CommentaryWriter`` → ``FeedbackSheet`` |
+| 무엇이 있었는지 남긴다 | ``ObsRecord`` · ``ModelFailure`` → ``ObsUploader`` |
 
 ### 의존성은 한 방향
 
@@ -48,6 +49,7 @@
 - <doc:TwoAxes>
 - <doc:SessionPlanning>
 - <doc:GradingPath>
+- <doc:FeedbackModal>
 - <doc:FocusLayers>
 - <doc:ElderAccessibility>
 
@@ -70,6 +72,8 @@
 ### 관찰 기록 — 무슨 일이 있었나
 
 - ``ObsRecord``
+- ``ModelFailure``
+- ``ModelFailureDraft``
 - ``ObsUploader``
 
 ### 이번 회차 출제 구성
@@ -87,6 +91,10 @@
 - ``AnswerCheck``
 - ``GradingResult``
 - ``CommentaryWriter``
+- ``Writing``
+- ``Commentary``
+- ``ChoiceNote``
+- ``EncouragementWriter``
 
 ### 답을 보는 낱말들
 

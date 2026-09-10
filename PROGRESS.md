@@ -2,7 +2,7 @@
 
 **새 세션은 이 파일만 읽고 시작합니다.** 여기에 없는 것이 필요할 때만 아래 [파일 지도](#파일-지도)를 보고 그 파일의 **필요한 부분만** 엽니다.
 
-- 갱신 시점 : 2026-09-10 (밤)
+- 갱신 시점 : 2026-09-10 (밤 · 문서 정리)
 - 이 파일의 상한 : **100줄**. 넘으면 오래된 것을 각자의 집(LEARNING_PLAN·GUIDE·Q&A)으로 보내고 여기서 지웁니다.
 
 ---
@@ -71,7 +71,7 @@
 
 최근 3개만 남깁니다.
 
-- **2026-09-10 (밤)** — 6차 **4단계** 적용. `facts` 를 30문항에 채우고([해설_재료_규칙.md](해설_재료_규칙.md)) `CommentaryWriter` 가 재료만 쓰게 함. `[구조]` 문장 틀은 제거 — 로그에 그대로 복사돼 나왔다. **오답 모달 재설계**(두 박자·👉/✅·붉은색/파랑), 고른 답도 설명(`describe`), 회차마다 새로 만드는 응원 문구(`EncouragementWriter`), 모델 실패를 지침·프롬프트째 남기는 `model_failure`. 국경일 날짜 문항 5개 추가(25 → 30)
+- **2026-09-10 (밤)** — 문서 정리 — 4·5·6차 단계별 `.md` 열두 장을 [HISTORY.md](HISTORY.md) 한 장으로 합치고 원본은 `_to_delete/` 로. DocC 에 <doc:FeedbackModal> 신설, 새 타입 다섯(`AnswerChecker`·`EncouragementWriter`·`ModelFailure`·`Writing`·`ModelCall`)을 `KCT.md` Topics 에 등록. 6차 **4단계** 적용. `facts` 를 30문항에 채우고([해설_재료_규칙.md](해설_재료_규칙.md)) `CommentaryWriter` 가 재료만 쓰게 함. `[구조]` 문장 틀은 제거 — 로그에 그대로 복사돼 나왔다. **오답 모달 재설계**(두 박자·👉/✅·붉은색/파랑), 고른 답도 설명(`describe`), 회차마다 새로 만드는 응원 문구(`EncouragementWriter`), 모델 실패를 지침·프롬프트째 남기는 `model_failure`. 국경일 날짜 문항 5개 추가(25 → 30)
 - **2026-09-10** — 6차 1~3단계 적용. `ContentFile`·`AnswerMatcher`·`AnswerChecker`·`ModelCall`(시한) 신설, `MeaningGrader` 제거. **로그 여섯 회차로 「모델은 글자를 못 본다」를 확증**하고 한 글자 오타·목록을 코드로 옮김. 문제집 1,130문항에 `AnswerShape` 부여(word 911 · sentence 174 · closedList 32 · openList 13), `AnswerKind` 를 아홉으로 축소. 규칙 **24**(작은 타입은 한 파일에)·**25**(`.md` 는 초급자에게 짧게) 신설. 회차 끝 3초 `GradingScreen` 부활, 해설 맥동 정지 버그 수정
 - **2026-09-05~06** — 4차 어머니 관찰(75문항·93%·14분). 직접입력 50%·중앙값 17.9초. 해설 환각과 안전 필터(`May contain unsafe content`) 확인. 5차 계획 수립
 
@@ -88,3 +88,5 @@
 | 막혔던 것과 그 해결 | [Q&A.md](Q&A.md) |
 | AI 작업 규칙 | [CLAUDE.md](CLAUDE.md) · [RULES.md](RULES.md) |
 | 지금 진행 중인 계획 | [6차_계획_지식층.md](6차_계획_지식층.md) |
+| **지나온 길과 그 이유** | [HISTORY.md](HISTORY.md) |
+| 해설 재료를 채우는 규칙 | [해설_재료_규칙.md](해설_재료_규칙.md) |

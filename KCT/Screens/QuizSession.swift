@@ -24,7 +24,11 @@
 //  ├─ submitCurrent()          답 기록 → 다음 문제. 마지막이면 채점 시작
 //  ├─ eraseAllProgress()       학습 기록 전체 삭제 후 새 회차
 //  ├─ gradeCurrent()           한 문제를 채점하고 진척에 반영
-//  ├─ judge()                  규칙으로 먼저, 안 되면 의미로 — 한 문제의 정오답 판정
+//  ├─ judge()                  ① 규칙 ② 코드 ③ 모델 — 세 층으로 한 문제를 판정
+//  ├─ nextEncouragement()      응원 문구를 하나 꺼낸다 (없으면 앱에 박힌 것)
+//  ├─ holdWaitingLine()        응원 문구를 적어도 3초는 보여 준다
+//  ├─ saveFailures()           모델이 실패한 기록을 저장소에 넣는다
+//  ├─ wrapUp()                 회차 끝의 3초 박자
 //  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
 //  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
 //  ├─ IncorrectCommentary      틀렸을 때 띄울 창의 내용 (고른 답 · 정답 · 해설)

@@ -7,16 +7,18 @@
 //
 //  ── 구성 ──────────────────────────────────────────────
 //  FeedbackSheet
-//  ├─ feedback        고른 답 · 고른 답 설명 · 정답 · 해설 (QuizSession 이 만든다)
-//  ├─ onNext          「다음 문제」를 눌렀을 때 위에 알린다
-//  ├─ showsAnswer     「정답 보기」를 눌렀는가. 두 박자를 가른다
-//  ├─ isPulsing       기다리는 동안 맥동시키는 깃발
-//  ├─ feedback.waitingLine  기다리는 동안 보여줄 응원 (QuizSession 이 정한다)
-//  ├─ highlight(_:word:color:)  글 속의 낱말만 칠한다
-//  ├─ BodyStyle       두 칸이 함께 쓰는 본문 글꼴 (검정)
+//  ├─ feedback         고른 답 · 고른 답 설명 · 정답 · 해설 (QuizSession 이 만든다)
+//  ├─ onNext           「다음 문제」를 눌렀을 때 위에 알린다
+//  ├─ showsAnswer      「정답 보기」를 눌렀는가. 두 박자를 가른다
+//  ├─ isPulsing        기다리는 동안 맥동시키는 깃발
+//  ├─ chosenBlock      👉 고르신 답 + 그것이 무엇인지 (제목만 붉은색, 글은 검정)
+//  ├─ answerBlock      ✅ 정답 + 해설 (제목만 파랑, 글은 검정)
+//  ├─ commentary       기다릴 때와 도착한 뒤가 서로 다른 뷰
+//  └─ highlight(_:word:color:)  글 속의 낱말만 칠한다
+//
+//  파일 안의 도우미
+//  ├─ BodyStyle            두 칸이 함께 쓰는 본문 글꼴 (22pt · 검정)
 //  └─ pulsingWhileWaiting  아직 안 온 글을 옅게 맥동시키는 수식어
-//  ├─ chosenBlock     👉 고르신 답 + 그것이 무엇인지 (제목만 붉은색, 글은 검정)
-//  ├─ answerBlock     ✅ 정답 + 해설 (제목만 파랑, 글은 검정)
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizView 가 session.feedback 이 생기면 이 창을 띄운다

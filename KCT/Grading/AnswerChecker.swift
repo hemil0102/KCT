@@ -12,8 +12,10 @@
 //  └─ basis                   무엇을 근거로 보았나
 //
 //  AnswerChecker
+//  ├─ timeout                 모델을 기다리는 한계 (초)
 //  ├─ prepare()               회차를 시작할 때 모델을 깨워 둔다
-//  └─ check(answer:correctAnswer:) async throws -> AnswerCheck
+//  ├─ check(answer:correctAnswer:shape:)  판정을 묻는다
+//  └─ guide(for:)             답의 모양마다 다른 지침 한 줄
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession.judge() 의 ③층

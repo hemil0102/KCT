@@ -13,10 +13,10 @@
 //  ChoiceNote (@Generable)   고른 답이 무엇인지 한 문장
 //
 //  CommentaryWriter
-//  ├─ write(for:)            정답 해설 만들기. 못 만들면 nil
-//  ├─ describe(_:)           고른 답이 무엇인지 한 문장. 못 만들면 nil
-//  ├─ materials(for:)        facts 를 골라 프롬프트에 넣을 목록으로
-//  └─ tone(for:)             주제마다 다른 말투 한 줄
+//  ├─ write(for:)            정답 해설. 실패하면 무엇을 시켰는지가 담겨 나온다
+//  ├─ describe(_:)           고른 답이 무엇인지 한 문장. 재료가 없으면 빈 Writing
+//  ├─ materials(for:)        facts 를 무게 순으로 골라 프롬프트에 넣을 목록으로
+//  └─ tone(for:)             주제마다 다른 말투 한 줄 (문장 틀이 아니다)
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession.gradeCurrent() 가 오답을 만나면
