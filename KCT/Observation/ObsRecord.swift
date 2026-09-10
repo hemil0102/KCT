@@ -17,9 +17,12 @@
 //  ├─ wasFirstEver             이번이 어머니가 이 문항을 처음 본 때인가
 //  ├─ affectsProgress          격려용 슬롯이었나 (false 면 일부러 쉽게 낸 것)
 //  ├─ chosen                   어머니가 실제로 낸 답 (틀렸을 때 무엇을 골랐나)
-//  ├─ reason                   모델이 그렇게 판정한 이유 (직접입력에서만 생긴다)
+//  ├─ reason                   모델이 그렇게 판정한 이유 (모델이 본 것에만 생긴다)
+//  ├─ explanation              오답일 때 보여준 해설
+//  ├─ basis                    무엇을 근거로 판정했나 (exactMatch · typo · differentName …)
+//  ├─ explanationSource        해설을 누가 만들었나 (device · cloud)
 //  ├─ uploadedAt               서버로 올라간 시각. nil 이면 아직 안 올라간 것
-//  └─ hesitationSec            고르고 나서 망설인 초 (secToSubmit - secToFirstTouch)
+//  └─ hesitationSec            고르고 나서 망설인 초 — ⚠️ 지금 아무도 안 쓴다
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession 이 회차를 시작할 때 sessionID 를 하나 만들고
@@ -106,7 +109,16 @@ final class ObsRecord {
     /// 서버로 올라간 시각. `nil` 이면 **아직 안 올라간 것**입니다.
     ///
     /// 이 한 줄이 재시도 큐 전부입니다 — 회차를 시작할 때 `nil` 인 줄을 모아 다시 보내므로 다음번에 따라잡습니다.
+    
+    /// 무엇을 근거로 판정했나. 선다·O/X 는 `nil` 입니다.
     ///
+    /// 코드가 정한 것(`exactMatch`)과 모델이 고른 것(`differentLetters`)이 함께 들어오므로
+    /// 열거형이 아니라 글자입니다.
+    var basis: String?
+
+    /// 해설을 누가 만들었나. `"device"` 는 기기 안의 모델입니다.
+    var explanationSource: String?
+    
     /// - Note: 옵셔널 저장 프로퍼티는 자동으로 `nil` 로 시작하므로 `init` 인자에 없습니다.
     var uploadedAt: Date?
     
@@ -122,7 +134,9 @@ final class ObsRecord {
         affectsProgress: Bool,
         chosen: String?,
         reason: String?,
-        explanation: String?
+        explanation: String?,
+        basis: String?,
+        explanationSource: String?
     ) {
         self.sessionID = sessionID
         self.askedAt = askedAt
@@ -136,6 +150,8 @@ final class ObsRecord {
         self.chosen = chosen
         self.reason = reason
         self.explanation = explanation
+        self.basis = basis
+        self.explanationSource = explanationSource
     }
     
     /// 저장된 숫자를 묻는 방식으로 읽습니다. 알 수 없는 값이면 가장 쉬운 칸으로 봅니다.

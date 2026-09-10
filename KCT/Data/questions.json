@@ -1,0 +1,895 @@
+{
+  "version": 7,
+  "questions": [
+    {
+      "id": 1,
+      "category": "역사",
+      "unit": "역사1",
+      "question": "우리나라 역사상 최초의 국가로 기원전 2333년 10월 3일에 세워진 나라의 이름은 무엇입니까?",
+      "answer": "고조선",
+      "kind": "place",
+      "shape": "word",
+      "statementFormat": "우리나라 역사상 최초의 국가로 기원전 2333년 10월 3일에 세워진 나라는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "나라 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "고는 옛날이라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "도읍은 아사달이었어요"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "category": "역사",
+      "unit": "역사1",
+      "question": "한국의 최초 국가 이름은 무엇입니까?",
+      "answer": "고조선",
+      "kind": "place",
+      "shape": "word",
+      "statementFormat": "한국의 최초 국가 이름은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "나라 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "고는 옛날이라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "기원전 2333년에 세워졌어요"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "category": "역사",
+      "unit": "역사1",
+      "question": "도읍지를 아사달로 삼아 고조선을 세운 왕(시조)는 누구입니까?",
+      "answer": "단군왕검",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "도읍지를 아사달로 삼아 고조선을 세운 왕(시조)은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "사람 이름을 묻고 있어요"
+        },
+        {
+          "kind": "nation",
+          "weight": 3,
+          "text": "고조선의 첫 임금이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "왕검은 임금이라는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "category": "역사",
+      "unit": "역사1",
+      "question": "천제인 환인의 손자이며, 환웅의 아들로 서기전 2333년 아사달에 도읍을 정한 고조선을 세운 사람은 누구입니까?",
+      "answer": "단군왕검",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "천제인 환인의 손자이며, 환웅의 아들로 서기전 2333년 아사달에 도읍을 정한 고조선을 세운 사람은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "사람 이름을 묻고 있어요"
+        },
+        {
+          "kind": "nation",
+          "weight": 3,
+          "text": "고조선의 첫 임금이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "왕검은 임금이라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "우리 민족의 시조로 불려요"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "category": "역사",
+      "unit": "역사1",
+      "question": "우리 나라에 최초의 국가인 고조선을 세운 사람은 누구입니까?",
+      "answer": "단군왕검",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "우리나라 최초의 국가인 고조선을 세운 사람은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "사람 이름을 묻고 있어요"
+        },
+        {
+          "kind": "nation",
+          "weight": 3,
+          "text": "고조선의 첫 임금이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "왕검은 임금이라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "아사달을 도읍으로 삼았어요"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "category": "역사",
+      "unit": "역사1",
+      "question": "아사달에 도읍을 정하고 우리나라에 최초의 고조선이라는 나라를 세웠으며, 우리 민족의 시조로서 천제인 환인의 손자이며 환웅의 아들인 이 사람 누구입니까?",
+      "answer": "단군왕검",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "아사달에 도읍을 정하고 우리나라 최초의 나라인 고조선을 세웠으며, 우리 민족의 시조로서 천제인 환인의 손자이며 환웅의 아들인 사람은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "사람 이름을 묻고 있어요"
+        },
+        {
+          "kind": "nation",
+          "weight": 3,
+          "text": "고조선의 첫 임금이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "왕검은 임금이라는 뜻이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "단군은 제사 지내는 사람이라는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "category": "역사",
+      "unit": "역사2",
+      "question": "민족의 시조 단군에 관한 신화로 '삼국유사'를 통해 전해지는 신화는 무엇입니까?",
+      "answer": "단군신화",
+      "kind": "heritage",
+      "shape": "word",
+      "statementFormat": "민족의 시조 단군에 관한 신화로 '삼국유사'를 통해 전해지는 신화는 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "이야기 이름을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "곰이 쑥과 마늘을 먹고 사람이 된 이야기"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 1,
+          "text": "신화는 전해 오는 옛이야기예요"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "category": "역사",
+      "unit": "역사2",
+      "question": "단군의 출생과 고조선에 대한 신화로 곰이 쑥과 마늘을 먹고 사람이 되어 환웅과 결혼을 해서 아들 낳았다는 이야기의 신화는 무엇입니까?",
+      "answer": "단군신화",
+      "kind": "heritage",
+      "shape": "word",
+      "statementFormat": "곰이 쑥과 마늘을 먹고 사람이 되어 환웅과 결혼해 아들을 낳았다는 이야기의 신화는 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "이야기 이름을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "삼국유사라는 옛 책에 실려 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "신화는 전해 오는 옛이야기예요"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "category": "역사",
+      "unit": "역사2",
+      "question": "삼국시대의 세 나라의 이름을 말해 보세요.",
+      "answer": "고구려, 백제, 신라",
+      "kind": "place",
+      "shape": "closedList",
+      "statementFormat": "삼국시대의 세 나라는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "나라 이름 셋을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "고구려, 백제, 신라 순서로 외워요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "신라가 셋을 하나로 합쳤어요"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "category": "역사",
+      "unit": "역사2",
+      "question": "고구려를 세운 왕(시조)이며 활을 잘 쏘았던 사람은 누구입니까?",
+      "answer": "주몽",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "고구려를 세운 왕(시조)이며 활을 잘 쏘았던 사람은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "사람 이름을 묻고 있어요"
+        },
+        {
+          "kind": "nation",
+          "weight": 3,
+          "text": "고구려의 첫 임금이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "주몽은 활을 잘 쏘는 사람이라는 뜻"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "일제의 지배에 맞서 1919년에 만세운동을 벌인 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "삼일절/3.1절/31절",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "일제의 지배에 맞서 1919년에 만세운동을 벌인 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "국경일 이름을 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "만세를 부르며 독립을 외친 날이에요"
+        },
+        {
+          "kind": "date",
+          "weight": 3,
+          "text": "양력 3월 1일이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 1,
+          "text": "삼일이 곧 3월 1일이에요"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "대한민국 헌법을 만들어 공포한 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "제헌절",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "대한민국 헌법을 만들어 공포한 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "국경일 이름을 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "헌법을 처음 만든 날이에요"
+        },
+        {
+          "kind": "date",
+          "weight": 3,
+          "text": "양력 7월 17일이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "제헌은 헌법을 만들었다는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "1945년에 일본으로부터 나라를 되찾은 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "광복절",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "1945년에 일본으로부터 나라를 되찾은 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "국경일 이름을 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "일본에게서 나라를 되찾은 날이에요"
+        },
+        {
+          "kind": "date",
+          "weight": 3,
+          "text": "양력 8월 15일이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "광복은 빛을 되찾았다는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "단군왕검이 고조선을 세운 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "개천절",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "단군왕검이 고조선을 세운 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "국경일 이름을 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "고조선이 세워진 것을 기리는 날이에요"
+        },
+        {
+          "kind": "date",
+          "weight": 3,
+          "text": "양력 10월 3일이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "개천은 하늘이 열렸다는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "세종대왕이 한글을 만든 것을 기념하는 국경일은 무엇입니까?",
+      "answer": "한글날",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "세종대왕이 한글을 만든 것을 기념하는 국경일은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "국경일 이름을 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "한글을 만든 것을 기리는 날이에요"
+        },
+        {
+          "kind": "date",
+          "weight": 3,
+          "text": "양력 10월 9일이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 1,
+          "text": "한글의 한은 크다는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "나라를 위해 목숨을 바친 분들을 기리는 6월 6일 기념일은 무엇입니까?",
+      "answer": "현충일",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "나라를 위해 목숨을 바친 분들을 기리는 6월 6일 기념일은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "기념일 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "현충은 충성을 드러낸다는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "오전 열 시에 온 나라가 묵념해요"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "대한민국을 상징하는 국기의 이름은 무엇입니까?",
+      "answer": "태극기",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "대한민국을 상징하는 국기의 이름은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "국기 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "태극은 가운데 둥근 무늬의 이름이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "빨강과 파랑이 어우러진 무늬예요"
+        },
+        {
+          "kind": "mark",
+          "weight": 1,
+          "text": "네 귀퉁이에 검은 막대 무늬가 있어요"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "대한민국의 국가(나라 노래)는 무엇입니까?",
+      "answer": "애국가",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "대한민국의 국가(나라 노래)는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "노래 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "애국은 나라를 사랑한다는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "동해물과 백두산이로 시작해요"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "대한민국을 상징하는 꽃(국화)은 무엇입니까?",
+      "answer": "무궁화",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "대한민국을 상징하는 꽃(국화)은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "꽃 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "무궁은 끝이 없다는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "여름부터 가을까지 오래 피어요"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "category": "대한민국",
+      "unit": "국가상징",
+      "question": "애국가를 작곡한 사람은 누구입니까?",
+      "answer": "안익태",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "애국가를 작곡한 사람은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "사람 이름을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "1935년에 곡을 지었어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "노랫말이 아니라 곡을 지었어요"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "category": "문화",
+      "unit": "명절1",
+      "question": "새해 첫날인 음력 1월 1일로, 한복을 입고 어른들께 세배를 하며 떡국을 먹는 한국의 대표적인 명절은 무엇입니까?",
+      "answer": "설날",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "새해 첫날인 음력 1월 1일로 세배를 하고 떡국을 먹는 명절은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "명절 이름을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "떡국을 먹으면 한 살 더 먹는다고 해요"
+        },
+        {
+          "kind": "mark",
+          "weight": 1,
+          "text": "차례를 지내고 세배를 해요"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "category": "문화",
+      "unit": "명절1",
+      "question": "설날 아침에 조상님들께 감사의 마음을 담아 올리는 제사(예배)를 무엇이라고 합니까?",
+      "answer": "차례",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "설날이나 추석 아침에 조상님들께 올리는 제사는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "제사 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "차례는 차를 올린다는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "지내고 나서 가족이 나눠 먹어요"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "category": "문화",
+      "unit": "명절1",
+      "question": "음력 8월 15일로, 햇곡식과 햇과일로 음식을 만들어 차례를 지내고 송편을 먹는 한국의 가을 명절은 무엇입니까?",
+      "answer": "추석",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "음력 8월 15일로 보름달을 보며 송편을 먹는 명절은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "명절 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "추석은 가을 저녁이라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "한가위라고도 불러요"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "category": "문화",
+      "unit": "명절1",
+      "question": "추석에 콩 같은 햇곡식을 반죽하여 빚는 음식으로, 안에 깨나 콩, 밤을 넣어 만드는 전통 떡은 무엇입니까?",
+      "answer": "송편",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "추석에 빚어 먹는 한국의 전통 떡은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "음식 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "송은 소나무예요. 솔잎을 깔고 쪄서 송편이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 1,
+          "text": "반달 모양으로 빚어요"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "category": "문화",
+      "unit": "명절1",
+      "question": "일 년 중 밤이 가장 길고 낮이 가장 짧은 날로, 붉은색이 나쁜 귀신을 쫓아낸다고 믿어 팥죽을 쑤어 먹는 날은 무엇입니까?",
+      "answer": "동지",
+      "kind": "day",
+      "shape": "word",
+      "statementFormat": "일 년 중 밤이 가장 길고 팥죽을 먹는 날은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "절기 이름을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "팥죽을 먹는 날이에요"
+        },
+        {
+          "kind": "date",
+          "weight": 3,
+          "text": "양력 12월 22일쯤이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 1,
+          "text": "동지는 겨울에 이르렀다는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "삼일절은 몇 월 며칠입니까?",
+      "answer": "3월 1일",
+      "kind": "number",
+      "shape": "word",
+      "statementFormat": "삼일절은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "날짜를 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "만세를 부르며 독립을 외친 날이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "이름의 삼일이 곧 3월 1일이에요"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "제헌절은 몇 월 며칠입니까?",
+      "answer": "7월 17일",
+      "kind": "number",
+      "shape": "word",
+      "statementFormat": "제헌절은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "날짜를 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "헌법을 처음 만든 날이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "칠에 십칠, 7이 두 번 나와요"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "광복절은 몇 월 며칠입니까?",
+      "answer": "8월 15일",
+      "kind": "number",
+      "shape": "word",
+      "statementFormat": "광복절은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "날짜를 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "일본에게서 나라를 되찾은 날이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "1945년 그날 광복이 되었어요"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "개천절은 몇 월 며칠입니까?",
+      "answer": "10월 3일",
+      "kind": "number",
+      "shape": "word",
+      "statementFormat": "개천절은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "날짜를 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "고조선이 세워진 것을 기리는 날이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "개천은 하늘이 열렸다는 뜻이에요"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "category": "대한민국",
+      "unit": "국경일",
+      "question": "한글날은 몇 월 며칠입니까?",
+      "answer": "10월 9일",
+      "kind": "number",
+      "shape": "word",
+      "statementFormat": "한글날은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "날짜를 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "한글을 만든 것을 기리는 날이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "훈민정음을 널리 알린 날이에요"
+        }
+      ]
+    }
+  ]
+}

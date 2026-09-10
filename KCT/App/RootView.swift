@@ -34,6 +34,6 @@ struct RootView: View {
 
 #Preview {
     RootView()
-        .environment(QuestionCatalog.bundled())
+        .environment(QuestionCatalog.loaded())
         .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
 }

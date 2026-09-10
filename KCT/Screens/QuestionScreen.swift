@@ -189,9 +189,13 @@ struct QuestionScreen: View {
 
     private var nextButton: some View {
         PrimaryActionButton(
-            title: session.isLastQuestion ? "제출" : "다음  →",
-            isReady: session.hasAnswer
+            title: session.isGrading
+                ? "채점 중이에요"
+                : (session.isLastQuestion ? "제출" : "다음  →"),
+            isReady: session.hasAnswer && !session.isGrading
         ) {
+            if session.isGrading { return }
+
             if session.hasAnswer {
                 session.submitCurrent()
             } else {

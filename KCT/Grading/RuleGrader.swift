@@ -12,13 +12,13 @@
 //  └─ grade(_:userAnswer:) -> Bool?
 //      ├─ .choices   → 고른 값이 정답과 같은가
 //      ├─ .trueFalse → "맞아요" 를 골랐는가 == 진술이 참인가
-//      └─ .freeText  → nil (MeaningGrader 에게 넘겨라)
+//      └─ .freeText  → nil (AnswerMatcher 에게 넘겨라)
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession.judge(_:answer:)
 //    → RuleGrader.grade() 를 먼저 부른다
 //    → Bool 이 오면 그대로 채택 (빠르고, 기기에 모델이 없어도 된다)
-//    → nil 이 오면 MeaningGrader(온디바이스 모델)로 넘긴다
+//    → nil 이 오면 AnswerMatcher(코드) → AnswerChecker(모델) 순으로 넘긴다
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizSession.judge(), QuestionScreen(O/X 버튼 문구)
@@ -28,7 +28,7 @@
 
 import Foundation
 
-/// 규칙으로 판정하는 채점기. 정답이 딱 하나로 정해지는 선다형과 O/X 만 다루며, ``MeaningGrader`` 와 짝을 이룹니다.
+/// 규칙으로 판정하는 채점기. 정답이 딱 하나로 정해지는 선다형과 O/X 만 다루며, ``AnswerMatcher`` 와 짝을 이룹니다.
 ///
 /// 여기에 온디바이스 모델을 쓰면 느리고, 모델이 없는 기기에서는 채점이 안 되고, 같은 답에 다른 결과가 나올 수도 있습니다.
 ///
@@ -43,7 +43,7 @@ enum RuleGrader {
 
     /// 규칙으로 판정합니다.
     ///
-    /// - Returns: 맞았는지 여부. **`nil` 이면 규칙으로 정할 수 없다는 뜻**이며, 호출한 쪽이 ``MeaningGrader`` 로 넘겨야 합니다.
+    /// - Returns: 맞았는지 여부. **`nil` 이면 규칙으로 정할 수 없다는 뜻**이며, 호출한 쪽이 ``AnswerMatcher`` 로 넘겨야 합니다.
     static func grade(_ item: QuizItem, userAnswer: String) -> Bool? {
         switch item.payload {
         case .choices(_, let correct):

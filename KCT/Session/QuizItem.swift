@@ -109,6 +109,20 @@ struct QuizItem: Identifiable {
         case .freeText:  "답을 입력하세요"
         }
     }
+    /// 어머니가 **실제로 판단한 낱말.** 오답일 때 「그것이 무엇인지」를 설명하는 데 쓴다.
+    ///
+    /// O/X 는 고른 답이 「맞아요」·「아니에요」라 그 자체로는 설명할 것이 없습니다.
+    /// 실제로 판단한 것은 **진술문 안에 들어간 낱말**입니다 —
+    /// 「…국경일은 개천절이다」에 「맞아요」를 고르셨다면 판단한 것은 「개천절」입니다.
+    ///
+    /// - Parameter answer: 화면에서 고르거나 입력한 값
+    func judgedTerm(for answer: String) -> String {
+        switch payload {
+        case .trueFalse(_, let candidate, _): candidate
+        case .choices, .freeText: answer
+        }
+    }
+
 }
 
 // MARK: - 출제 항목 만들기
@@ -146,7 +160,7 @@ extension QuizItem {
             )
 
         case .typing:
-            payload = .freeText(accepted: [question.answer])
+            payload = .freeText(accepted: [question.displayAnswer])
         }
 
         return QuizItem(

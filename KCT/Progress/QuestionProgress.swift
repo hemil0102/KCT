@@ -24,7 +24,7 @@
 //  SessionBuilder
 //    → isMastered · isIntroduced 를 **읽어서** 출제 순서를 정한다
 //      (nextDueAt 도 읽지만 늘 nil 이라 사실상 난이도·id 순이 된다)
-//  QuizSession.gradeAll()
+//  QuizSession.gradeCurrent()
 //    → countAttempt(correct:) 로 모든 문항을 센다 (결과 화면의 누적 숫자)
 //    → 격려용이면 nudgeLadder(correct:) 로 바닥 칸(2지선다)에서만 한 칸 올린다
 //    → 격려용이 아니면 moveLadder(correct:) 로 사다리를 옮긴다

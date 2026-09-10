@@ -20,7 +20,7 @@
 //    → prepareSession() : QuizSession 생성 → start() → 첫 문제 낭독
 //    → screen(for:) 이 세션에 물어 화면을 고른다
 //        ├─ 아직 안 끝났다      → QuestionScreen
-//        ├─ 끝났고 채점 중이다  → GradingScreen
+//        ├─ 끝났고 마무리 3초다 → GradingScreen
 //        └─ 끝나고 채점도 됐다  → ResultScreen
 //    → 문제가 넘어가면 (currentIndex 변화) → readAloud() 로 새 지문을 읽어준다
 //    → ResultScreen 의 "다시 풀기" → restart() → session.start() → 낭독
@@ -48,7 +48,7 @@ struct QuizView: View {
     var sessionMode: SessionMode = .practice
 
     /// 출제할 문제집. (번들 JSON → 나중에 서버에서 교체)
-    @Environment(QuestionCatalog.self) private var catalog
+    @Environment(QuestionCatalog.self) private var questionCatalog
 
     @Environment(\.modelContext) private var modelContext
 
@@ -67,6 +67,9 @@ struct QuizView: View {
                 ProgressView()
             }
         }
+        .onChange(of: session?.currentIndex) { _, _ in
+            readAloud(session?.current)
+        }
         .sheet(
             isPresented: Binding(
                 get: { session?.feedback != nil },
@@ -84,24 +87,22 @@ struct QuizView: View {
     }
 
     // MARK: - 어느 화면을 보여줄까
-
     @ViewBuilder
     private func screen(for session: QuizSession) -> some View {
-        if session.isGrading {
-            GradingScreen()
-        } else if session.isFinished {
-            ResultScreen(
-                session: session,
-                onRestart: { restart(session) },
-                onEraseProgress: { erase(session) }
-            )
+        if session.isFinished {
+            // 결과를 보여주기 전 한 박자. 마지막 답을 누른 손이 그대로
+            // 결과 화면의 버튼을 누르는 것을 막는다.
+            if session.isWrappingUp {
+                GradingScreen()
+            } else {
+                ResultScreen(
+                    session: session,
+                    onRestart: { restart(session) },
+                    onEraseProgress: { erase(session) }
+                )
+            }
         } else {
             QuestionScreen(session: session, sessionMode: sessionMode) {
-                readAloud(session.current)
-            }
-            // 문제가 넘어가면 새 지문을 자동으로 읽어준다.
-            // QuestionScreen 에 붙였으므로 회차가 끝난 뒤에는 울리지 않는다.
-            .onChange(of: session.currentIndex) { _, _ in
                 readAloud(session.current)
             }
         }
@@ -113,23 +114,19 @@ struct QuizView: View {
     private func prepareSession() {
         guard session == nil else { return }
 
-        let newSession = QuizSession(catalog: catalog, modelContext: modelContext)
+        let newSession = QuizSession(catalog: questionCatalog, modelContext: modelContext)
         newSession.start()
         session = newSession
-
-        readAloud(newSession.current)   // 첫 문제도 자동으로 읽어준다
     }
 
     /// 새 회차를 시작한다. (결과 화면의 "다시 풀기")
     private func restart(_ session: QuizSession) {
         session.start()
-        readAloud(session.current)
     }
 
     /// 학습 기록을 모두 지우고 새 회차를 시작한다. (결과 화면의 "학습 기록 초기화")
     private func erase(_ session: QuizSession) {
         session.eraseAllProgress()
-        readAloud(session.current)
     }
 
     // MARK: - 낭독
@@ -143,6 +140,6 @@ struct QuizView: View {
 
 #Preview {
     QuizView()
-        .environment(QuestionCatalog.bundled())
+        .environment(QuestionCatalog.loaded())
         .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
 }

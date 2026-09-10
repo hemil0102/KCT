@@ -15,6 +15,9 @@
 //  ├─ correct              정답 표시 (진한 초록)
 //  ├─ review               다시 볼 문제 표시 (= signature)
 //  ├─ mastered             완전히 익힘 표시 (주황)
+//  ├─ chosenAnswer         고른 답 (주황)
+//  ├─ answerAccent         정답 (파랑) · answerBackground 옅은 파랑
+//  ├─ wrongAccent          모달 안의 고르신 답 (붉은색) · wrongBackground 옅은 붉은색
 //  ├─ textMuted            보조 텍스트 (흰 배경에서도 또렷한 진회색)
 //  └─ marker               형광펜 (연노랑) — 묻는 대상
 //
@@ -78,6 +81,22 @@ enum AppColor {
     /// 어머니가 고른 답을 적을 때. 시그니처(보라)와 반대편의 주황.
     static let chosenAnswer = Color(red: 0.80, green: 0.44, blue: 0.10)
 
-    /// 정답을 각인시키는 연두. 정답이 나오는 모든 자리에 같은 색을 쓴다.
-    static let answerAccent = Color(red: 0.33, green: 0.61, blue: 0.16)
+    /// 정답을 각인시키는 색. 정답이 나오는 모든 자리에 같은 색을 쓴다.
+    ///
+    /// 시그니처(#745CF4)와 같은 파랑 계열에서 한 칸 진하게 잡아, 보라 버튼 옆에 두어도
+    /// 따로 놀지 않으면서 **글자로서 또렷하게** 읽힙니다.
+    static let answerAccent = Color(red: 0.18, green: 0.36, blue: 0.82)
+
+    /// 옅은 파랑 배경. 정답 칸을 감쌀 때.
+    static let answerBackground = answerAccent.opacity(0.10)
+
+    /// 고르신 답과 그 설명을 적을 때의 붉은색.
+    ///
+    /// 보라·파랑과 색상환에서 멀되 **채도를 낮춰** 놀라지 않게 합니다.
+    /// 이 색은 **모달 안에서만** 씁니다 — 목록·결과 화면의 「다시 볼 문제」는 여전히
+    /// ``review``(시그니처)입니다. 화면에서 「틀렸다」를 강조하지 않기로 한 원칙 때문입니다.
+    static let wrongAccent = Color(red: 0.78, green: 0.22, blue: 0.24)
+
+    /// 옅은 붉은 배경. 고르신 답 칸을 감쌀 때.
+    static let wrongBackground = wrongAccent.opacity(0.08)
 }

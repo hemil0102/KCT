@@ -11,7 +11,9 @@
 //  ├─ isUploading              지금 올리는 중인가 (static — 겹쳐 부르는 것을 막는다)
 //  ├─ deviceID                 이 기기의 고유 번호 (UserDefaults 에 한 번 만들어 둔다)
 //  ├─ Payload                  서버로 보낼 JSON 한 줄의 모양
-//  ├─ uploadPending()          안 올라간 줄을 모아 한 번에 보낸다 (입구)
+//  ├─ uploadPending()          안 올라간 관찰 기록을 모아 한 번에 보낸다 (입구)
+//  ├─ uploadPendingFailures()  안 올라간 모델 실패 기록을 보낸다 (입구)
+//  ├─ FailurePayload           model_failure 표의 한 줄
 //  ├─ pendingRecords()         uploadedAt 이 nil 인 줄을 꺼낸다
 //  └─ send(_:)                 실제 HTTP POST. 성공하면 true
 //
@@ -25,7 +27,7 @@
 //    → 실패하면 아무것도 하지 않는다. 다음 회차가 다시 시도한다
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : QuizSession.start() · QuizSession.gradeAll()
+//  불러 쓰는 곳 : QuizSession.start() · QuizSession.moveToNextQuestion()
 //  기대는 것    : ObsRecord(무엇을 보낼지), SupabaseConfig(어디로 보낼지)
 //  건드리지 않는 것 : 화면 — 성공도 실패도 어머니에게 보이지 않는다.
 //                    실패를 알려 봐야 어머니가 할 수 있는 일이 없다
@@ -92,11 +94,14 @@ struct ObsUploader {
         let chosen: String?
         let reason: String?
         let explanation: String?
+        let basis: String?
+        let explanationSource: String?
 
         enum CodingKeys: String, CodingKey {
             case deviceID, sessionID, askedAt, questionID
             case secToFirstTouch, secToSubmit, isCorrect, modeRaw
             case wasFirstEver, affectsProgress, chosen, reason, explanation
+            case basis, explanationSource
         }
 
         func encode(to encoder: Encoder) throws {
@@ -115,6 +120,8 @@ struct ObsUploader {
             try container.encode(chosen, forKey: .chosen)
             try container.encode(reason, forKey: .reason)
             try container.encode(explanation, forKey: .explanation)
+            try container.encode(basis, forKey: .basis)
+            try container.encode(explanationSource, forKey: .explanationSource)
         }
     }
     
@@ -147,17 +154,63 @@ struct ObsUploader {
                 affectsProgress: record.affectsProgress,
                 chosen: record.chosen,
                 reason: record.reason,
-                explanation: record.explanation
+                explanation: record.explanation,
+                basis: record.basis,
+                explanationSource: record.explanationSource
             )
         }
         
-        guard await send(payloads) else { return }
+        guard await send(payloads, to: "/rest/v1/obs_record") else { return }
         
         let now = Date.now
         for record in records { record.uploadedAt = now }
         try? modelContext.save()
     }
     
+    // MARK: - 모델 실패 기록
+
+    /// 서버 표 `model_failure` 의 한 줄.
+    private struct FailurePayload: Encodable {
+        let deviceID: String
+        let occurredAt: Date
+        let job: String
+        let questionID: Int
+        let reason: String
+        let instructions: String
+        let prompt: String
+    }
+
+    /// 아직 안 올라간 **모델 실패 기록**을 보낸다.
+    ///
+    /// 관찰 기록과 표가 달라 따로 보냅니다. 실패는 드물어 대개 보낼 것이 없습니다.
+    func uploadPendingFailures() async {
+        var descriptor = FetchDescriptor<ModelFailure>(
+            predicate: #Predicate { $0.uploadedAt == nil },
+            sortBy: [SortDescriptor(\.occurredAt)]
+        )
+        descriptor.fetchLimit = batchLimit
+
+        let failures = (try? modelContext.fetch(descriptor)) ?? []
+        guard !failures.isEmpty else { return }
+
+        let payloads = failures.map {
+            FailurePayload(
+                deviceID: Self.deviceID,
+                occurredAt: $0.occurredAt,
+                job: $0.job,
+                questionID: $0.questionID,
+                reason: $0.reason,
+                instructions: $0.instructions,
+                prompt: $0.prompt)
+        }
+
+        guard await send(payloads, to: "/rest/v1/model_failure") else { return }
+
+        let now = Date.now
+        for failure in failures { failure.uploadedAt = now }
+        try? modelContext.save()
+    }
+
     // MARK: - 안에서 하는 일
     
     /// ``ObsRecord/uploadedAt`` 이 `nil` 인 줄을 오래된 것부터 꺼냅니다.
@@ -175,8 +228,7 @@ struct ObsUploader {
     ///
     /// 업서트를 쓰지 않는 이유 — PostgREST 업서트는 UPDATE 권한까지 요구하는데 우리 표는 입력만 열려 있어 모든 요청이 `401` 로 튕겼고(2026-08-26), 중복은 볼 때 `distinct on` 으로 걸러냅니다.
     /// 날짜 형식을 직접 지정하는 이유 — 기본 `.iso8601` 은 소수점 이하를 버려, 한 회차가 5.1초 만에 끝났을 때 출제 순서를 되살릴 수 없었습니다(2026-08-26).
-    private func send(_ payloads: [Payload]) async -> Bool {
-        let path = "/rest/v1/obs_record"
+    private func send<Row: Encodable>(_ payloads: [Row], to path: String) async -> Bool {
         guard let url = URL(string: SupabaseConfig.projectURL + path) else { return false }
 
         // 소수점 세 자리까지 살린 ISO 8601 (예: 2026-08-26T15:57:08.412Z)

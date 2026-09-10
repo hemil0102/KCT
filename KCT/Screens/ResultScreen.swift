@@ -150,7 +150,7 @@ struct ResultScreen: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(AppColor.correct)
             } else {
-                Text("정답: \(item.question.answer)")
+                Text("정답: \(item.question.displayAnswer)")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.black)
                 Text("곧 다시 만나요 😊")

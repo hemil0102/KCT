@@ -77,7 +77,170 @@ KCT 고유의 개념입니다. 프레임워크 용어가 아니라 **우리가 �
 | **워밍 (warming)** | 필요해지기 전에 미리 계산해 캐시에 채워 두는 것. 화면을 막지 않도록 백그라운드에서 합니다 |
 | **캐시 무효화 (cache invalidation)** | 원본이 바뀌면 저장된 결과를 버리는 것. 이 앱은 질문 텍스트의 SHA256 해시를 비교합니다 |
 
+| **제약 해독 (constrained decoding)** | 모델이 토큰을 뽑을 때 **문법에 맞는 후보만 남기는** 것. 유도 생성이 실제로 동작하는 방식입니다 |
+| **`@Guide(.anyOf([...]))`** | 값의 후보를 **런타임에** 목록으로 정하는 것. 정답·문항 id 처럼 문제집에서 나오는 값에 씁니다 |
+| **`DynamicGenerationSchema`** | 구조 자체를 런타임에 정하는 것. 컴파일 때 모양을 모를 때만 씁니다 |
+
 > **⚠️ 함정** — Swift의 `hashValue` 는 **실행할 때마다 값이 달라져** 저장용으로 쓸 수 없습니다. 앱을 껐다 켜도 같아야 하므로 SHA256을 씁니다.
+
+### 무엇을 모델에게 맡기고 무엇을 코드가 하나
+
+**기준은 「어렵나」가 아니라 「답이 하나로 정해지나」다.**
+
+| | 코드가 한다 | 모델이 한다 |
+|---|---|---|
+| 답 | **하나뿐이다** | 여럿이다 |
+| 예 | 글자가 같은가 · 몇 글자인가 · 날짜 계산 | 뜻이 통하는가 · 무슨 종류인가 · 문장 쓰기 |
+| 틀리면 | 안 틀린다 | 다시 만나 회복된다 |
+
+답이 하나뿐인 일은 **95%를 맞혀도 못 씁니다.** 나머지 5%가 언제 나올지 모르고, 어제 맞힌 것을 오늘 틀려도 원인을 못 찾습니다.
+
+#### 한글은 특히 그렇다
+
+모델은 글자가 아니라 **조각(token)** 으로 읽습니다.
+
+```
+사람이 보는 것    고 / 죠 / 선
+모델이 보는 것    [고죠] [선]      ← 「죠」를 따로 꺼낼 수가 없다
+```
+
+「몇 번째 글자가 다른가」는 **물어볼 수단 자체가 없습니다.** 능력이 부족한 것이 아니라 입력이 그렇게 생기지 않았습니다.
+
+> **실제로 겪은 것 (2026-09-10)** — 「고죠선」·「태국가」·「단검신화」·「단검왕검」. 전부 **한 글자만** 다른데 지침을 여섯 번 고치는 동안 계속 통과했습니다. 반면 아예 다른 답(「홍길동/안익태」·「매화/무궁화」)은 **10건 모두** 제대로 걸렀습니다. **글자는 못 보고 뜻은 봅니다.**
+
+#### 그러면 계산은 누가 — tool 이다
+
+ChatGPT가 계산을 잘하는 것은 모델이 계산해서가 아니라 **파이썬을 부르기 때문**입니다. tool calling 은 **모델에게 손을 붙여 주는 것**입니다.
+
+다만 갈림길이 하나 있습니다.
+
+```
+모델이 "지금 계산이 필요하다"를 스스로 판단해야 할 때   →  tool
+우리가 이미 알고 있을 때                            →  그냥 코드
+```
+
+직접입력 채점이면 **무조건** 글자 비교가 필요하다는 것을 우리가 미리 압니다. 그러니 도구를 쥐여 줄 이유가 없습니다 — 코드가 먼저 하고 애매한 것만 넘깁니다.
+
+대화형(6차 7단계)은 다릅니다. 어머니가 무엇을 물을지 모르므로 **모델이 스스로 골라야** 하고, 거기가 tool 이 필요한 자리입니다. **갈림길은 「대화형이냐」가 아니라 「범위가 닫혀 있느냐」입니다.**
+
+### `@Generable` 이 정확히 무엇을 하나
+
+**매크로입니다.** 붙이면 컴파일할 때 코드가 자동으로 생깁니다. `Codable` 이 `init(from:)` 을 만들어 주는 것과 같은 종류의 일입니다.
+
+| 생기는 것 | 하는 일 |
+|---|---|
+| `static var generationSchema` | 이 타입의 **모양 설명서**. 모델에게 보낸다 |
+| `init(_ content: GeneratedContent)` | 모델이 뱉은 것을 **이 타입으로 되돌린다** |
+| `PartiallyGenerated` | 스트리밍용 — 아직 다 안 온 중간 상태 |
+
+앞의 둘이 `Codable` 의 `encode` / `decode` 와 정확히 같은 짝입니다.
+
+#### 방향 — 나가는 것은 값이 아니라 모양이다
+
+여기를 뒤집어 이해하기 쉽습니다. JSON 으로 나가는 것은 **우리 데이터가 아니라 타입의 모양**입니다.
+
+```
+① 요청할 때
+   AnswerCheck.generationSchema  →  JSON Schema 로 바뀌어 모델의 문맥 창에 들어간다
+     { "type":"object",
+       "properties": { "isCorrect": {"type":"boolean"},
+                       "basis":     {"enum":["exactMatch","differentName",...]} } }
+
+② 모델이 답할 때
+   토큰을 하나 뽑을 때마다 이 스키마를 만족시킬 수 있는 것만 후보로 남는다  ← 제약 해독
+     →  GeneratedContent 로 받아  →  init(_:) 이 인스턴스로 되돌린다
+
+③ 우리 손에는
+   let check: AnswerCheck        ← 문자열 파싱이 한 줄도 없다
+```
+
+> **스키마는 문맥 창을 먹습니다.** Apple 문서의 표현 — *"the framework converts its type and format information to a JSON schema and provides it to the model. **This contributes to the available context window size.**"*
+>
+> 그래서 프로퍼티 이름은 짧고 명확하게, `@Guide(description:)` 은 **품질이 나아질 때만** 붙입니다. 타입이 커지면 `LanguageModelError.contextSizeExceeded` 가 납니다.
+
+#### 안 붙이면
+
+```swift
+let text = try await session.respond(to: prompt).content   // String
+// "정답입니다. 근거는 exactMatch 입니다"  ← 이번엔 이렇게 왔다
+// "네, 맞아요!"                          ← 다음엔 이렇게 올 수 있다
+```
+
+붙이면 `respond(to:generating: AnswerCheck.self)` 로 **타입이 그대로** 옵니다. **파싱을 잘하는 것이 아니라 파싱이 필요 없게 만드는 것**입니다.
+
+#### `@Guide` 는 그 설명서에 주석을 다는 것
+
+`@Generable` 이 뼈대를 만들고, `@Guide` 가 칸마다 설명이나 제약을 붙입니다. `description:` 은 **부탁**이고, `.count(3)` · `.anyOf([...])` · 열거형은 **문법**입니다.
+
+#### `Codable` 과 나란히
+
+| | `Codable` | `Generable` |
+|---|---|---|
+| 상대 | JSON 파일 | 언어 모델 |
+| 내보내는 것 | **값** (`{"id":1}`) | **모양** (`{"type":"object",...}`) |
+| 들여오는 것 | JSON → 타입 | 모델 출력 → 타입 |
+| 자동 생성 | `init(from:)` · `encode(to:)` · `CodingKeys` | `generationSchema` · `init(_:)` · `PartiallyGenerated` |
+| 손으로 덮어쓰기 | 자주 한다 (`decodeIfPresent` 건) | 거의 안 한다. 필요하면 `DynamicGenerationSchema` |
+| 틀리면 | `throws` | **모양은 안 틀린다.** 내용은 여전히 틀릴 수 있다 |
+
+**마지막 줄이 이 앱에서 가장 중요합니다.** `@Generable` 은 **모양을 보장하지 내용을 보장하지 않습니다.** `isCorrect: Bool` 에는 반드시 `true`/`false` 가 오지만 **그 판정이 맞는지는 별개**입니다. 「고죠선」이 통과된 것은 모양 문제가 아니라 지침 문제였습니다.
+
+### `@Generable` 을 열거형에 붙인다는 것
+
+`@Generable` 은 **구조체만이 아니라 열거형에도** 붙습니다. 붙이면 모델은 **그 케이스 중 하나만** 고를 수 있게 됩니다.
+
+```swift
+@Generable
+enum CheckBasis {
+    /// 글자가 완전히 같다
+    case exactMatch
+    /// 소리는 같은데 글자가 다르다 — 「고죠선」
+    case phoneticMatch
+    /// 아예 다른 이름이다 — 「단군신화」
+    case differentName
+    /// 못 정하겠다
+    case undecided
+}
+```
+
+**「검사」가 아니라 「불가능하게 만들기」입니다.** 문자열로 받고 나서 값을 확인하는 것과 다릅니다. 제약 해독이 걸려 목록 밖의 값을 만드는 토큰이 애초에 후보에서 빠집니다.
+
+| | 문자열 + 지침 | 열거형 `@Generable` |
+|---|---|---|
+| 성격 | **부탁** | **문법** |
+| 목록 밖의 값 | 나올 수 있다 | 나올 수 없다 |
+| 받는 쪽 | `if` 로 비교, 오타는 `default` 로 샌다 | `switch` — 빠뜨린 케이스를 컴파일러가 잡는다 |
+
+**왜 이 앱에서 중요한가** — 지금까지 겪은 문제가 전부 「모델이 없는 값을 지어낸다」였습니다. 케이스 이름 자체(`differentName`)를 모델이 읽으므로 **지침이 짧아지는 덤**도 있습니다.
+
+**`undecided` 를 반드시 둡니다.** 「모른다」를 말할 자리가 없으면 모델은 아무거나 고릅니다. 환각이 난 자리는 전부 **빈칸을 채우라고 시킨 곳**이었습니다.
+
+**쓰는 자리** — 자유 문장과 고정 선택을 한 타입에서 나눕니다.
+
+```swift
+@Generable
+struct AnswerCheck {
+    let isCorrect: Bool
+    let reason: String      // 자유 — 로그에 남겨 사람이 읽는다
+    let basis: CheckBasis   // 고정 — 코드가 switch 로 분기한다
+}
+```
+
+**연관값도 됩니다** (iOS 26.0~). WWDC25 「Deep dive into the Foundation Models framework」의 예시입니다.
+
+```swift
+@Generable
+enum Encounter {
+    case orderCoffee(String)
+    case wantToTalkToManager(complaint: String)
+}
+```
+
+모델이 **케이스를 고르고 딸린 값까지 채웁니다.** 「무엇을 물었나 + 무엇에 대해」를 한 번에 받고 싶을 때 쓸 수 있습니다. 다만 케이스마다 스키마가 갈라져 **문맥 창을 더 씁니다.** 지금 이 앱에 필요한 것은 전부 연관값 없는 단순 케이스라 굳이 쓰지 않습니다.
+
+> **열거형이 안 맞는 자리** — 케이스는 **컴파일 때 정해져 있어야** 합니다. 정답 후보처럼 문제집에서 나오는 값은 `@Guide(.anyOf(catalog.answerPool))` 로 런타임에 목록을 줍니다. 제약 해독이 걸리는 것은 똑같고, 받는 타입만 `String` 입니다.
+
+**참고** — [Generable](https://developer.apple.com/documentation/foundationmodels/generable) · [Deep dive into the Foundation Models framework (WWDC25 301)](https://developer.apple.com/videos/play/wwdc2025/301/)
 
 ---
 

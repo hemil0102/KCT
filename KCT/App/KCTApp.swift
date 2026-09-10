@@ -14,7 +14,8 @@
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  앱 실행
-//    → QuestionCatalog.bundled() : questions.json 을 읽어 문제집 준비
+//    → QuestionCatalog.loaded()  : 받아 둔 것 먼저, 없으면 번들 questions.json
+//    → GlossaryCatalog.loaded()  : 낱말 사전도 같은 길로
 //    → modelContainer : QuestionProgress·QuestionFocusRecord·ObsRecord 를 저장할 곳 마련
 //    → RootView → QuizView 가 environment 에서 둘을 꺼내 회차를 시작
 //
@@ -38,15 +39,18 @@ struct KCTApp: App {
     /// 앱이 사용할 문제집.
     ///
     /// 지금은 번들 JSON 에서 읽습니다. 서버 문제집으로 바꿀 때는 ``QuestionCatalog/replace(with:)`` 를 안전한 시점에 부르면 됩니다.
-    @State private var catalog = QuestionCatalog.bundled()
+    @State private var questionCatalog = QuestionCatalog.loaded()
+    @State private var glossary = GlossaryCatalog.loaded()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 // 문제집을 환경에 실어 두면 화면마다 손으로 넘기지 않아도 된다.
-                .environment(catalog)
+                .environment(questionCatalog)
+                .environment(glossary)
         }
         // 디스크에 남길 타입들. 이 목록에 없으면 저장되지 않는다.
-        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self, ObsRecord.self])
+        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self,
+                              ObsRecord.self, ModelFailure.self])
     }
 }

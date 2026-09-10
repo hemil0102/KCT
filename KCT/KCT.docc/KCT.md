@@ -23,17 +23,18 @@
 
 | 무엇이 | 누가 |
 |---|---|
-| 문제를 읽어 온다 | ``BundledQuestionSource`` → ``QuestionCatalog`` |
+| 문제·낱말을 읽어 온다 | ``ContentFile`` → ``QuestionCatalog`` · ``GlossaryCatalog`` |
 | 이번 회차를 계획한다 | ``SessionBuilder`` |
 | 묻는 방식대로 재료를 만든다 | ``QuizItem`` |
 | 회차를 진행하고 결정한다 | ``QuizSession`` |
 | 화면에 그린다 | ``QuizView`` → ``QuestionScreen`` |
-| 정오답을 판정한다 | ``RuleGrader`` → 못 정하면 ``MeaningGrader`` |
+| 정오답을 판정한다 | ``RuleGrader`` → ``AnswerMatcher`` → ``AnswerChecker`` |
 | 사다리를 올리거나 내린다 | ``QuestionProgress`` |
+| 틀리면 해설을 쓴다 | ``CommentaryWriter`` |
 
 ### 의존성은 한 방향
 
-`Content` 는 아무것도 모르고, 색·조판·낭독은 도메인을 모르며, 화면만 전부를 압니다.
+`Data` 는 아무것도 모르고, 색·조판·낭독은 도메인을 모르며, 화면만 전부를 압니다.
 각 타입의 문서에 **"건드리지 않는 것"** 이 적혀 있습니다 — 무엇을 하는지보다
 무엇을 하지 않는지가 역할을 규정합니다.
 
@@ -53,10 +54,13 @@
 ### 문제 콘텐츠 — 변하지 않는 데이터
 
 - ``Question``
-- ``QuestionCatalog``
-- ``QuestionSource``
-- ``BundledQuestionSource``
 - ``QuestionPayload``
+- ``QuestionFact``
+- ``QuestionCatalog``
+- ``ContentFile``
+- ``GlossaryEntry``
+- ``GlossaryPayload``
+- ``GlossaryCatalog``
 
 ### 학습 진척 — 변하는 데이터
 
@@ -78,8 +82,19 @@
 ### 채점
 
 - ``RuleGrader``
-- ``MeaningGrader``
+- ``AnswerMatcher``
+- ``AnswerChecker``
+- ``AnswerCheck``
 - ``GradingResult``
+- ``CommentaryWriter``
+
+### 답을 보는 낱말들
+
+- ``AnswerShape``
+- ``AnswerKind``
+- ``AnswerSource``
+- ``MatchBasis``
+- ``CheckBasis``
 
 ### 묻는 대상 하이라이트
 

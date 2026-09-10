@@ -6,6 +6,132 @@
 
 ---
 
+## `init(from:)` 을 적었더니 `Question(id:...)` 가 사라졌다 — 그리고 `.category` 는 어디서 왔나
+
+**Q** — `init(from decoder: Decoder)` 라는 초기화가 낯설다. ① 구조체는 원래 프로퍼티를 바로 채워서 만드는데, 저걸 적으면 인스턴스는 어떻게 만드나? ② `decoder.container(keyedBy:)` 한 줄은 무슨 뜻인가? ③ `forKey: .category` 의 `.category` 는 선언한 적이 없는데 어떻게 쓸 수 있나?
+
+**A**
+
+### ① `init(from:)` 도 그냥 생성자다 — 그리고 멤버와이즈를 지운다
+
+특별한 문법이 아니라 **매개변수가 `Decoder` 하나인 보통 생성자**입니다. 하는 일도 같습니다 — 모든 저장 프로퍼티에 값을 하나씩 채웁니다. 값을 부르는 쪽에서 받느냐, `decoder` 에게 물어서 꺼내느냐만 다릅니다.
+
+```swift
+protocol Decodable {
+    init(from decoder: Decoder) throws   // 요구사항은 이것 하나뿐
+}
+```
+
+`JSONDecoder().decode(Question.self, from: data)` 는 결국 이 생성자를 부르는 것입니다. 지금까지는 Swift 가 자동으로 써 주고 있었고, 우리가 손으로 적어 덮어썼습니다.
+
+**여기서 함정** — 구조체는 **`struct` 본문 안에** 생성자를 하나라도 직접 적으면 **자동 멤버와이즈 생성자가 사라집니다.** `init(from:)` 도 본문 안이라 마찬가지입니다.
+
+```swift
+Question(id: 1, answer: "고조선")   // ❌ 컴파일 에러 — 그런 생성자 없음
+```
+
+**해결은 `extension`** 입니다. 확장 안의 생성자는 멤버와이즈를 지우지 않습니다.
+
+```swift
+extension Question {
+    init(id: Int, category: String, /* ... */ tags: [String] = [], facts: [QuestionFact] = []) {
+        self.id = id
+        // ...
+    }
+}
+```
+
+`Question` 은 지금 손으로 만드는 곳이 없어(전부 JSON) 안 적어도 됩니다. **미리보기나 테스트에서 가짜 문항이 필요해지는 순간 걸립니다.** 그때 위처럼 확장에 넣습니다.
+
+> `QuestionFact` · `GlossaryEntry` 는 손으로 만들 일이 있어 `init(kind:weight:text:)` 를 본문에 같이 적어 두었습니다.
+
+### ② `container(keyedBy:)` — decoder 는 아직 모양이 없다
+
+JSON 은 세 가지 모양 중 하나입니다.
+
+```
+{ "id": 1 }              열쇠가 있는 상자   → decoder.container(keyedBy:)
+[ "고구려", "백제" ]      순서만 있는 상자   → decoder.unkeyedContainer()
+"고조선"                  값 하나           → decoder.singleValueContainer()
+```
+
+그 한 줄은 **「이건 열쇠 있는 상자로 열어라, 열쇠 목록은 `CodingKeys` 다」** 라는 뜻입니다. 돌려받은 `box` 는 그 열쇠로만 열 수 있는 상자입니다. `try` 가 붙는 이유 — JSON 이 배열이었으면 열쇠 상자로 못 열어 여기서 던집니다.
+
+### ③ `.category` 는 Swift 가 만들어 준 열거형이다
+
+`Codable` 을 채택하는 순간 컴파일러가 **저장 프로퍼티 이름 그대로** 이것을 몰래 써넣습니다.
+
+```swift
+enum CodingKeys: String, CodingKey {
+    case id, category, unit, question, answer, statementFormat, kind, difficulty, tags, facts
+}
+```
+
+`forKey:` 의 타입이 `CodingKeys` 라 점만 찍으면 되고(타입 추론), `rawValue` 인 `"category"` 가 JSON 의 키가 됩니다.
+
+**이 방식의 값어치는 오타가 컴파일에서 잡힌다는 것입니다.** `forKey: .tag` 라고 쓰면 그 자리에서 에러가 납니다. 문자열 `"category"` 를 직접 썼다면 런타임까지 살아남습니다.
+
+`CodingKeys` 를 **손으로 적는 유일한 이유**는 JSON 키와 Swift 이름이 다를 때입니다.
+
+```swift
+case statementFormat = "statement_format"
+```
+
+우리 JSON 은 camelCase 라 손댈 이유가 없어, 자동 생성된 것을 그대로 쓰고 있습니다.
+
+**교훈 셋**
+
+- **`init(from:)` 이든 `encode(to:)` 든, 본문에 하나 적으면 자동으로 받던 것이 같이 멈춥니다.** 멤버와이즈 생성자가 그렇고, 예전 ``ObsUploader`` 때는 `CodingKeys` 자동 생성이 그랬습니다. **손으로 한 곳을 적으면 그 옆에 무엇이 사라졌는지 확인합니다**
+- **자동 생성을 덮어쓰는 코드는 확장으로 뺄 수 있으면 뺍니다.** 본문은 「무엇을 담는가」, 확장은 「어떻게 만들고 읽는가」로 나뉘면 사라지는 것도 줄어듭니다
+- **JSON 키를 문자열로 쓰지 않습니다.** `CodingKeys` 를 거치면 오타가 컴파일에서 걸리고, 키 이름을 바꿀 때 고칠 곳이 한 군데입니다
+
+**참고 문서** — [Encoding and Decoding Custom Types](https://developer.apple.com/documentation/foundation/archives-and-serialization/encoding-and-decoding-custom-types) · [KeyedDecodingContainer](https://developer.apple.com/documentation/swift/keyeddecodingcontainer)
+
+---
+
+## `= []` 기본값을 적었는데 「기본 문제집을 읽지 못했습니다」로 앱이 안 켜진다
+
+**Q** — `Question` 에 `var tags: [String] = []` 와 `var facts: [QuestionFact] = []` 를 더했다. 기본값을 적었으니 `questions.json` 에 그 칸이 없어도 될 줄 알았는데, 앱을 실행하면 `QuestionCatalog.loaded()` 의 `assertionFailure("기본 문제집을 읽지 못했습니다: ...")` 에서 멈춘다.
+
+**A** — 파일을 못 찾은 것이 아니라 **해독(decode)에서 던졌습니다.**
+
+**Swift 가 자동으로 만들어 주는 `Codable` 은 프로퍼티의 기본값을 쓰지 않습니다.** 자동 생성되는 해독 코드는 이렇게 생겼습니다.
+
+```swift
+self.tags = try container.decode([String].self, forKey: .tags)   // 없으면 throw
+```
+
+`decodeIfPresent` 가 아니라 `decode` 입니다. 그래서 **키가 없으면 `keyNotFound` 를 던집니다.** `= []` 는 `Question(id:...)` 처럼 **손으로 만들 때만** 쓰이는 값입니다.
+
+`questions.json` 의 25문항에는 `tags` 도 `facts` 도 없으니 1번 문항에서 바로 멈췄습니다.
+
+**같은 함정이 두 군데 더 있었다** — `QuestionFact.weight` (`= 1`), `GlossaryEntry.examples` (`= []`). 사전 쪽은 `assertionFailure` 가 없어 **소리 없이 빈 사전**이 됩니다. `glossary.json` 의 「시조·도읍·건국이념·신화」 네 낱말에 `examples` 가 없어 이미 그 상태였습니다.
+
+**해결** — JSON 25문항에 빈 칸을 다 적는 길도 있었지만, 6차의 전제가 「서버가 문항을 늘린다」인데 **서버가 보낸 옛 파일에 새 칸이 없다고 앱이 안 켜지면** 그 전제가 무너집니다. 해독기를 손으로 적었습니다.
+
+```swift
+    init(from decoder: Decoder) throws {
+        let box = try decoder.container(keyedBy: CodingKeys.self)
+        // ... 원래 있던 칸은 decode
+        tags  = try box.decodeIfPresent([String].self,       forKey: .tags)  ?? []
+        facts = try box.decodeIfPresent([QuestionFact].self, forKey: .facts) ?? []
+    }
+```
+
+`init(from:)` 을 손으로 쓰면 **Swift 가 더 이상 자동으로 만들어 주지 않습니다.** `encode(to:)` 를 손으로 썼을 때 `CodingKeys` 를 같이 적어야 했던 것과 같은 이유입니다.
+
+**AI 가 틀렸던 것** — 6차 계획 1단계에 「`tags`·`facts` 는 **기본값이 필요하다**. 없으면 해독이 깨진다」고 적어 두었습니다. **정확히 반대**입니다. 기본값은 해독을 구해 주지 않고, 필요한 것은 `decodeIfPresent` 입니다. 계획에 적힌 근거는 코드로 확인되기 전까지 가설입니다.
+
+**교훈 셋**
+
+- **`Codable` 구조체에 칸을 더할 때 `= 기본값` 만으로 끝내지 않습니다.** 파일에 그 칸이 없을 수 있으면 `decodeIfPresent` 를 쓰는 해독기가 같이 있어야 합니다
+- **인코딩과 디코딩이 대칭이 아닙니다.** 내보낼 때 `Optional` 은 **키가 사라지고**(`encodeIfPresent`), 읽을 때 기본값은 **쓰이지 않습니다**(`decode`). 둘 다 Swift 의 좋은 기본값이지만, 둘 다 **파일이 우리 것이 아닐 때** 어긋납니다
+- **`assertionFailure` 가 있는 쪽은 즉시 알려 주고, 없는 쪽은 조용히 비어 갑니다.** 사전이 빈 것을 이번에 문제집 덕분에 같이 찾았습니다. **읽는 길이 하나면 함정도 하나뿐이지만, 실패 신호는 길마다 따로 필요합니다**
+
+**참고 문서** — [Encoding and Decoding Custom Types](https://developer.apple.com/documentation/foundation/archives-and-serialization/encoding-and-decoding-custom-types)
+
+---
+
 ## 알림창의 「다음 문제」를 한 번 눌렀는데 두 문제가 넘어간다
 
 **Q** — 틀리면 뜨는 `alert` 에서 「다음 문제」를 누르면 진행 막대가 **두 칸** 찬다. 한 번만 눌렀는데.

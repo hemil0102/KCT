@@ -13,6 +13,8 @@
 //  │                           └ 값이 들어오면 안내를 스스로 거둔다 (setter 안에서)
 //  ├─ results                  채점 결과 (문제 id → 결과)
 //  ├─ isGrading                채점 중인가
+//  ├─ encouragements           이번 회차의 응원 문구 (뒤에서 만들어 둔다)
+//  ├─ isWrappingUp             회차를 마무리하는 3초인가
 //  ├─ needsAnswerHint          "답을 고르세요" 안내를 띄울까
 //  ├─ sessionID                이번 회차를 묶는 번호 (관찰 기록용)
 //  ├─ shownAt / firstTouchAt   지금 문제가 뜬 시각 / 처음 답에 손댄 시각
@@ -21,7 +23,7 @@
 //  ├─ start()                  회차 구성 — 진척 확보 → 출제 계획 → 초기화 → 캐시 워밍
 //  ├─ submitCurrent()          답 기록 → 다음 문제. 마지막이면 채점 시작
 //  ├─ eraseAllProgress()       학습 기록 전체 삭제 후 새 회차
-//  ├─ gradeAll()               제출된 답을 모두 채점하고 진척에 반영
+//  ├─ gradeCurrent()           한 문제를 채점하고 진척에 반영
 //  ├─ judge()                  규칙으로 먼저, 안 되면 의미로 — 한 문제의 정오답 판정
 //  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
 //  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
@@ -39,8 +41,8 @@
 //        → FocusStore 로 백그라운드 캐시 워밍 (기다리지 않는다)
 //    → 사용자가 답 선택 → userAnswer 에 저장 (안내 자동 해제)
 //    → submitCurrent() → 답 기록 → currentIndex += 1
-//    → 마지막 문제였다면 gradeAll()
-//        → judge() : RuleGrader 로 즉시 판정, nil 이면 MeaningGrader(모델)
+//    → gradeCurrent() : 문제마다 그 자리에서 채점
+//        → judge() : ① RuleGrader(선다·O/X) ② AnswerMatcher(코드) ③ AnswerChecker(모델)
 //        → QuestionProgress.countAttempt() 로 모든 문항을 센다 (격려용 포함)
 //        → 격려용 슬롯이면 nudgeLadder() 로 2지선다 → O/X 한 칸만
 //        → 아니면 moveLadder() 로 사다리를 올리거나 내린다
@@ -51,7 +53,7 @@
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizView 와 그 아래 화면들 (QuestionScreen · ResultScreen)
 //  기대는 것    : QuestionCatalog(문제), SessionBuilder(출제 계획),
-//                RuleGrader·MeaningGrader(채점), QuestionProgress(진척), FocusStore(하이라이트)
+//                RuleGrader·AnswerMatcher·AnswerChecker(채점), QuestionProgress(진척), FocusStore(하이라이트)
 //  건드리지 않는 것 : 낭독과 화면 그리기 — 소리는 QuizView 가, 모양은 각 Screen 이 맡는다
 //
 
@@ -78,8 +80,15 @@ final class QuizSession {
     private let modelContext: ModelContext
 
     /// 뜻으로 채점하는 쪽. 직접입력에만 쓴다. (선다·O/X 는 ``RuleGrader`` 가 즉시 처리)
-    private let meaningGrader = MeaningGrader()
+    private let answerChecker = AnswerChecker()
     private let commentaryWriter = CommentaryWriter()
+    private let encouragementWriter = EncouragementWriter()
+
+    /// 이번 회차에 쓸 응원 문구. 회차를 시작할 때 뒤에서 만들어 채운다.
+    ///
+    /// 비어 있으면 ``EncouragementWriter/fallback`` 에서 뽑습니다 —
+    /// 아직 안 만들어졌거나 모델이 실패한 경우입니다. **어느 쪽이든 화면은 기다리지 않습니다.**
+    private var encouragements: [String] = []
 
     /// 한 회차에 낼 문제 수.
     let size: Int
@@ -97,6 +106,9 @@ final class QuizSession {
 
     /// 채점이 진행 중인지.
     private(set) var isGrading = false
+
+    /// 회차를 마무리하는 한 박자. 결과 화면 앞에서 3초 동안 켜진다.
+    private(set) var isWrappingUp = false
 
     /// "답을 고르면 다음으로 갈 수 있어요" 안내를 띄울지.
     private(set) var needsAnswerHint = false
@@ -152,12 +164,44 @@ final class QuizSession {
     struct IncorrectCommentary {
         /// 해설이 아직 안왔을 때 창에 넣어두는 문구.
         static let placeholder = "잠시만 같이 살펴봐요."
+
+        /// 해설을 끝내 못 만들었을 때의 문구.
+        ///
+        /// 기다리라는 말을 계속 두면 **오지 않는 것을 기다리게** 됩니다.
+        /// 어르신에게 「모델 오류」는 아무 뜻이 없으므로 **다음에 할 일**을 알려 줍니다.
+        static let failed = "다음 문제로 이동해주세요."
+
+        /// **고른 답 설명**이 없을 때의 문구.
+        ///
+        /// 두 경우에 나옵니다 — ① 만들다 실패했을 때 ② 「고죠선」 같은 오타라
+        /// 어느 문항의 정답도 아니어서 **설명할 재료가 아예 없을 때.**
+        ///
+        /// 줄을 비워 두면 창이 갑자기 짧아져 「뭔가 사라졌나」 싶어집니다.
+        /// 자리를 지키면서 **다음에 할 일**로 이어 줍니다.
+        static let noteFailed = "정답을 살펴볼까요?"
         
         let selectedAnswer: String
+
+        /// 고른 답이 무엇인지 알려 주는 한 문장. 아직 안 왔거나 재료가 없으면 `nil`.
+        let selectedNote: String?
+
+        /// 기다리는 동안 보여줄 응원 한 줄. 창이 만들어질 때 정해진다.
+        let waitingLine: String
+
+        /// 고른 답 설명이 **올 예정인가.**
+        ///
+        /// `selectedNote` 가 `nil` 인 이유가 둘이라 깃발이 따로 필요합니다 —
+        /// 「아직 안 왔다」와 「어느 문항의 정답도 아니라 설명할 재료가 없다」.
+        /// 앞이면 자리를 비워 두고 기다리게 하고, 뒤면 그 줄을 아예 안 그립니다.
+        let expectsNote: Bool
+
         let correctAnswer: String
         let commentary: String
         
-        /// 해설이 도착했는가.
+        /// 기다림이 끝났는가. **성공이든 실패든 더 기다릴 것이 없으면 참**입니다.
+        ///
+        /// 화면은 이 값으로 맥동을 멈춥니다. 「도착했나」가 아니라 「더 기다릴 것이 있나」로
+        /// 두는 이유 — 실패했을 때도 반짝임은 멈춰야 합니다.
         var isReady: Bool { commentary != Self.placeholder }
     }
 
@@ -250,9 +294,18 @@ final class QuizSession {
         )
 
         clearAnswers()
+        isWrappingUp = false
 
         // 어머니가 문제를 푸는 동안, 아직 분석하지 않은 문제를 뒤에서 채워 둔다.
         warmFocusCache()
+        
+        // 첫 직접입력이 나오기 전에 모델을 깨워 둔다.
+        answerChecker.prepare()
+
+        // 어머니가 첫 문제를 읽는 동안 이번 회차의 응원 문구를 만들어 둔다.
+        // 늦게 와도 상관없다 — 그 전에 틀리면 앱에 박힌 것을 쓴다.
+        encouragements = []
+        Task { encouragements = await encouragementWriter.write() }
 
         // 지난번에 못 올린 기록이 있으면 여기서 따라잡는다.
         uploadObservations()
@@ -304,7 +357,55 @@ final class QuizSession {
 
         shownAt = .now
         firstTouchAt = nil
-        if isFinished { uploadObservations() }
+
+        if isFinished {
+            uploadObservations()
+            wrapUp()
+        }
+    }
+
+    /// 모델이 실패한 기록을 저장소에 넣는다. 서버로는 ``ObsUploader`` 가 나중에 보낸다.
+    private func saveFailures(_ drafts: [ModelFailureDraft?]) {
+        for draft in drafts.compactMap({ $0 }) {
+            modelContext.insert(ModelFailure(draft: draft))
+        }
+    }
+
+    /// 응원 문구를 읽을 시간을 준다. 창이 뜬 지 ``waitingLineHold`` 가 안 됐으면 그만큼 쉰다.
+    ///
+    /// 선다·O/X 는 해설이 1초 안에 오기도 해서, 그대로 두면 **글자가 나타났다 사라집니다.**
+    /// 기다림을 없애는 것이 늘 좋은 것은 아닙니다 — 읽을 시간은 남겨 둡니다.
+    private func holdWaitingLine(shownAt: ContinuousClock.Instant) async {
+        let elapsed = ContinuousClock.now - shownAt
+        guard elapsed < Self.waitingLineHold else { return }
+
+        try? await Task.sleep(for: Self.waitingLineHold - elapsed)
+    }
+
+    /// 응원 문구를 적어도 이만큼은 보여 준다.
+    private static let waitingLineHold: Duration = .seconds(3)
+
+    /// 응원 문구를 하나 꺼낸다. 다 썼거나 아직 없으면 앱에 박힌 것에서 뽑는다.
+    ///
+    /// 꺼낸 것은 **목록에서 뺍니다.** 한 회차 안에서 같은 말이 두 번 나오지 않게 하려는 것입니다.
+    private func nextEncouragement() -> String {
+        encouragements.popLast()
+            ?? EncouragementWriter.fallback.randomElement()
+            ?? ""
+    }
+
+    /// 마지막 문제를 넘긴 뒤 3초 동안 「채점 중이에요」를 보여준다.
+    ///
+    /// 채점 자체는 문항마다 이미 끝나 있습니다. 그래도 한 박자를 두는 이유는,
+    /// 마지막 답을 누른 손이 결과 화면의 버튼을 잘못 누르는 것을 막고
+    /// **회차가 끝났다는 것을 몸으로 알리기** 위해서입니다.
+    private func wrapUp() {
+        isWrappingUp = true
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            isWrappingUp = false
+        }
     }
     
     func dismissFeedback() {
@@ -335,18 +436,57 @@ final class QuizSession {
             saveObsRecord(for: item, isCorrect: isCorrect, explanation: nil)
             moveToNextQuestion()
         } else {
+            // 실제로 판단한 낱말이 다른 문항의 정답이면 그 문항의 재료로 설명한다.
+            // O/X 는 고른 답이 「맞아요」라 진술문 안의 낱말을 대신 본다.
+            //
+            // 창을 띄우기 **전에** 찾아 둔다. 설명이 올 자리인지 알아야
+            // 기다리는 표시를 띄울지 말지 정할 수 있다.
+            let chosenQuestion = catalog.question(answering: item.judgedTerm(for: answer))
+
+            // 창이 뜰 때 한 번 정한다. 뒤에 다시 만들 때도 같은 줄을 쓴다.
+            let waitingLine = nextEncouragement()
+            let shownAt = ContinuousClock.now
+
             feedback = IncorrectCommentary(
                 selectedAnswer: answer,
-                correctAnswer: item.question.answer,
+                // 설명할 재료가 아예 없으면 기다릴 것도 없다. 바로 다음 걸음을 알려 준다.
+                selectedNote: chosenQuestion == nil ? IncorrectCommentary.noteFailed : nil,
+                waitingLine: waitingLine,
+                expectsNote: chosenQuestion != nil,
+                correctAnswer: item.question.displayAnswer,
                 commentary: IncorrectCommentary.placeholder)
-            
-            let text = await commentaryWriter.write(for: item)
-            
-            if let text, feedback != nil {
+
+            // 둘을 나란히 부른다. 하나씩 기다리면 대기가 두 배가 된다.
+            async let commentary = commentaryWriter.write(for: item)
+            async let note = commentaryWriter.describe(chosenQuestion)
+
+            let written = await commentary
+            let noted = await note
+
+            let text = written.text
+            let noteText = noted.text
+
+            // 무엇을 시켰길래 실패했는지 남긴다. 안 남기면 다시 만들어 볼 수가 없다.
+            saveFailures([written.failure, noted.failure])
+
+            // 글이 너무 빨리 오면 응원 문구를 읽기도 전에 사라진다. 세 박자는 두고 바꾼다.
+            await holdWaitingLine(shownAt: shownAt)
+
+            // 실패해도 반드시 갱신한다. 안 그러면 「잠시만 같이 살펴봐요」가
+            // 오지 않는 것을 계속 기다리며 반짝인다.
+            if feedback != nil {
+                // 설명을 기다리던 자리였다면, 못 만들었어도 그 자리를 문구로 채운다.
+                let note = noteText
+                    ?? (chosenQuestion != nil ? IncorrectCommentary.noteFailed : nil)
+
                 feedback = IncorrectCommentary(
                     selectedAnswer: answer,
-                    correctAnswer: item.question.answer,
-                    commentary: text)
+                    selectedNote: note,
+                    waitingLine: waitingLine,
+                    // 더 기다릴 것이 없다. 맥동을 멈춘다.
+                    expectsNote: false,
+                    correctAnswer: item.question.displayAnswer,
+                    commentary: text ?? IncorrectCommentary.failed)
             }
             
             saveObsRecord(for: item, isCorrect: isCorrect, explanation: text)
@@ -371,21 +511,48 @@ final class QuizSession {
     /// 한 문제를 판정한다. **규칙으로 먼저, 안 되면 뜻으로.**
     ///
     /// 선다·O/X 는 정답이 명확하므로 모델을 부르지 않는다 — 빠르고, 기기에
-    /// 모델이 없어도 동작한다. 직접입력만 ``MeaningGrader`` 에 넘긴다.
+    /// 모델이 없어도 동작한다. 직접입력만 ``AnswerMatcher`` 를 거쳐 ``AnswerChecker`` 로 간다.
     private func judge(_ item: QuizItem, answer: String) async -> Bool {
+        // ① 선다·O/X 는 정답이 명확하다
         if let byRule = RuleGrader.grade(item, userAnswer: answer) {
-            results[item.id] = GradingResult(isCorrect: byRule, reason: "")
+            results[item.id] = GradingResult(isCorrect: byRule, reason: "", basis: nil)
             return byRule
         }
 
+        // ② 코드로 가릴 수 있는 것은 여기서 끝낸다
+        switch AnswerMatcher.check(
+            answer,
+            against: item.question.answer,
+            shape: item.question.shape,
+            from: .typed) {
+        case .correct(let basis):
+            results[item.id] = GradingResult(isCorrect: true, reason: "", basis: basis.rawValue)
+            return true
+        case .wrong(let basis):
+            results[item.id] = GradingResult(isCorrect: false, reason: "오타 입력", basis: basis.rawValue)
+            return false
+
+        case .needsModel:
+            break
+        }
+
+        // ③ 애매한 것만 모델에게 넘긴다
         do {
-            let result = try await meaningGrader.grade(question: item.question, userAnswer: answer)
-            results[item.id] = result
-            return result.isCorrect
+            let check = try await answerChecker.check(
+                            answer: answer,
+                            correctAnswer: item.question.answer,
+                            shape: item.question.shape)
+
+            results[item.id] = GradingResult(
+                isCorrect: check.isCorrect,
+                reason: check.reason,
+                basis: String(describing: check.basis))
+
+            return check.isCorrect
         } catch {
-            // 채점 실패는 조용히 오답 처리한다.
-            // 어르신에게 "모델 오류" 는 아무 의미가 없고, 부정적 표현은 화면에 내지 않는다.
-            results[item.id] = GradingResult(isCorrect: false, reason: "")
+            // 시한이 지난 것과 실패한 것을 같게 다룬다. 화면에는 조용히 오답.
+            print("❌ 채점 실패:", error)
+            results[item.id] = GradingResult(isCorrect: false, reason: "", basis: nil)
             return false
         }
     }
@@ -447,7 +614,9 @@ final class QuizSession {
                 affectsProgress: item.affectsProgress,
                 chosen: submittedAnswers[item.id],
                 reason: reasonForLog(item.id),
-                explanation: explanation
+                explanation: explanation,
+                basis: results[item.id]?.basis,
+                explanationSource: explanation == nil ? nil : "device"
             )
         )
     }
@@ -457,7 +626,11 @@ final class QuizSession {
     /// **기다리지 않습니다.** 네트워크가 느려도 화면은 그대로 돌아갑니다 —
     /// 어머니는 업로드가 있는 줄도 모르는 채로 다음 문제를 봅니다.
     private func uploadObservations() {
-            Task { await ObsUploader(modelContext: modelContext).uploadPending() }
+            Task {
+                let uploader = ObsUploader(modelContext: modelContext)
+                await uploader.uploadPending()
+                await uploader.uploadPendingFailures()
+            }
         }
 
     // MARK: - 뒷정리
