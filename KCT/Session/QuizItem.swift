@@ -106,7 +106,7 @@ struct QuizItem: Identifiable {
         switch payload {
         case .choices:   "답을 골라보세요"
         case .trueFalse: "이 말이 맞을까요?"
-        case .freeText:  "답을 입력하세요"
+        case .freeText:  "답을 키보드로 입력하세요"
         }
     }
     /// 어머니가 **실제로 판단한 낱말.** 오답일 때 「그것이 무엇인지」를 설명하는 데 쓴다.

@@ -216,13 +216,17 @@ struct SessionBuilder {
                 : (progressByID[question.id]?.mode ?? .binaryChoice)
 
             return QuizItem.make(
-                question,
-                mode: mode,
-                // 같은 계열을 뺀 보기만 쓴다 — 근접 오답을 우연에 맡기지 않는다.
-                answerPool: catalog.answerPool(excludingCategory: question.category),
-                affectsProgress: !isBookend,
-                focus: focusByID[question.id]
-            )
+            question,
+            mode: mode,
+            // 격려용(회차 첫·마지막)은 쉬운 풀, 나머지는 같은 kind로 최대한 채운다.
+            // 2지선다는 오답 1개, 4지선다는 3개가 필요하다 — 모자란 자리만 다른 데서 채운다.
+            answerPool: isBookend
+                ? catalog.answerPool(excludingCategory: question.category)
+                : catalog.answerPool(preferringKindOf: question, count: mode == .multipleChoice ? 3 : 1),
+            affectsProgress: !isBookend,
+            focus: focusByID[question.id]
+        )
+
         }
     }
 

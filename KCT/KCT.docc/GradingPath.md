@@ -54,6 +54,10 @@ if let byRule = RuleGrader.grade(item, userAnswer: answer) {
 집합으로 견주므로 **순서는 저절로 무시됩니다.** 「신라 백제 고구려」는 정답이고,
 「신라 백**재** 고구려」는 한 항목이 달라 오답입니다.
 
+구분 기호(쉼표·빗금·공백) 없이 **붙여 써도 정답입니다.** 「고구려백제신라」는 항목들을
+어떤 순서로 이어 붙여도 답과 같아지는지 한 번 더 확인해 정답으로 잡습니다
+(``AnswerMatcher/check(_:against:shape:from:)`` 안의 `matchesConcatenated`).
+
 > Note: ``AnswerShape`` 는 답의 **모양**이고 ``AnswerKind`` 는 **주제**입니다. 축이 둘인
 > 이유는 「고구려, 백제, 신라」가 목록이면서 동시에 ``AnswerKind/place`` 이기 때문입니다.
 > 채점은 모양을 보고, 해설은 주제를 봅니다.

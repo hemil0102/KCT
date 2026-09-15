@@ -11,6 +11,7 @@
 //  ├─ questions                문제 목록
 //  ├─ answerPool               오답 보기용 정답 모음 (문제집이 바뀔 때만 다시 계산)
 //  ├─ answerPool(excluding:)   같은 계열을 뺀 정답 모음 — 근접 오답을 없앤다
+//  ├─ answerPool(preferringKindOf:)   같은 종류를 최대한 채우고 모자란 만큼만 다른 데서 채운 정답 모음
 //  ├─ loaded()                 받아 둔 것 먼저, 없으면 번들
 //  ├─ replace(with:)           문제집 통째 교체 — 안전한 시점에만
 //  ├─ question(id:)            id 로 한 개 찾기
@@ -120,5 +121,31 @@ final class QuestionCatalog {
     func answerPool(excludingCategory category: String, atLeast minimum: Int = 3) -> [String] {
         let narrowed = Set(questions.filter { $0.category != category }.map(\.displayAnswer))
         return narrowed.count >= minimum ? Array(narrowed) : answerPool
+    }
+    
+    /// 같은 종류(``Question/kind``)를 최대한 채우고, 모자란 자리만 다른 데서 채운 정답 모음.
+    ///
+    /// 지금 문제집은 종류별 문항 수가 적어서(인물은 6문항인데 답은 3개뿐) 필요한 오답
+    /// 개수를 그 종류 안에서 다 못 채울 때가 있습니다. 그때 전체 모음으로 통째 돌아가면
+    /// 「안익태」의 오답으로 「삼일절」 같은 게 나와 오히려 더 쉬워집니다. 그래서
+    /// **있는 만큼은 같은 종류를 쓰고, 모자란 자리만** 무작위로 채웁니다.
+    ///
+    /// - Parameter count: 이번 문제에 실제로 필요한 오답 개수. 2지선다는 1, 4지선다는 3
+    ///   — 필요한 만큼만 요구해야 "인물이 2명뿐이라 아쉽지만 못 쓴다"는 일이 안 생깁니다.
+    func answerPool(preferringKindOf question: Question, count: Int) -> [String] {
+        let sameKind = Array(Set(
+            questions
+                .filter { $0.kind == question.kind && $0.displayAnswer != question.displayAnswer }
+                .map(\.displayAnswer)
+        ))
+        guard sameKind.count < count else { return sameKind }
+
+        // 모자란 자리만 다른 종류에서 무작위로 채운다.
+        let filler = answerPool
+            .filter { $0 != question.displayAnswer && !sameKind.contains($0) }
+            .shuffled()
+            .prefix(count - sameKind.count)
+
+        return sameKind + filler
     }
 }

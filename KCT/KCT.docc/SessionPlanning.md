@@ -67,8 +67,12 @@
 - **첫·마지막 문제 → 항상 ``AskingMode/binaryChoice``**, 그리고
   ``QuizItem/affectsProgress`` 는 `false`
 
-오답 보기는 ``QuestionCatalog/answerPool(excludingCategory:atLeast:)`` 에서 뽑습니다 —
-**같은 계열을 뺀** 모음입니다.
+**격려용(회차 첫·마지막)** 문제는 ``QuestionCatalog/answerPool(excludingCategory:atLeast:)`` 에서
+뽑습니다 — **같은 계열을 뺀** 모음이라 쉽습니다. **나머지 문제**는
+``QuestionCatalog/answerPool(preferringKindOf:count:)`` 에서 뽑습니다 —
+**같은 종류(``Question/kind``)를 최대한 쓰고, 모자란 자리만 다른 데서 채운** 모음이라
+더 헷갈립니다. 종류별 문항이 아주 적으면(예: 인물 3명) 모자란 자리 몇 개는 여전히
+다른 종류에서 채워집니다.
 
 전체 모음에서 무작위로 뽑던 시기가 있었습니다. 그러면 정답이 "단군왕검" 인 문항의
 난이도가 **매 회차 달라집니다** — 보기로 "태극기" 가 뽑히면 3초에 지워지고,

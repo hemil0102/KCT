@@ -12,6 +12,7 @@
 //  ├─ candidates(_:)     "/" 로 나눈 표기들 — 아무거나 맞다
 //  ├─ items(_:)          목록을 집합으로 — 순서를 안 따진다
 //  ├─ tidy(_:)           글자와 숫자만 남긴다
+//  ├─ matchesConcatenated(_:expected:)   구분 기호 없이 붙여 쓴 답 확인
 //  └─ sounds(_:)         발음 맞추기 (음성 입력에서 채운다)
 //
 //  ── 연결 ──────────────────────────────────────────────
@@ -51,16 +52,21 @@ struct AnswerMatcher {
 
         case .closedList:
             // 다 대야 한다. 집합이라 순서는 저절로 무시된다.
-            return items(answer) == items(correctAnswer)
+            let expected = items(correctAnswer)
+            if items(answer) == expected { return .correct(.exactMatch) }
+            // 공백 없이 붙여 썼을 수도 있다 — 항목들을 이어 붙여도 답과 같아지는지 본다.
+            return matchesConcatenated(answer, expected: expected)
                 ? .correct(.exactMatch)
                 : .wrong(.listMismatch)
 
         case .openList:
             // "등" 으로 끝나는 목록. 보기 중 셋 이상만 대면 된다.
-            return items(answer).intersection(items(correctAnswer)).count >= 3
+            let expected = items(correctAnswer)
+            if items(answer).intersection(expected).count >= 3 { return .correct(.exactMatch) }
+            return matchesConcatenated(answer, expected: expected)
                 ? .correct(.exactMatch)
                 : .wrong(.listMismatch)
-
+            
         case .word:
             break
         }
@@ -115,6 +121,30 @@ struct AnswerMatcher {
     ///   문장부호가 아니라 **기호**로 봅니다. 문제집 정답 1,155개에 19군데 있습니다.
     private static func tidy(_ text: String) -> String {
         String(text.filter { $0.isLetter || $0.isNumber })
+    }
+    
+    /// 구분 기호 없이 이어 쓴 답이 정답 항목을 다 담고 있는지 본다.
+    ///
+    /// 「고구려백제신라」처럼 공백도 쉼표도 없이 붙여 쓰면 ``items(_:)`` 는
+    /// 이걸 통째로 한 항목으로 봅니다. 여기서는 정답 항목들을 어떤 순서로
+    /// 이어 붙였을 때 답과 완전히 같아지는지를 대신 확인합니다.
+    private static func matchesConcatenated(_ answer: String, expected: Set<String>) -> Bool {
+        let given = tidy(answer)
+        guard !given.isEmpty, !expected.isEmpty else { return false }
+        return permutations(Array(expected)).contains { $0.joined() == given }
+    }
+
+    /// 작은 목록의 모든 순서(순열)를 만든다. `matchesConcatenated` 전용.
+    ///
+    /// 순열이란 몇 개 안 되는 항목을 늘어놓을 수 있는 **모든 순서**입니다.
+    /// "고구려·백제·신라" 세 개면 순서는 6가지(3×2×1)뿐이라 다 만들어 봐도 느리지 않습니다.
+    private static func permutations(_ items: [String]) -> [[String]] {
+        guard items.count > 1 else { return [items] }
+        return items.indices.flatMap { i -> [[String]] in
+            var rest = items
+            let item = rest.remove(at: i)
+            return permutations(rest).map { [item] + $0 }
+        }
     }
 
     /// 발음이 같은 글자를 한 모양으로 모은다.

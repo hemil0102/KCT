@@ -154,7 +154,7 @@ struct QuestionScreen: View {
         ZStack {
             // 기본 placeholder 가 연회색이라 흐려서, 진한 커스텀 placeholder 를 얹는다.
             if session.userAnswer.isEmpty {
-                Text("답을 입력하세요")
+                Text("터치하여 입력")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(AppColor.textMuted)
             }
