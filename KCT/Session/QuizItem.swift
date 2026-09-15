@@ -109,6 +109,12 @@ struct QuizItem: Identifiable {
         case .freeText:  "답을 키보드로 입력하세요"
         }
     }
+    
+    /// 지문에 점선 밑줄을 입힐 낱말들. `KoreanText`가 받는 모양으로 미리 바꿔 둔다.
+    var glossary: [GlossaryEntry] {
+        question.glossary
+    }
+    
     /// 어머니가 **실제로 판단한 낱말.** 오답일 때 「그것이 무엇인지」를 설명하는 데 쓴다.
     ///
     /// O/X 는 고른 답이 「맞아요」·「아니에요」라 그 자체로는 설명할 것이 없습니다.

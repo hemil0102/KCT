@@ -96,6 +96,8 @@ struct FeedbackSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 28)
         .padding(.bottom, 24)
+        // 가독성 때문에 안은 다시 흰 배경으로 고정한다. 겉 테두리는 .presentationBackground 를
+        // 안 쓰므로 iOS 26에서 여전히 Liquid Glass 로 보인다.
         .background(Color.white)
         .presentationDetents([.fraction(0.75)])
         .presentationDragIndicator(.hidden)
@@ -203,6 +205,7 @@ struct FeedbackSheet: View {
 #Preview("정답 보기 전") {
     FeedbackSheet(
         feedback: .init(
+            id: 11,
             selectedAnswer: "개천절",
             selectedNote: "개천절은 고조선이 세워진 것을 기리는 국경일이에요.",
             waitingLine: "괜찮아요. 저와 함께 오답을 알아봐요. 😆",
@@ -215,6 +218,7 @@ struct FeedbackSheet: View {
 #Preview("설명이 없을 때") {
     FeedbackSheet(
         feedback: .init(
+            id: 4,
             selectedAnswer: "고죠선",
             selectedNote: nil,
             waitingLine: "천천히 보면 돼요. 같이 살펴볼게요. 🍀",

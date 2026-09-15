@@ -38,7 +38,7 @@ Xcode 에서 각 심볼을 `⌘+클릭` 해서 따라가 보세요.
 
 | 단계 | 어디서 | 무엇이 일어나나 |
 |---|---|---|
-| 1 | `Content/questions.json` | 문제 데이터. 지문·정답·단원·난이도·O/X 진술문 틀 |
+| 1 | `Content/questions.json` | 문제 데이터. 지문·정답·단원·난이도·O/X 진술문 틀 + 문항별 `glossary`(9차, 어려운 낱말 뜻) |
 | 2 | `BundledQuestionSource.loadFromBundle()` | 번들에서 파일을 찾아 `QuestionPayload` 로 해독 |
 | 3 | `QuestionCatalog.bundled()` | 문제집을 보관. **오답 보기용 정답 모음**(`answerPool`)을 미리 계산 |
 | 4 | `KCTApp.body` | 문제집을 `.environment` 로, 저장소를 `.modelContainer` 로 아래에 내려보냄 |
@@ -91,9 +91,15 @@ Xcode 에서 각 심볼을 `⌘+클릭` 해서 따라가 보세요.
 |---|---|---|
 | 13 | `QuizView.screen(for:)` | 문제 화면 / 채점 중 / 결과 중 하나를 고른다 |
 | 14 | `QuestionScreen` | 진행 막대 · 지문 · 안내 한 줄 · 입력 영역 · 다음 버튼 |
-| 15 | `KoreanText` | 한글 단어 단위 줄바꿈 + 형광펜 + 밑줄 강조 |
+| 15 | `KoreanText` | 한글 단어 단위 줄바꿈 + 형광펜 + 밑줄 강조 + **낱말 탭하면 뜻 보여주기**(9차) |
 | 16 | `ChoiceButton` | 보기 버튼. 탭하면 `session.userAnswer` 에 값을 넣는다 |
 | 17 | `SpeechReader` | `QuizView` 가 지문을 소리로 읽어준다 |
+
+> **9차로 추가된 것** — `KoreanText` 는 문항의 `glossary` 에 있는 낱말 밑에 점선 밑줄을 긋고, 탭하면
+> `QuestionScreen` 이 `GlossaryPanel` 을 iOS 기본 시트(`.sheet`)로 띄웁니다. 탭 인식은 `UILabel` 위에
+> `UITapGestureRecognizer` 를 올리고 `NSLayoutManager` 로 탭 좌표를 글자 위치로 바꾸는 방식이며,
+> `UIViewRepresentable` 값 자체는 SwiftUI 가 매번 새로 만들기 때문에 이 처리는 `KoreanText.Coordinator`
+> (클래스, 값이 아니라 참조라 살아남음)에 있습니다.
 
 ### ⑥ 채점하고 기록한다
 
@@ -188,10 +194,12 @@ Xcode 에서 각 심볼을 `⌘+클릭` 해서 따라가 보세요.
 - **해보기** `QuestionScreen` 의 안내 문구를 바꿔 보고, 그 변경이 다른 파일에 번지지 않는 것을 확인
 
 ### 6단계 · 어르신 접근성
-- **읽기** `DesignSystem/KoreanText.swift` → `AppColor.swift` → `SpeechReader.swift`
+- **읽기** `DesignSystem/KoreanText.swift` → `AppColor.swift` → `SpeechReader.swift` → `GlossaryPanel.swift`(낱말 탭으로 뜨는 시트)
 - **답해보기** SwiftUI `Text` 를 안 쓰고 `UILabel` 을 감싼 이유는?
   "2333년" 이 갈라지지 않는 원리는? 오디오 세션 설정을 왜 백그라운드로 뺐나?
-- **해보기** 기기 설정에서 글자 크기를 키워 보고 화면이 견디는지 확인
+  탭으로 뜻을 보여줄 낱말은 누가 정하나? (`Question.glossary`, JSON 에 미리 넣어 둔 것)
+- **해보기** 기기 설정에서 글자 크기를 키워 보고 화면이 견디는지 확인. 낱말을 탭해 시트가
+  Liquid Glass 모양으로 뜨는지, 아래로 쓸어내리면 닫히는지 확인
 
 ### 7단계 · 하이라이트 3층과 폴백
 - **읽기** `Focus/FocusStore.swift` → `QuestionFocus.swift` → `FocusAnalyzer.swift`

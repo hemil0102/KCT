@@ -70,16 +70,16 @@ struct QuizView: View {
         .onChange(of: session?.currentIndex) { _, _ in
             readAloud(session?.current)
         }
-        .sheet(
-            isPresented: Binding(
-                get: { session?.feedback != nil },
-                set: { _ in }
-            )
-        ) {
-            if let session, let feedback = session.feedback {
-                FeedbackSheet(feedback: feedback) {
-                    session.dismissFeedback()
-                }
+        // `session?.feedback`(내용)과 별도의 `Bool`(열림 여부)로 나누면, 이번 화면에서
+        // 이 시트가 처음 뜨는 순간 내용이 아직 안 채워진 채로 한 번 열릴 수 있어
+        // 시트가 크게 뜬다(9차에서 낱말 사전 시트로 먼저 겪은 버그와 같은 원인).
+        // `.sheet(item:)`으로 값 자체를 열림/닫힘 신호로 쓰면 이 틈이 사라진다.
+        .sheet(item: Binding(
+            get: { session?.feedback },
+            set: { _ in }
+        )) { feedback in
+            FeedbackSheet(feedback: feedback) {
+                session?.dismissFeedback()
             }
         }
         .background(Color.white)

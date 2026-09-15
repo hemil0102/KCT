@@ -27,7 +27,8 @@
 //  ├─ judge()                  ① 규칙 ② 코드 ③ 모델 — 세 층으로 한 문제를 판정
 //  ├─ nextEncouragement()      응원 문구를 하나 꺼낸다 (없으면 앱에 박힌 것)
 //  ├─ holdWaitingLine()        응원 문구를 적어도 3초는 보여 준다
-//  ├─ saveFailures()           모델이 실패한 기록을 저장소에 넣는다
+//  ├─ saveFailures()           모델이 실패한 기록을 저장소에 넣고 바로 저장한다 (QuestionScreen 도 부른다)
+//  ├─ uploadFailuresNow()      회차 경계를 안 기다리고 실패 기록을 바로 올려 본다 (QuestionScreen 도 부른다)
 //  ├─ wrapUp()                 회차 끝의 3초 박자
 //  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
 //  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
@@ -165,7 +166,7 @@ final class QuizSession {
     ///   **창은 뜨고 정답은 보여 줍니다.** 그때는 대체 문구가 들어갑니다.
     ///   다만 **로그에는 `nil` 로 남깁니다** — 그래야 실패한 횟수를 셀 수 있습니다.
     ///   화면에 보여줄 값과 로그에 남길 값은 달라도 됩니다(``reasonForLog(_:)`` 와 같은 방식).
-    struct IncorrectCommentary {
+    struct IncorrectCommentary: Identifiable {
         /// 해설이 아직 안왔을 때 창에 넣어두는 문구.
         static let placeholder = "잠시만 같이 살펴봐요."
 
@@ -183,7 +184,13 @@ final class QuizSession {
         /// 줄을 비워 두면 창이 갑자기 짧아져 「뭔가 사라졌나」 싶어집니다.
         /// 자리를 지키면서 **다음에 할 일**로 이어 줍니다.
         static let noteFailed = "정답을 살펴볼까요?"
-        
+
+        /// 이 창이 어느 문항 때문에 떴는지. **같은 문항의 창이 자리 잡는 동안
+        /// (기다리는 문구 → 도착한 해설로) 값이 그대로라, 시트가 다시 열리지
+        /// 않고 내용만 바뀝니다.** (9차에서 겪은 것과 같은 이유로 `QuestionScreen`도
+        /// `.sheet(item:)`을 씁니다.)
+        let id: Int
+
         let selectedAnswer: String
 
         /// 고른 답이 무엇인지 알려 주는 한 문장. 아직 안 왔거나 재료가 없으면 `nil`.
@@ -369,9 +376,41 @@ final class QuizSession {
     }
 
     /// 모델이 실패한 기록을 저장소에 넣는다. 서버로는 ``ObsUploader`` 가 나중에 보낸다.
-    private func saveFailures(_ drafts: [ModelFailureDraft?]) {
-        for draft in drafts.compactMap({ $0 }) {
+    ///
+    /// - Note: `private` 이 아니다. 여기(``gradeCurrent()``)뿐 아니라 ``QuestionScreen``도
+    ///   낱말 사전 예문(``composeExample(word:gloss:relatedWords:questionText:questionID:)``)이
+    ///   실패했을 때 이 메서드로 넘긴다 — modelContext 는 세션만 들고 있으므로, 화면이
+    ///   직접 넣지 않고 항상 세션을 거친다.
+    ///
+    /// - Important: 여기서 바로 `save()` 한다. `gradeCurrent()` 에서 부를 때는 뒤이어
+    ///   `saveObsRecord()` 가 어차피 저장을 하지만, `QuestionScreen`의 낱말 사전 실패는
+    ///   회차가 끝나거나 새로 시작할 때까지 다른 저장이 한 번도 안 일어날 수 있다 —
+    ///   그 사이 앱이 종료되면 이 기록만 저장 안 된 채로 사라질 수 있어, 여기서 직접
+    ///   책임진다.
+    func saveFailures(_ drafts: [ModelFailureDraft?]) {
+        let toInsert = drafts.compactMap { $0 }
+        guard !toInsert.isEmpty else { return }
+
+        for draft in toInsert {
             modelContext.insert(ModelFailure(draft: draft))
+        }
+        try? modelContext.save()
+    }
+
+    /// 방금 저장한 실패 기록을 회차가 끝나거나 새로 시작할 때까지 기다리지 않고
+    /// 바로 서버로 올려 본다.
+    ///
+    /// ``uploadObservations()``는 회차 시작/종료 시점에만 불리는데, 낱말 사전 예문
+    /// 실패(``QuestionScreen``)는 그 사이 아무 때나 생긴다. 조용히 다음 기회를
+    /// 기다려도 되지만(``saveFailures(_:)``가 이미 폰에 안전하게 남겨 뒀으므로),
+    /// 세이프티 문제를 바로 확인하고 싶을 때(Supabase 대시보드를 그 자리에서 보는
+    /// 경우 등) 기다리지 않게 이 메서드를 따로 둔다.
+    ///
+    /// - Note: 화면에는 아무것도 안 보인다 — 성공도 실패도 조용하다. 실패하면
+    ///   ``uploadObservations()``가 다음 기회에 다시 시도한다.
+    func uploadFailuresNow() {
+        Task {
+            await ObsUploader(modelContext: modelContext).uploadPendingFailures()
         }
     }
 
@@ -452,6 +491,7 @@ final class QuizSession {
             let shownAt = ContinuousClock.now
 
             feedback = IncorrectCommentary(
+                id: item.id,
                 selectedAnswer: answer,
                 // 설명할 재료가 아예 없으면 기다릴 것도 없다. 바로 다음 걸음을 알려 준다.
                 selectedNote: chosenQuestion == nil ? IncorrectCommentary.noteFailed : nil,
@@ -484,6 +524,7 @@ final class QuizSession {
                     ?? (chosenQuestion != nil ? IncorrectCommentary.noteFailed : nil)
 
                 feedback = IncorrectCommentary(
+                    id: item.id,
                     selectedAnswer: answer,
                     selectedNote: note,
                     waitingLine: waitingLine,

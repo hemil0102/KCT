@@ -191,6 +191,7 @@ struct ObsUploader {
         descriptor.fetchLimit = batchLimit
 
         let failures = (try? modelContext.fetch(descriptor)) ?? []
+        print("📤 안 올라간 실패 기록:", failures.count)
         guard !failures.isEmpty else { return }
 
         let payloads = failures.map {
@@ -204,7 +205,11 @@ struct ObsUploader {
                 prompt: $0.prompt)
         }
 
-        guard await send(payloads, to: "/rest/v1/model_failure") else { return }
+        guard await send(payloads, to: "/rest/v1/model_failure") else {
+            print("❌ 실패 기록 업로드 실패 — 다음 기회에 다시 시도")
+            return
+        }
+        print("✅ 실패 기록 업로드 성공:", failures.count)
 
         let now = Date.now
         for failure in failures { failure.uploadedAt = now }
@@ -252,10 +257,16 @@ struct ObsUploader {
         guard request.httpBody != nil else { return false }
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else { return false }
-            return (200...299).contains(http.statusCode)
+            let ok = (200...299).contains(http.statusCode)
+            if !ok {
+                let body = String(data: data, encoding: .utf8) ?? "(본문을 텍스트로 못 읽음)"
+                print("❌ Supabase 응답 \(http.statusCode):", body)
+            }
+            return ok
         } catch {
+            print("❌ Supabase 요청 자체가 실패:", error)
             return false
         }
     }

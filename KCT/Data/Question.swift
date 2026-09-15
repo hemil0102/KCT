@@ -89,6 +89,9 @@ struct Question: Identifiable, Codable, Hashable {
     /// 해설에 쓸 사실 조각. 모델은 여기 있는 것만 씁니다.
     var facts: [QuestionFact] = []
     
+    /// 지문 속 어려운 낱말들의 뜻. 없는 문항이 더 많습니다(30문항 중 11개).
+    var glossary: [GlossaryEntry] = []
+    
     // MARK: - 해독
 
     /// 손으로 적은 해독기.
@@ -113,6 +116,9 @@ struct Question: Identifiable, Codable, Hashable {
         shape = try box.decodeIfPresent(AnswerShape.self, forKey: .shape) ?? .word
         
         facts = try box.decodeIfPresent([QuestionFact].self, forKey: .facts) ?? []
+        
+        glossary = try box.decodeIfPresent([GlossaryEntry].self, forKey: .glossary) ?? []
+
     }
 }
 
@@ -159,6 +165,34 @@ struct QuestionFact: Codable, Hashable {
         kind   = try box.decode(String.self, forKey: .kind)
         text   = try box.decode(String.self, forKey: .text)
         weight = try box.decodeIfPresent(Int.self, forKey: .weight) ?? 1
+    }
+}
+
+/// 지문 속 어려운 낱말 하나의 뜻. 1단계에서 `questions.json`에 이미 채워 뒀습니다.
+struct GlossaryEntry: Codable, Hashable {
+    /// 지문에 실제로 나오는 글자 그대로.
+    let word: String
+
+    /// 짧고 쉬운 뜻. 10~20자로 이미 다듬어 놓았습니다.
+    let gloss: String
+
+    /// 비슷한 낱말 목록. 대부분 비어 있습니다(39개 중 5개만 있음).
+    var examples: [String] = []
+
+    /// 사람이 미리 써 둔 참고 예문. "기리다"처럼 Foundation Models 가 활용형을
+    /// 헷갈리는 낱말에 한해 채워 둔다 — 있으면 ``composeExample`` 이 이 문장을
+    /// 참고해서 만들고, 없으면(대부분) 모델이 알아서 만든다.
+    ///
+    /// - Note: `examples`(비슷한 낱말 목록)와 이름이 헷갈리지 않도록 일부러
+    ///   다른 이름을 썼다 — 이건 낱말이 아니라 문장 하나다.
+    var referenceSentence: String? = nil
+
+    init(from decoder: Decoder) throws {
+        let box = try decoder.container(keyedBy: CodingKeys.self)
+        word     = try box.decode(String.self, forKey: .word)
+        gloss    = try box.decode(String.self, forKey: .gloss)
+        examples = try box.decodeIfPresent([String].self, forKey: .examples) ?? []
+        referenceSentence = try box.decodeIfPresent(String.self, forKey: .referenceSentence)
     }
 }
 

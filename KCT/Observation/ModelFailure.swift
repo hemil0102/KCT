@@ -16,12 +16,13 @@
 //  └─ uploadedAt               서버로 갔나. nil 이면 아직
 //
 //  ── 흐름 ──────────────────────────────────────────────
-//  CommentaryWriter 가 실패하면 ModelFailureDraft 를 함께 돌려준다
-//    → QuizSession 이 ModelFailure 로 만들어 저장한다
+//  CommentaryWriter · GlossaryComposer 가 실패하면 ModelFailureDraft 를 함께 돌려준다
+//    → QuizSession(saveFailures) — QuestionScreen 은 이 메서드를 통해서만 넣는다 —
+//      이 ModelFailure 로 만들어 저장한다
 //    → ObsUploader 가 관찰 기록과 함께 서버로 보낸다
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : CommentaryWriter(만든다) · QuizSession(저장) · ObsUploader(보낸다)
+//  불러 쓰는 곳 : CommentaryWriter·GlossaryComposer(만든다) · QuizSession·QuestionScreen(저장) · ObsUploader(보낸다)
 //  기대는 것    : SwiftData
 //  건드리지 않는 것 : 화면 — 어머니에게는 아무것도 안 보인다
 //
@@ -34,7 +35,8 @@ import SwiftData
 /// 글을 만드는 쪽(``CommentaryWriter``)은 저장소를 모르므로, 무엇을 시켰는지만 담아
 /// 돌려주고 저장은 ``QuizSession`` 이 합니다.
 struct ModelFailureDraft {
-    /// 무슨 일을 시켰나. `"commentary"`(정답 해설) · `"note"`(고른 답 설명)
+    /// 무슨 일을 시켰나. `"commentary"`(정답 해설) · `"note"`(고른 답 설명) ·
+    /// `"glossary_example"`(낱말 사전의 생성 예문)
     let job: String
     let questionID: Int
     let reason: String
