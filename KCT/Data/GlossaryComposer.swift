@@ -31,7 +31,7 @@ import Foundation
 
 @Generable
 struct GlossaryExample {
-    @Guide(description: "낱말 바로 뒤에 괄호로 뜻을 넣어 \"낱말(뜻)\" 형태로 쓰고, 낱말을 괄호 안에 넣지 않고, **로 단어를 감싸지 말고, 그 표현이 자연스럽게 들어간 구체적인 문장 하나. 50자 이상 100자 이내로 쓴다")
+    @Guide(description: "낱말 바로 뒤에 괄호로 뜻을 넣어 \"낱말(뜻)\" 형태로 무조건 지키며 쓰고, 그 표현이 자연스럽게 들어간 구체적인 문장 하나. 50자 이상 90자 이내로 쓴다")
     let sentence: String
 }
 
