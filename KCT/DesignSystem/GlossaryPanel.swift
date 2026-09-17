@@ -34,6 +34,8 @@
 //
 
 import SwiftUI
+import Foundation
+import UIKit
 
 /// Foundation Models 생성 예문이 지금 어느 단계인지.
 ///
@@ -78,12 +80,25 @@ struct GlossaryPanel: View {
     /// JSON에 원래 있던 비슷한 낱말 목록. 없으면 빈 배열.
     let relatedWords: [String]
 
-    /// 접혔을 때(처음 열릴 때) 시트 높이.
+    /// 접혔을 때(처음 열릴 때) 시트 높이. 손잡이(24) + 위아래 같은 여백(20씩, 아래
+    /// .padding(20)) + 낱말·뜻 두 줄 높이 — 손잡이를 뺀 나머지에서 낱말·뜻 묶음
+    /// 위아래 여백이 같아지도록 다시 150으로 되돌렸다. 해설을 펼치기 전까지는
+    /// 접힌 모습이 "손잡이 / 낱말 / 뜻"만 보이는 딱 그만큼이다.
     private static let collapsedHeight: CGFloat = 150
 
     /// 낱말 이름표와 뜻(gloss) 글자 크기 — 둘은 항상 같아야 하므로 상수 하나로 묶는다.
     /// 28pt로 직접 지정했다(선다 보기 버튼 22pt보다 크게 키운 값).
     private static let wordGlossFontSize: CGFloat = 28
+
+    /// 낱말과 뜻 사이 간격. 접혔을 때나 펼쳤을 때나 이 값 하나만 쓰므로 두 상태에서
+    /// 항상 같다.
+    private static let wordGlossSpacing: CGFloat = 12
+
+    /// 낱말(뜻) 묶음과 그 아래 해설(펼치면 나오는 자리) 사이 간격. wordGlossSpacing
+    /// 보다 넉넉히 넓게 둬서, 낱말·뜻은 한 덩어리로 붙어 보이고 해설은 확실히
+    /// 떨어진 구역으로 보이게 한다. 접혔을 때는 해설 자리가 아예 없으므로(showsExample
+    /// 이 false면 아래 exampleContent 를 그리지 않는다) 이 간격이 쓰이지 않는다.
+    private static let sectionSpacing: CGFloat = 28
 
     /// 생성 예문을 펼쳤는지. 낱말이 바뀌면(아래 onChange(of: word)), 또는 시트를
     /// 다시 접으면(아래 onChange(of: selectedDetent)) 다시 접어 둔다.
@@ -110,46 +125,53 @@ struct GlossaryPanel: View {
         VStack(spacing: 0) {
             dragHandle
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    // 낱말 이름표도 뜻(gloss)과 같은 크기·굵기로 맞췄다 — 색만 시그니처로
-                    // 구분한다. 닫는 버튼은 없앴다 — 배경을 탭하거나 답을 고르면
-                    // QuestionScreen 이 시트를 닫는다. 비슷한 낱말은 이 낱말칸 바로
-                    // 오른쪽에 붙인다 — Spacer 를 낱말과 비슷한 낱말 "사이"가 아니라
-                    // 그 뒤에 둬서, 모달 오른쪽 끝이 아니라 낱말칸에 바짝 붙어 보이게 한다.
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(word).font(.system(size: Self.wordGlossFontSize, weight: .bold)).foregroundStyle(AppColor.signature)
-                        if let relatedWordsText {
-                            Text(relatedWordsText)
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundStyle(AppColor.textMuted)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    // 낱말 이름표와 같은 크기(wordGlossFontSize) — 둘은 항상 같아야 한다.
-                    Text(gloss)
-                        .font(.system(size: Self.wordGlossFontSize, weight: .bold))
-                        .foregroundStyle(.black)
-
-                    // exampleState 가 .unavailable 이어도 안내는 그대로 보여준다. 예전엔
-                    // 여기서 EmptyView() 로 통째로 숨겼는데, 그러면 기기가 Foundation Models 를
-                    // 지원 안 하는 순간(대개 즉시 판가름난다) 안내 문구가 뜰 새도 없이 사라져
-                    // "안내가 아예 안 보인다"는 버그로 보였다. 이제 펼쳤을 때만 상태에 맞는
-                    // 내용(로딩 중 / 완성된 해설 / 지원 안 함 안내)을 다르게 보여준다.
-                    Divider()
+                // 접혔을 때는 낱말(뜻) 묶음 하나만 그린다 — 그래야 손잡이를 뺀 위(낱말 위)·
+                // 아래(뜻 아래) 여백이 이 VStack의 .padding(20)만으로 정확히 똑같아진다.
+                // 펼쳤을 때만 그 아래 해설을 sectionSpacing 간격으로 이어 붙인다. 위로
+                // 쓸어 올려 펼치는 제스처는 접혔을 때만 낱말(뜻) 묶음에 붙인다 — 펼친
+                // 뒤에는 이 제스처가 없어야 해설이 길어졌을 때 ScrollView 로 정상적으로
+                // 스크롤된다.
+                VStack(alignment: .leading, spacing: Self.sectionSpacing) {
                     if showsExample {
+                        wordGlossHeader
                         exampleContent
                     } else {
-                        revealExampleHint
+                        wordGlossHeader
+                            .contentShape(Rectangle())
+                            // `.gesture(...)`로만 달면 스와이프가 대개 **ScrollView 자신의
+                            // 스크롤 제스처에 져서** 안 먹힌다 — 조상 뷰의 제스처가 우선권을
+                            // 가져가는 SwiftUI 의 기본 동작이다(실기기에서 확인된 증상: 문구를
+                            // 눌러야만 펼쳐지고 쓸어 올리는 건 그냥 스크롤로 흡수됨).
+                            // `.highPriorityGesture(...)`로 달아야 이 영역에서 시작된 드래그를
+                            // ScrollView 보다 먼저 가져올 수 있다. 그래도 혹시 몰라 탭도 함께 받는다.
+                            .highPriorityGesture(
+                                DragGesture(minimumDistance: 12)
+                                    .onEnded { value in
+                                        guard value.translation.height < -12 else { return }
+                                        reveal()
+                                    }
+                            )
+                            .onTapGesture {
+                                reveal()
+                            }
                     }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        // 가독성 때문에 안은 다시 흰 배경으로 고정한다. 겉 테두리(모서리 둥글기·손잡이 자리)는
-        // .presentationBackground 를 안 쓰므로 iOS 26에서 여전히 Liquid Glass 로 보인다 —
-        // 유리 느낌은 "안이 비치는 것"이 아니라 "시트 자체가 떠 있는 모양"에서 온다.
-        .background(Color.white)
+        // 지문에서 낱말을 강조할 때 쓰는 색(시그니처 보라, KoreanText.highlightColor)을
+        // 모달 배경에도 그대로 써서, 탭한 낱말과 모달이 한 덩어리로 이어져 보이게 한다.
+        // 배경이 진한 색이 되었으니 안의 글자는 낱말(주황)만 빼고 전부 흰색으로 바꿨다.
+        //
+        // 처음엔 이 자리에 `.background(AppColor.signature.opacity(0.8))`로 안쪽
+        // 내용에만 색을 칠했는데, 시트 자체의 배경(테두리·모서리까지 포함한 진짜
+        // 배경)은 그와 별개로 iOS 시스템이 정한 재질이 따로 깔려 있어서 투명도를
+        // 낮춰도 뒤 지문이 비치지 않았다. `.presentationBackground(...)`로 시트의
+        // 진짜 배경 자체를 바꿔서 이 문제는 해결했다 — `.presentationBackgroundInteraction`
+        // 과 맞물려 뒤 지문이 비쳐 보인다. 투명도 값은 0.8 → 0.1 → .clear(진단용) 를
+        // 거쳐 지금 0.5로 자리 잡았다.
+        .presentationBackground(AppColor.signature.opacity(0.5))
         // 작게 열렸다가 .medium 까지 커진다. selection 을 바인딩해서, 손잡이를 직접
         // 끌든 안내를 쓸어 올리든 — 어느 쪽으로 커졌든 — 아래 onChange 가 똑같이 반응한다.
         .presentationDetents([.height(Self.collapsedHeight), .medium], selection: $selectedDetent)
@@ -185,41 +207,52 @@ struct GlossaryPanel: View {
     /// 순전히 보이는 모양만 바꾼 것이다.
     private var dragHandle: some View {
         WideChevronShape()
-            .stroke(AppColor.textMuted.opacity(0.4), style: StrokeStyle(lineWidth: 4.8, lineCap: .round, lineJoin: .round))
+            .stroke(Color.white.opacity(0.4), style: StrokeStyle(lineWidth: 4.8, lineCap: .round, lineJoin: .round))
             .frame(width: 48, height: 10)
-            .padding(.top, 10)
+            // 펼쳐지면(showsExample) 180도 뒤집어 "^"가 "v"처럼 보이게 한다 —
+            // 접을 수 있다는 뜻을 손잡이 모양으로도 알려준다.
+            .rotationEffect(.degrees(showsExample ? 180 : 0))
+            .animation(.easeOut(duration: 0.25), value: showsExample)
+            // 위쪽 padding을 10 → 16으로 살짝 늘려 "^"를 조금 아래로 내렸다.
+            .padding(.top, 16)
             .padding(.bottom, 4)
             .frame(maxWidth: .infinity)
     }
 
-    /// 위로 쓸어 올리면(또는 탭하면) 해설을 펼치는 자리. 아무것도 그리지 않는
-    /// 투명한 자리다 — 안내 문장에 이어, 여기 있던 화살표(^) 아이콘도 없앴다. 맨 위
-    /// `dragHandle`(넓적한 "^")만으로 "여기서 더 나온다"는 힌트를 준다. 탭·스와이프
-    /// 영역 자체는 그대로 남겨 뒀다(아래 위/아래 padding 만큼의 높이).
+    /// 낱말 이름표(비슷한 낱말 포함)와 뜻(gloss). 접혔을 때·펼쳤을 때 모두 똑같이
+    /// 이 한 뷰를 그린다 — 그래야 낱말·뜻 사이 간격(wordGlossSpacing)이 두 상태에서
+    /// 항상 같다. 닫는 버튼은 없앴다 — 배경을 탭하거나 답을 고르면 QuestionScreen 이
+    /// 시트를 닫는다. 비슷한 낱말은 이 낱말칸 바로 오른쪽에 붙인다 — Spacer 를
+    /// 낱말과 비슷한 낱말 "사이"가 아니라 그 뒤에 둬서, 모달 오른쪽 끝이 아니라
+    /// 낱말칸에 바짝 붙어 보이게 한다.
     ///
-    /// 이 뷰는 `ScrollView` 안에 있다. `.gesture(...)`로만 달면 스와이프가 대개
-    /// **ScrollView 자신의 스크롤 제스처에 져서** 안 먹힌다 — 조상 뷰의 제스처가 우선권을
-    /// 가져가는 SwiftUI 의 기본 동작이다(실기기에서 확인된 증상: 문구를 눌러야만
-    /// 펼쳐지고 쓸어 올리는 건 그냥 스크롤로 흡수됨). `.highPriorityGesture(...)`로 달아야
-    /// 이 작은 영역에서 시작된 드래그를 ScrollView 보다 먼저 가져올 수 있다. 그래도
-    /// 혹시 몰라 탭도 함께 받는다.
-    private var revealExampleHint: some View {
-        Color.clear
-            .frame(height: 0)
-            .frame(maxWidth: .infinity)
-        // 위(구분선)와는 넉넉히, 아래는 그보다 좁게 둬서 탭/스와이프 영역을 확보한다.
-        .padding(.top, 16)
-        .padding(.bottom, 8)
-        .contentShape(Rectangle())
-        .highPriorityGesture(
-            DragGesture(minimumDistance: 12)
-                .onEnded { value in
-                    guard value.translation.height < -12 else { return }
-                    reveal()
+    /// 여러 차례 주황으로 조정해 봤지만 균형을 못 찾아서, 보라 모노크롬 포함
+    /// 데모 3개를 만들어 보여드리고 "보라 톤 모노크롬"안으로 최종 정했다 —
+    /// 낱말에 연라벤더 배지(wordBadgeBackground) + 짙은 보라 글자(wordBadgeText)를,
+    /// 뜻에는 배경 없이 흰 글자만 남겨 시그니처 보라 배경 위에서 한 단계
+    /// 조용하게 보이도록 했다. 색상 하나(보라)의 명도 차이만으로 위계를 만든다.
+    private var wordGlossHeader: some View {
+        VStack(alignment: .leading, spacing: Self.wordGlossSpacing) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(word)
+                    .font(.system(size: Self.wordGlossFontSize, weight: .bold))
+                    .foregroundStyle(AppColor.wordBadgeText)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(AppColor.wordBadgeBackground, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                if let relatedWordsText {
+                    Text(relatedWordsText)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(.white)
                 }
-        )
-        .onTapGesture {
-            reveal()
+                Spacer(minLength: 0)
+            }
+            // 낱말 이름표와 같은 크기(wordGlossFontSize) — 둘은 항상 같아야 한다. 뜻은
+            // 배경도, 전용 색도 없이 시그니처 보라 배경 위에 흰 글자로만 보여준다 —
+            // 보라 모노크롬안에서는 뜻에까지 새 색을 만들지 않는 것이 핵심이다.
+            Text(gloss)
+                .font(.system(size: Self.wordGlossFontSize, weight: .bold))
+                .foregroundStyle(.white)
         }
     }
 
@@ -232,37 +265,160 @@ struct GlossaryPanel: View {
         }
     }
 
+    /// `highlightedExample(_:)`의 결과물 — 스타일이 다 입혀진 문자열과, 그 위에
+    /// 둥글게 채울 배경 구간들. `HighlightedSentenceView`에 그대로 넘긴다.
+    private struct HighlightedExample {
+        let attributedText: NSAttributedString
+        let backgroundHighlights: [UnderlineLabel.BackgroundHighlight]
+    }
+
+    /// 생성된 해설 문장에서 "낱말(뜻)" 중 "낱말" 자리는 헤더의 낱말과 같은
+    /// 조합 — 연라벤더(wordBadgeBackground) 둥근 배경 + 짙은 보라 글자
+    /// (wordBadgeText) — 로, "(뜻)" 자리는 **괄호까지 포함해서** 배경도 전용
+    /// 색도 없이 흰 글자로만 둔다(2pt 작은 글자는 그대로 유지) — 기본 속성이
+    /// 이미 흰색이라 별도로 색을 입히지 않는다. 낱말이 문장 안에서 활용형으로
+    /// 바뀌어 나올 수 있어(예: "기리는"이 "기립니다"로) 원래 낱말 문자열을
+    /// 그대로 찾을 순 없다 — 대신 "(" 바로 앞, 공백 없이 이어지는 한 덩어리를
+    /// 낱말 자리로 본다. "손주가 ... 기립니다(고맙게 생각하는), ..." 라면
+    /// "기립니다"가 그 덩어리, "(고맙게 생각하는)"(괄호 포함) 전체가 뜻 자리다.
+    ///
+    /// - Note: SwiftUI `Text`/`AttributedString`의 `backgroundColor` 속성은 각진
+    ///   사각형만 그릴 수 있어서(둥근 모서리·여백을 못 준다) `KoreanText.swift`의
+    ///   `UnderlineLabel`이 밑줄을 그리는 것과 같은 방식(TextKit으로 줄 단위 사각형을
+    ///   직접 계산해서 채우기)을 대신 쓴다 — 그래서 `Text`가 아니라 `NSAttributedString`
+    ///   + `UnderlineLabel.BackgroundHighlight`를 돌려주고, `HighlightedSentenceView`
+    ///   (아래)가 그 둘을 받아 그린다.
+    /// - Note: 배경도 여백 없이 글자 폭에 딱 맞게 그려진다 — 가로로 여백을 더 주면
+    ///   옆 글자와 겹친다(그 자리에 여백이 있다고 텍스트 레이아웃 자체가 미리 잡아
+    ///   두지 않기 때문). 모서리만 둥글게 깎는다.
+    /// - Note: "(" 는 있는데 짝이 되는 ")" 가 없으면(모델이 형식을 깼을 때) 낱말
+    ///   배경·글자색만 칠하고 뜻 자리는 그대로 둔다.
+    private func highlightedExample(_ text: String) -> HighlightedExample {
+        let baseFont = UIFont.systemFont(ofSize: Self.wordGlossFontSize, weight: .medium)
+
+        // KoreanText.swift(지문)와 달리 이 문장에는 문단 스타일이 없었다 —
+        // 그래서 한글 낱말 중간에서 줄이 갈릴 수 있었다("아사달"이 "아사" /
+        // "달"로 잘려 다음 줄로 넘어가는 식). 배경 하이라이트는 줄마다 따로
+        // 그리기 때문에(UnderlineLabel.drawText 참고) 그 자체는 안 깨지지만,
+        // 낱말 하나가 두 줄에 걸쳐 반씩 잘려 보이니 "배경이 어긋난 것"처럼
+        // 보였다 — 다급한 타이밍 문제가 아니라, 줄바꿈 규칙이 안 걸려 있던
+        // 것이었다. 지문과 똑같이 hangulWordPriority 를 걸어서 한글 낱말이
+        // 통째로만 다음 줄로 넘어가게 한다.
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        paragraph.lineBreakStrategy = .hangulWordPriority
+
+        // 문장 전체를 기본값으로 살짝 흐린 흰색(72%)으로 깔아 둔다 — 데모에서
+        // 고른 것과 같은 발상이다. 낱말·뜻 자리만 아래에서 또렷한 색(낱말은
+        // 배지 글자색, 뜻은 100% 흰색)으로 다시 덮어써서, 나머지 문장보다
+        // 두 자리가 상대적으로 더 도드라져 보이게 한다.
+        let attributed = NSMutableAttributedString(
+            string: text,
+            attributes: [
+                .font: baseFont,
+                .foregroundColor: UIColor.white.withAlphaComponent(0.72),
+                .paragraphStyle: paragraph,
+            ]
+        )
+        var backgroundHighlights: [UnderlineLabel.BackgroundHighlight] = []
+
+        guard let openParen = text.firstIndex(of: "(") else {
+            return HighlightedExample(attributedText: attributed, backgroundHighlights: backgroundHighlights)
+        }
+
+        var wordStart = openParen
+        while wordStart > text.startIndex {
+            let before = text.index(before: wordStart)
+            if text[before].isWhitespace { break }
+            wordStart = before
+        }
+        let wordRange = NSRange(wordStart..<openParen, in: text)
+        attributed.addAttribute(.foregroundColor, value: UIColor(AppColor.wordBadgeText), range: wordRange)
+        backgroundHighlights.append(
+            UnderlineLabel.BackgroundHighlight(
+                range: wordRange,
+                color: UIColor(AppColor.wordBadgeBackground),
+                cornerRadius: 6
+            )
+        )
+
+        let afterOpenParen = text.index(after: openParen)
+        if afterOpenParen < text.endIndex,
+           let closeParen = text[afterOpenParen...].firstIndex(of: ")") {
+            // 괄호 자체("(", ")")까지 포함해서 뜻 구간으로 본다. 전용 색을 새로
+            // 만들지 않고 100% 흰색을 명시적으로 입힌다 — 위에서 문장 전체를
+            // 72%로 흐려 뒀으므로, 여기서 다시 덮어쓰지 않으면 뜻도 같이 흐려져
+            // 버린다. 글자 크기는 2pt 작게 유지한다.
+            let closeParenEnd = text.index(after: closeParen)
+            let glossRange = NSRange(openParen..<closeParenEnd, in: text)
+            let glossFont = UIFont.systemFont(ofSize: Self.wordGlossFontSize - 2, weight: .medium)
+            attributed.addAttribute(.font, value: glossFont, range: glossRange)
+            attributed.addAttribute(.foregroundColor, value: UIColor.white, range: glossRange)
+        }
+
+        return HighlightedExample(attributedText: attributed, backgroundHighlights: backgroundHighlights)
+    }
+
+    /// 해설 문장을 그리는 얇은 UIKit 다리. `highlightedExample(_:)`가 만든 낱말 색·
+    /// 뜻 글자 크기가 이미 입혀진 문자열을, 뜻 자리에 둥근 배경까지 얹어 그린다 —
+    /// 실제로 배경을 그리는 계산·코드는 전부 `KoreanText.swift`의 `UnderlineLabel`에
+    /// 있고(밑줄 그리는 것과 같은 TextKit 방식), 여기선 밑줄 없이 배경만 켜서 쓴다.
+    private struct HighlightedSentenceView: UIViewRepresentable {
+        let example: HighlightedExample
+
+        func makeUIView(context: Context) -> UnderlineLabel {
+            let label = UnderlineLabel()
+            label.numberOfLines = 0
+            label.lineBreakMode = .byWordWrapping
+            label.setContentCompressionResistancePriority(.required, for: .vertical)
+            label.setContentHuggingPriority(.required, for: .vertical)
+            return label
+        }
+
+        func updateUIView(_ label: UnderlineLabel, context: Context) {
+            label.attributedText = example.attributedText
+            label.backgroundHighlights = example.backgroundHighlights
+            label.setNeedsDisplay()
+        }
+
+        func sizeThatFits(_ proposal: ProposedViewSize, uiView: UnderlineLabel, context: Context) -> CGSize? {
+            guard let width = proposal.width, width > 0 else { return nil }
+            return uiView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        }
+    }
+
     /// 펼친 자리에 보일 실제 내용. `exampleState`가 바뀌면(로딩 → 완성) 이미 펼쳐 놓은
-    /// 채로도 자동으로 갱신된다 — 사용자가 다시 스와이프할 필요가 없다.
+    /// 채로도 자동으로 갱신된다 — 사용자가 다시 스와이프할 필요가 없다. `exampleState`가
+    /// `.unavailable`이어도 안내는 그대로 보여준다 — 예전엔 여기서 EmptyView() 로
+    /// 통째로 숨겼는데, 그러면 기기가 Foundation Models 를 지원 안 하는 순간(대개
+    /// 즉시 판가름난다) 안내 문구가 뜰 새도 없이 사라져 "안내가 아예 안 보인다"는
+    /// 버그로 보였다.
     @ViewBuilder
     private var exampleContent: some View {
         switch exampleState {
         case .ready(let text):
-            // GlossaryComposer 가 "1. ...\n\n2. ..." 모양으로 두 문장(낱말을 그대로
-            // 넣은 문장 · 확정된 뜻을 넣은 문장)을 한 문자열에 담아 보낸다 — 빈 줄
-            // 기준으로 나눠 각각 따로 된 문단으로 보여주면, 어디만 다른지 줄 단위로
-            // 비교하며 읽기 쉬워진다("1."/"2." 번호는 텍스트 자체에 이미 들어 있다).
-            let sentences = text.components(separatedBy: "\n\n")
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(Array(sentences.enumerated()), id: \.offset) { _, sentence in
-                    Text(sentence)
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(AppColor.textMuted)
-                }
-            }
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            // GlossaryComposer 가 "낱말(뜻)"이 문장 안에 자연스럽게 녹아든 한
+            // 문장을 통째로 보낸다 — 더 이상 두 문장으로 나눠 비교할 게 없으니
+            // 그대로 한 문단으로 보여준다. 그 "낱말" 부분(괄호 바로 앞, 활용형일
+            // 수도 있다 — highlightedExample(_:) 참고)만 낱말과 같은 주황으로
+            // 칠해서, 문장 속에서도 어디가 낱말 자리인지 한눈에 보이게 한다.
+            // 펼쳐진 해설도 낱말·뜻과 같은 크기(wordGlossFontSize)로 맞췄다 — 위아래
+            // 글자 크기가 서로 다르면 해설만 유독 작아 보였다.
+            HighlightedSentenceView(example: highlightedExample(text))
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
         case .loading:
             HStack(spacing: 8) {
                 ProgressView()
+                    .tint(.white)
                 Text("해설 준비 중입니다.")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(AppColor.textMuted)
+                    .foregroundStyle(.white)
             }
             .transition(.opacity)
         case .unavailable:
-            Text("이 기기에서는 해설을 만들 수 없어요.")
+            Text("이 낱말은 해설을 준비 중입니다. 감사합니다.")
                 .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(AppColor.textMuted)
+                .foregroundStyle(.white)
                 .transition(.opacity)
         }
     }

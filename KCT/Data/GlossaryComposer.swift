@@ -31,11 +31,8 @@ import Foundation
 
 @Generable
 struct GlossaryExample {
-    @Guide(description: "낱말이 반드시 그대로 포함된 구체적인 예문. 50~80자로 쓴다. 뜻은 넣지 않는다")
-    let wordSentence: String
-
-    @Guide(description: "뜻을 자연스럽게 넣은 구체적인 예문. 50~80자로 쓴다. 낱말은 넣지 않는다")
-    let glossSentence: String
+    @Guide(description: "낱말 바로 뒤에 괄호로 뜻을 넣어 \"낱말(뜻)\" 형태로 쓰고, 낱말을 괄호 안에 넣지 않고, **로 단어를 감싸지 말고, 그 표현이 자연스럽게 들어간 구체적인 문장 하나. 50자 이상 100자 이내로 쓴다")
+    let sentence: String
 }
 
 /// 낱말 사전 시트의 생성 예문 하나를 만든다.
@@ -58,18 +55,17 @@ func composeExample(
     }
 
     let instructions = """
-        당신은 70대 어르신에게 낱말을 설명하는 선생님입니다.
-        낱말을 넣은 문장(1번)과 그 자리에 뜻만 넣은 문장(2번)을 만듭니다.
-        낱말·뜻의 조사나 어미는 문장에 자연스럽게 맞춰 바꿔도 됩니다.
-        각 문장은 실생활에서 있을 법한 구체적인 예시로, 50자 이상 80자 이내로 씁니다.
-        1번에는 낱말이 반드시 그대로 들어가야 하고, 2번에는 뜻만 들어가야 하며, 맞춤법과 문법에 맞게 씁니다.
-        참고 예문이 주어지면 그 문장을 최대한 활용해 1번을 만듭니다.
+        당신은 한글을 잘 모르는 사람에게 낱말을 설명하는 유머러스한 행복을 주는 긍정적인 선생님입니다. 존댓말을 합니다.
+        낱말 바로 뒤에 괄호로 뜻을 넣어 "낱말(뜻)"처럼 쓰고, 그 표현이 자연스럽게 들어간 한 문장을 만듭니다.
+        문장은 실생활에서 있을 법한 구체적인 예시로, 50자 이상 90자 이내로 쓰며, 낱말과 뜻은 반드시 원문 그대로 사용합니다.
+        조사나 어미는 문맥에 자연스럽게 맞춰 바꿔도 되며, 맞춤법과 문법에 맞게 씁니다.
+        참고 예문이 주어지면 그 문장의 상황과 표현을 최대한 활용합니다.
         """
 
     var prompt = """
         낱말: \(word)
         뜻: \(gloss)
-        위 낱말과 뜻으로 두 문장을 만드세요.
+        위 낱말과 뜻으로 "낱말(뜻)" 형식이 들어간 문장 하나를 만드세요.
         """
     if let referenceSentence {
         prompt += "\n참고 예문: \(referenceSentence)"
@@ -84,10 +80,15 @@ func composeExample(
 
     do {
         let response = try await session.respond(to: prompt, generating: GlossaryExample.self)
-        // 두 문장을 나란히 보여준다 — 낱말을 그대로 넣은 문장과 확정된 뜻을 넣은
-        // 문장이 어디만 다른지 비교하며 읽을 수 있게, 번호를 붙여 한 문자열로 합친다.
-        let combined = "1. \(response.content.wordSentence)\n\n2. \(response.content.glossSentence)"
-        return Writing(text: combined, failure: nil)
+        // @Guide에 "**로 감싸지 말라"고 적어 뒀지만, 모델이 가끔 낱말을 마크다운
+        // 볼드(**낱말**)로 감싸서 내보낸다 — 지시문은 확률을 낮출 뿐 100% 막지는
+        // 못한다. 화면에는 별표가 그대로 문자로 찍히고(예: "**서기전**"), 낱말
+        // 강조 구간을 찾는 로직(GlossaryPanel.highlightedExample)도 "(" 바로
+        // 앞 공백 없는 덩어리를 낱말로 보기 때문에 별표까지 그 덩어리에 끼어
+        // 들어가 버린다. 그래서 화면에 보내기 전에 코드에서 한 번 더 확실히
+        // 걷어낸다.
+        let sentence = response.content.sentence.replacingOccurrences(of: "**", with: "")
+        return Writing(text: sentence, failure: nil)
     } catch {
         // 이유를 버리면 세이프티 필터에 왜 걸렸는지 알 수 없고, 무엇을 보냈는지
         // 없으면 다시 만들어 볼 수도 없다 — CommentaryWriter 와 같은 이유로 남긴다.

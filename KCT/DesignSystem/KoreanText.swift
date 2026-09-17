@@ -10,9 +10,10 @@
 //  ├─ text / font / color / lineSpacing
 //  ├─ highlight / highlightColor     색 + 굵은 밑줄로 강조 (O/X 의 판단 대상)
 //  ├─ marker / markerColor           형광펜(배경색)으로 칠할 부분 (묻는 대상)
-//  ├─ selectedWord / selectedWordColor  하단 사전 시트가 열려 있는 낱말의 배경색
-//  │                                  (다시 읽기 버튼과 같은 색) — 시트가 닫히면
-//  │                                  nil이 되어 배경도 함께 사라진다
+//  ├─ selectedWord / selectedWordBackgroundColor / selectedWordTextColor
+//  │     하단 사전 시트가 열려 있는 낱말 — 배경은 모달 배경(보라), 글자는 모달
+//  │     낱말 글자색(주황). 배경은 BackgroundHighlight로 모서리를 살짝 둥글린다 —
+//  │     시트가 닫히면 selectedWord가 nil이 되어 둘 다 함께 사라진다
 //  ├─ makeUIView(context:)           UnderlineLabel 준비 (여러 줄, 세로 크기 우선)
 //  ├─ updateUIView(_:context:)       문단 스타일 + 강조 두 종류를 입힌다
 //  ├─ sizeThatFits(...)              폭에 맞는 높이를 SwiftUI 에 알려준다
@@ -54,13 +55,18 @@ struct KoreanText: UIViewRepresentable {
     var marker: String?
     var markerColor: UIColor = UIColor(AppColor.marker)
 
-    /// 지금 하단 사전 시트가 열려 있는 낱말. 이 낱말에만 배경색을 칠한다 — 다른
-    /// 낱말은 안 건드린다. QuestionScreen 이 glossarySelection 을 그대로 넘겨주므로,
-    /// 시트가 닫혀 그 값이 nil이 되면 배경도 같이 사라지고 글자는 원래 검정으로
-    /// 돌아온다(배경만 지웠을 뿐 글자색을 따로 바꾼 적이 없어서 자연히 그렇게 된다).
+    /// 지금 하단 사전 시트가 열려 있는 낱말. 이 낱말에만 배경·글자색을 칠한다 —
+    /// 다른 낱말은 안 건드린다. QuestionScreen 이 glossarySelection 을 그대로
+    /// 넘겨주므로, 시트가 닫혀 그 값이 nil이 되면 둘 다 같이 사라지고 원래 모습
+    /// (검정 글자, 배경 없음)으로 돌아온다.
     var selectedWord: String?
-    /// "다시 읽기" 버튼과 같은 배경색 — 낱말을 골랐다는 느낌을 그 버튼과 통일한다.
-    var selectedWordColor: UIColor = UIColor(AppColor.secondaryBackground)
+    /// 하단 사전 모달의 낱말에 쓰는 것과 같은 연라벤더 배지 배경(wordBadgeBackground).
+    /// `NSAttributedString.backgroundColor` 속성이 아니라
+    /// `UnderlineLabel.BackgroundHighlight`(TextKit 줄 단위 계산)로 그려서 모서리를
+    /// 살짝 둥글게 뺄 수 있다 — 그 속성은 각진 사각형만 가능하다.
+    var selectedWordBackgroundColor: UIColor = UIColor(AppColor.wordBadgeBackground)
+    /// 하단 사전 모달에서 낱말 글자에 쓰는 것과 같은 짙은 보라(wordBadgeText).
+    var selectedWordTextColor: UIColor = UIColor(AppColor.wordBadgeText)
 
     /// 임시 스위치 — 버그를 밑줄과 분리해서 보려고 노란 형광펜 배경을 잠시 꺼 둔다.
     /// 다시 켜려면 이 값을 true로 되돌리면 된다 (marker 자체는 그대로 넘어오고 있다).
@@ -133,7 +139,12 @@ struct KoreanText: UIViewRepresentable {
         
         // 어려운 낱말은 점선 밑줄. 탭 판정을 위해 범위도 함께 기억해 둔다.
         var hits: [(range: NSRange, entry: GlossaryEntry)] = []
-        
+
+        // 지금 사전 시트가 열려 있는 낱말의 배경(둥근 모서리). NSAttributedString의
+        // backgroundColor(각진 사각형만 가능) 대신 UnderlineLabel.BackgroundHighlight를
+        // 쓴다 — GlossaryPanel의 해설 배경과 같은 방식이다.
+        var backgroundHighlights: [UnderlineLabel.BackgroundHighlight] = []
+
         for entry in glossary {
             let target = Self.keepingNumbersWithUnits(entry.word)
             let range = (displayed as NSString).range(of: target)
@@ -141,9 +152,17 @@ struct KoreanText: UIViewRepresentable {
                 underlines.append(.init(range: range, color: UIColor(AppColor.textMuted), isDotted: true))
                 hits.append((range, entry))
                 
-                // 지금 사전 시트가 열려 있는 낱말이면 배경을 칠한다.
+                // 지금 사전 시트가 열려 있는 낱말이면 배경(둥근 모서리)과 글자색을 칠한다.
                 if entry.word == selectedWord {
-                    attributed.addAttribute(.backgroundColor, value: selectedWordColor, range: range)
+                    attributed.addAttribute(.foregroundColor, value: selectedWordTextColor, range: range)
+                    backgroundHighlights.append(
+                        UnderlineLabel.BackgroundHighlight(
+                            range: range,
+                            color: selectedWordBackgroundColor,
+                            cornerRadius: 6,
+                            excludesUnderlineSpacing: true
+                        )
+                    )
                 }
             }
         }
@@ -153,6 +172,7 @@ struct KoreanText: UIViewRepresentable {
 
         label.attributedText = attributed
         label.underlines = underlines
+        label.backgroundHighlights = backgroundHighlights
         label.setNeedsDisplay()
     }
 
@@ -220,7 +240,27 @@ final class UnderlineLabel: UILabel {
         let isDotted: Bool
     }
 
+    /// 배경을 둥글게 채워 그릴 구간 하나. `range`는 `attributedText`의 문자 범위입니다.
+    /// 밑줄과 달리 **글자보다 먼저(아래에)** 그린다 — 그래야 글자가 그 위에 그대로
+    /// 보인다. SwiftUI의 `Text`/`AttributedString`은 `backgroundColor` 속성을
+    /// 각진 사각형으로만 그릴 수 있어서, 둥근 모서리가 필요한 자리(예: 낱말 사전
+    /// 해설 속 "(뜻)")는 밑줄과 같은 방식(줄 단위로 TextKit 레이아웃을 계산)으로
+    /// 직접 채워 그린다.
+    struct BackgroundHighlight {
+        let range: NSRange
+        let color: UIColor
+        let cornerRadius: CGFloat
+        /// true면 배경 아래쪽을 줄 간격(lineFragmentPadding)만큼 미리 줄여서,
+        /// 같은 구간에 붙는 밑줄이 배경 안에 덮이지 않고 배경 바로 아래에
+        /// 그려지게 한다 — 지문의 사전 낱말처럼 밑줄과 배경이 함께 있는 자리에서만
+        /// 켠다. 밑줄이 없는 자리(모달의 낱말 배경 등)에서 이 값을 켜면, 밑줄
+        /// 자리를 비워 둘 필요가 없는데도 배경 아래쪽이 잘려 글자(특히 받침)를
+        /// 온전히 감싸지 못하는 문제가 생긴다 — 그래서 기본값은 false다.
+        var excludesUnderlineSpacing: Bool = false
+    }
+
     var underlines: [Underline] = []
+    var backgroundHighlights: [BackgroundHighlight] = []
 
     /// 글자 아래쪽에서 밑줄까지 띄우는 간격. **0이 기본값이자 "받침 바로 아래"** 자리다.
     var underlineGap: CGFloat = 0
@@ -246,13 +286,20 @@ final class UnderlineLabel: UILabel {
         // 계산한다 — 그래야 글자와 밑줄이 같은 좌표계를 본다.
         let textHeight = super.sizeThatFits(CGSize(width: rect.width, height: .greatestFiniteMagnitude)).height
         let topAlignedRect = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: textHeight)
-        super.drawText(in: topAlignedRect)
 
-        guard let attributedText, !underlines.isEmpty else { return }
-        guard let context = UIGraphicsGetCurrentContext() else { return }
+        // 배경(backgroundHighlights)도 밑줄(underlines)도 없으면 예전과 똑같이
+        // 그냥 글자만 그린다 — TextKit 스택을 새로 만드는 비용도 안 든다.
+        guard let attributedText, !(underlines.isEmpty && backgroundHighlights.isEmpty) else {
+            super.drawText(in: topAlignedRect)
+            return
+        }
+        guard let context = UIGraphicsGetCurrentContext() else {
+            super.drawText(in: topAlignedRect)
+            return
+        }
 
-        // 실제 화면에 그려진 것과 같은 줄바꿈을 다시 계산해서, 낱말이 어느 줄의
-        // 어디에 놓였는지(글자 범위 → 사각형)를 알아낸다. 위에서 글자를 그린 것과
+        // 실제 화면에 그려진 것과 같은 줄바꿈을 다시 계산해서, 구간이 어느 줄의
+        // 어디에 놓였는지(글자 범위 → 사각형)를 알아낸다. 아래에서 글자를 그릴 때와
         // 같은 topAlignedRect 크기를 써야 좌표가 맞는다.
         let textStorage = NSTextStorage(attributedString: attributedText)
         let layoutManager = NSLayoutManager()
@@ -264,6 +311,47 @@ final class UnderlineLabel: UILabel {
 
         let originX = topAlignedRect.minX
         let originY = topAlignedRect.minY
+
+        // 배경을 먼저 채운다 — 글자를 그 위에 그려야 글자가 가려지지 않는다. 밑줄과
+        // 달리 여백 없이 글자 폭에 딱 맞는 사각형에 모서리만 둥글게 깎는다(가로로
+        // 여유를 더 주면, 옆 글자는 이미 그 여유가 없다고 가정하고 배치돼 있어서
+        // 겹쳐 보인다 — 세로도 줄 칸(line fragment) 그대로 써서 같은 문제를 피한다).
+        for highlight in backgroundHighlights {
+            let glyphRange = layoutManager.glyphRange(forCharacterRange: highlight.range, actualCharacterRange: nil)
+
+            // 구간이 줄 끝에 걸려 두 줄에 나뉘어도, 줄마다 따로 둥근 사각형을 채운다.
+            layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { _, _, container, effectiveGlyphRange, _ in
+                let intersection = NSIntersectionRange(glyphRange, effectiveGlyphRange)
+                guard intersection.length > 0 else { return }
+
+                let box = layoutManager.boundingRect(forGlyphRange: intersection, in: container)
+                // boundingRect가 돌려주는 높이는 밑줄 계산과 똑같이 줄 간격(lineSpacing)
+                // 만큼 글자 아래쪽보다 더 내려가 있다(아래 밑줄 루프의 lineFragmentPadding
+                // 설명 참고). excludesUnderlineSpacing이 켜진 배경(지문의 사전 낱말처럼
+                // 같은 구간에 점선 밑줄이 함께 붙는 경우)만 마지막 줄이 아닐 때 그만큼
+                // 미리 빼서, 밑줄이 배경 안에 덮이지 않고 배경 바로 아래에 그려지게
+                // 한다. 밑줄이 없는 배경(모달의 낱말 배경 등)은 이 보정을 하지 않고
+                // 줄 칸 높이를 그대로 써서 글자(받침 포함)를 잘리지 않게 다 감싼다.
+                let isLastLine = effectiveGlyphRange.location + effectiveGlyphRange.length >= layoutManager.numberOfGlyphs
+                let bottomTrim = (highlight.excludesUnderlineSpacing && !isLastLine) ? self.lineFragmentPadding : 0
+                let fillRect = CGRect(
+                    x: originX + box.minX,
+                    y: originY + box.minY,
+                    width: box.width,
+                    height: box.height - bottomTrim
+                )
+                let path = UIBezierPath(roundedRect: fillRect, cornerRadius: highlight.cornerRadius)
+                context.saveGState()
+                context.setFillColor(highlight.color.cgColor)
+                path.fill()
+                context.restoreGState()
+            }
+        }
+
+        super.drawText(in: topAlignedRect)
+
+        guard !underlines.isEmpty else { return }
+
         let gap = underlineGap
         let thickness = underlineThickness
         let padding = lineFragmentPadding
