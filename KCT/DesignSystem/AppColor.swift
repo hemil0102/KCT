@@ -15,9 +15,12 @@
 //  ├─ correct              정답 표시 (진한 초록)
 //  ├─ review               다시 볼 문제 표시 (= signature)
 //  ├─ mastered             완전히 익힘 표시 (주황)
-//  ├─ chosenAnswer         고른 답 (주황)
-//  ├─ answerAccent         정답 (파랑) · answerBackground 옅은 파랑
-//  ├─ wrongAccent          모달 안의 고르신 답 (붉은색) · wrongBackground 옅은 붉은색
+//  ├─ chosenAnswer         고른 답 (주황, 현재 미사용)
+//  ├─ answerHeader         오답 해설 모달, 정답 낱말 배지의 배경 (옅은 하늘색, 11차 60% 추가로 옅게)
+//  ├─ answerAccent         정답 낱말 글자색 (짙은 하늘색, 배지·문장 강조 공용) · answerBackground 옅은 하늘색 (현재 미사용)
+//  ├─ wrongHeader          오답 해설 모달, 고른 답 낱말 배지의 배경 (옅은 분홍, 11차 60% 추가로 옅게)
+//  ├─ wrongAccent          고른 답 낱말 글자색 (짙은 분홍, 배지·문장 강조 공용) · wrongBackground 옅은 분홍 (현재 미사용)
+//  ├─ pendingText          「?」·화살표용 흐린 회보라 (현재 미사용 — 11차에서 낱말 대조 줄을 없앴다)
 //  ├─ textMuted            보조 텍스트 (흰 배경에서도 또렷한 진회색)
 //  ├─ marker               형광펜 (연노랑) — 묻는 대상
 //  ├─ wordBadgeBackground  낱말에 칠하는 연라벤더 배지 배경(모달 헤더·해설·지문 공용) —
@@ -106,23 +109,60 @@ enum AppColor {
     /// 낱말의 배지가 그보다 한 단계 더 강조되는 구조다.
     static let wordBadgeText = Color(red: 0.32, green: 0.25, blue: 0.67)
 
-    /// 정답을 각인시키는 색. 정답이 나오는 모든 자리에 같은 색을 쓴다.
+    /// 오답 해설 모달에서 **정답 낱말 배지의 배경**으로 쓰는 옅은 하늘색.
     ///
-    /// 시그니처(#745CF4)와 같은 파랑 계열에서 한 칸 진하게 잡아, 보라 버튼 옆에 두어도
-    /// 따로 놀지 않으면서 **글자로서 또렷하게** 읽힙니다.
-    static let answerAccent = Color(red: 0.18, green: 0.36, blue: 0.82)
+    /// 10차 6번에서는 정답 설명 앞의 세로 막대 색(진한 하늘, opacity 0.8)이었고,
+    /// 11차(타이틀 박스 제거 · 시안 3)에서 그 낱말이 각 설명 줄 머리의 배지로
+    /// 옮겨 가면서 이 색이 배지 배경이 됐다. 그런데 흰 카드 위 작은 배지에
+    /// 쓰기엔 색이 너무 진하다는 피드백을 받아, **실제로 화면에 보이던 색
+    /// (흰 배경 위에서 opacity 0.8이 섞인 값, 약 RGB 0.40·0.73·0.90)을
+    /// 기준으로 흰색 쪽으로 60% 더 섞었다.** opacity를 쓰지 않고 미리 섞은
+    /// 값을 그대로 쓰는 건, `wordBadgeBackground`처럼 배지 배경은 뒤에 뭐가
+    /// 있든 항상 같은 옅은 색으로 보여야 해서다.
+    static let answerHeader = Color(red: 0.76, green: 0.89, blue: 0.96)
 
-    /// 옅은 파랑 배경. 정답 칸을 감쌀 때.
-    static let answerBackground = answerAccent.opacity(0.10)
-
-    /// 고르신 답과 그 설명을 적을 때의 붉은색.
+    /// 카드(옅은 하늘색 배경) 위에서 정답 낱말을 강조할 때 쓰는 글자색.
     ///
-    /// 보라·파랑과 색상환에서 멀되 **채도를 낮춰** 놀라지 않게 합니다.
+    /// `answerHeader`보다 어둡게 잡았다 — 흰 배경이 아니라 `answerBackground`
+    /// (옅은 하늘색) 위에 올라가는 글자라, 밝은 색을 그대로 쓰면 대비가 부족해진다.
+    /// `answerHeader`를 60% 더 옅게 바꾼 뒤로 배지 위 대비는 오히려 더 넉넉해졌다.
+    static let answerAccent = Color(red: 0.11, green: 0.44, blue: 0.63)
+
+    /// 옅은 하늘색 배경. 정답 칸을 감쌀 때.
+    ///
+    /// **현재 미사용** — 시안 1(한 줄 대조)로 바꾸면서 색 카드 두 장이 흰 카드 한 장 +
+    /// 세로 막대로 바뀌었다. 칸을 다시 색으로 감싸는 안으로 돌아갈 때를 위해 남겨 둔다.
+    static let answerBackground = Color(red: 0.87, green: 0.95, blue: 0.98).opacity(0.8)
+
+    /// 오답 해설 모달에서 **고른 답 낱말 배지의 배경**으로 쓰는 옅은 분홍.
+    ///
+    /// 10차 6번에서는 고른 답 설명 앞의 세로 막대 색(진한 분홍, opacity 0.8)이었고,
+    /// 11차에서 낱말 대조 줄이 없어지면서 이 색이 배지 배경으로 옮겨 갔다.
+    /// `answerHeader`와 같은 이유로, **실제로 화면에 보이던 색(흰 배경 위
+    /// opacity 0.8이 섞인 값, 약 RGB 0.93·0.49·0.62)을 기준으로 흰색 쪽으로
+    /// 60% 더 섞었다.**
+    ///
     /// 이 색은 **모달 안에서만** 씁니다 — 목록·결과 화면의 「다시 볼 문제」는 여전히
     /// ``review``(시그니처)입니다. 화면에서 「틀렸다」를 강조하지 않기로 한 원칙 때문입니다.
-    static let wrongAccent = Color(red: 0.78, green: 0.22, blue: 0.24)
+    static let wrongHeader = Color(red: 0.97, green: 0.80, blue: 0.85)
 
-    /// 옅은 붉은 배경. 고르신 답 칸을 감쌀 때.
-    static let wrongBackground = wrongAccent.opacity(0.08)
+    /// 카드(옅은 분홍 배경) 위에서 고르신 답 낱말을 강조할 때 쓰는 글자색.
+    ///
+    /// `wrongHeader`보다 어둡게 잡았다 — `wrongBackground`(옅은 분홍) 위에 올라가는
+    /// 글자라, 밝은 색을 그대로 쓰면 대비가 부족해진다. `wrongHeader`를 60% 더
+    /// 옅게 바꾼 뒤로 배지 위 대비는 오히려 더 넉넉해졌다.
+    static let wrongAccent = Color(red: 0.70, green: 0.23, blue: 0.36)
+
+    /// 옅은 분홍 배경. 고르신 답 칸을 감쌀 때.
+    ///
+    /// **현재 미사용** — 위 `answerBackground` 와 같은 이유.
+    static let wrongBackground = Color(red: 0.99, green: 0.88, blue: 0.91).opacity(0.8)
+
+    /// 아직 안 나온 정답 자리(「?」)와 두 낱말 사이 화살표에 쓰던 흐린 회보라.
+    ///
+    /// **현재 미사용** — 11차(타이틀 박스 제거 · 시안 3)에서 "개천절 → ?" 형태의
+    /// 낱말 대조 줄(`wordRow`) 자체를 없애면서 이 색을 쓰던 「?」·화살표가 함께
+    /// 사라졌다. 값은 지우지 않고 남겨 둔다 — 대조 줄로 되돌아갈 때를 위해서다.
+    static let pendingText = Color(red: 0.60, green: 0.59, blue: 0.68)
 
 }

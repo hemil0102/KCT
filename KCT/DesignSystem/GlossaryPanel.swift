@@ -169,9 +169,12 @@ struct GlossaryPanel: View {
         // 배경)은 그와 별개로 iOS 시스템이 정한 재질이 따로 깔려 있어서 투명도를
         // 낮춰도 뒤 지문이 비치지 않았다. `.presentationBackground(...)`로 시트의
         // 진짜 배경 자체를 바꿔서 이 문제는 해결했다 — `.presentationBackgroundInteraction`
-        // 과 맞물려 뒤 지문이 비쳐 보인다. 투명도 값은 0.8 → 0.1 → .clear(진단용) 를
-        // 거쳐 지금 0.5로 자리 잡았다.
-        .presentationBackground(AppColor.signature.opacity(0.5))
+        // 과 맞물려 뒤 지문이 비쳐 보인다. 투명도 값은 0.8 → 0.1 → .clear(진단용) →
+        // 0.5 → 0.58 → 0.65 를 거쳐 지금은 **0.75**다 — "조금 더 진하게"를 여러
+        // 차례 받아 계속 올라간 값이다. 오답 해설 모달(FeedbackSheet)과 항상 같은
+        // 값을 쓴다. 이 정도면 뒤 지문이 비치는 정도가 꽤 옅어지니, 더 올릴 때는
+        // 뒤 화면이 안 보이기 시작하는 지점인지 확인이 필요하다.
+        .presentationBackground(AppColor.signature.opacity(0.75))
         // 작게 열렸다가 .medium 까지 커진다. selection 을 바인딩해서, 손잡이를 직접
         // 끌든 안내를 쓸어 올리든 — 어느 쪽으로 커졌든 — 아래 onChange 가 똑같이 반응한다.
         .presentationDetents([.height(Self.collapsedHeight), .medium], selection: $selectedDetent)

@@ -8,7 +8,7 @@
 //  ── 구성 ──────────────────────────────────────────────
 //  KoreanText (UIViewRepresentable → UILabel)
 //  ├─ text / font / color / lineSpacing
-//  ├─ highlight / highlightColor     색 + 굵은 밑줄로 강조 (O/X 의 판단 대상)
+//  ├─ highlight / highlightColor     따옴표로 감싸고 색 + 더 굵은 글자로 강조 (O/X 의 판단 대상, 밑줄 없음)
 //  ├─ marker / markerColor           형광펜(배경색)으로 칠할 부분 (묻는 대상)
 //  ├─ selectedWord / selectedWordBackgroundColor / selectedWordTextColor
 //  │     하단 사전 시트가 열려 있는 낱말 — 배경은 모달 배경(보라), 글자는 모달
@@ -39,8 +39,8 @@ import UIKit
 /// 한국어 지문을 읽기 좋게 보여주는 텍스트 뷰.
 ///
 /// SwiftUI 의 `Text` 는 한글 줄바꿈 전략을 지원하지 않아 "대한민국" 이 갈라지는데, `hangulWordPriority` 는 `NSParagraphStyle` 에만 있어 UILabel 을 감쌌습니다.
-/// ``marker`` 는 형광펜(배경색)으로 묻는 대상을, ``highlight`` 는 색과 굵은 밑줄로 O/X 의 판단 대상을 강조합니다.
-/// 두 가지 신호를 함께 주는 것은 색 구분이 어려운 분도 알아볼 수 있게 하기 위해서입니다.
+/// ``marker`` 는 형광펜(배경색)으로 묻는 대상을, ``highlight`` 는 색과 더 굵은 글자(밑줄 없음)로 O/X 의 판단 대상을 강조합니다.
+/// 두 가지 신호(색·굵기)를 함께 주는 것은 색 구분이 어려운 분도 알아볼 수 있게 하기 위해서입니다.
 struct KoreanText: UIViewRepresentable {
     let text: String
     var font: UIFont
@@ -104,7 +104,25 @@ struct KoreanText: UIViewRepresentable {
         paragraph.lineBreakStrategy = .hangulWordPriority   // 한글 단어 중간에서 끊지 않음
         paragraph.lineSpacing = lineSpacing
 
-        let displayed = Self.keepingNumbersWithUnits(text)
+        var displayed = Self.keepingNumbersWithUnits(text)
+
+        // O/X 판단 대상("답")을 여는/닫는 큰따옴표(“ ”)로 감싸 강조한다. 지문
+        // 원문에는 없는 문자라 화면에 보여줄 때만 문자열에 끼워 넣는다 — 색+
+        // 굵기(아래 강조 처리 참고)만으로는 신호가 약할 수 있어서 따옴표를
+        // 더했다(10차 계획 9번 후속 요청). 여기서 찾은 범위(따옴표 포함)를
+        // highlightRange 에 남겨 뒀다가 강조 처리에서 그대로 쓴다 — attributed
+        // 문자열을 만들기 전에 끼워 넣어야 그 뒤 marker·glossary 검색이 이
+        // 문자열 기준으로 어긋나지 않는다.
+        var highlightRange: NSRange?
+        if let highlight, !highlight.isEmpty {
+            let target = Self.keepingNumbersWithUnits(highlight)
+            if let swiftRange = displayed.range(of: target) {
+                let quoted = "“\(target)”"
+                displayed.replaceSubrange(swiftRange, with: quoted)
+                highlightRange = (displayed as NSString).range(of: quoted)
+            }
+        }
+
         let attributed = NSMutableAttributedString(
             string: displayed,
             attributes: [
@@ -127,14 +145,21 @@ struct KoreanText: UIViewRepresentable {
         // 겹칠 수 있다. 색만 여기서 입히고, 실제 선은 UnderlineLabel 이 간격을 두고 그린다.
         var underlines: [UnderlineLabel.Underline] = []
 
-        // 강조 구간은 시그니처 색 + 굵은 밑줄. 색과 밑줄 두 신호를 함께 준다.
-        if let highlight, !highlight.isEmpty {
-            let target = Self.keepingNumbersWithUnits(highlight)
-            let range = (displayed as NSString).range(of: target)
-            if range.location != NSNotFound {
-                attributed.addAttribute(.foregroundColor, value: highlightColor, range: range)
-                underlines.append(.init(range: range, color: highlightColor, isDotted: false))
-            }
+        // 강조 구간("답", 따옴표 포함)은 밑줄이 아니라 색 + 더 굵은 글자로
+        // 표시한다 — 10차 계획 9번, 세 시안 중 어머니가 고른 "시안 1(색상+
+        // 굵기만)". 지문 글자가 이미 기본으로 굵어서(.bold), 구분되게 보이려면
+        // 그보다 한 단계 더 굵은 무게(.heavy)를 줘야 한다. 범위는 위에서 따옴표를
+        // 끼워 넣을 때 이미 구해 둔 highlightRange 를 그대로 쓴다. 밑줄을 안
+        // 그리므로 낱말의 점선 밑줄과 같은 자리에서 겹칠 일이 없다 — 그래서
+        // 아래 사전 낱말 루프도 "강조와 겹치는 낱말은 건너뛴다"는 예외 없이
+        // 원래대로, 모든 어려운 낱말이 항상 점선 밑줄 + 탭 가능하다.
+        if let highlightRange {
+            attributed.addAttribute(.foregroundColor, value: highlightColor, range: highlightRange)
+            attributed.addAttribute(
+                .font,
+                value: UIFont.systemFont(ofSize: font.pointSize, weight: .heavy),
+                range: highlightRange
+            )
         }
         
         // 어려운 낱말은 점선 밑줄. 탭 판정을 위해 범위도 함께 기억해 둔다.
@@ -190,7 +215,7 @@ struct KoreanText: UIViewRepresentable {
         // max(0, ...)로 막는다. 밑줄을 얼마로 조절하든 형광펜·글자는 항상 안전하다.
         let underlineAllowance = uiView.underlines.isEmpty
             ? 0
-            : max(0, uiView.underlineGap - uiView.lineFragmentPadding + uiView.underlineThickness / 2 + 2)
+            : max(0, uiView.underlineGap - uiView.lineFragmentPadding + uiView.underlineDepthBelowLine + 2)
         return CGSize(width: width, height: fitting.height + underlineAllowance)
     }
 
@@ -236,7 +261,11 @@ final class UnderlineLabel: UILabel {
     struct Underline {
         let range: NSRange
         let color: UIColor
-        /// true면 점선(사전), false면 굵은 실선(O/X 강조).
+        /// true면 점선(사전 낱말), false면 실선.
+        ///
+        /// 지금 지문에 그려지는 밑줄은 **전부 점선**이다 — 9차에서 O/X 의 답을
+        /// 밑줄이 아니라 색·굵기·따옴표로 바꾸면서 실선을 쓰는 자리가 없어졌다.
+        /// 실선 경로는 다시 필요해질 때를 위해 남겨 둔다.
         let isDotted: Bool
     }
 
@@ -262,11 +291,36 @@ final class UnderlineLabel: UILabel {
     var underlines: [Underline] = []
     var backgroundHighlights: [BackgroundHighlight] = []
 
-    /// 글자 아래쪽에서 밑줄까지 띄우는 간격. **0이 기본값이자 "받침 바로 아래"** 자리다.
-    var underlineGap: CGFloat = 0
+    /// 글자 아래쪽에서 밑줄 중심까지 띄우는 간격. **0이 "받침 바로 아래"** 자리다.
+    ///
+    /// 기본값을 2로 둔 것은, 0일 때 점선이 받침("국"·"웅" 같은 글자 아래)에 바짝
+    /// 붙어 글자와 섞여 보였기 때문이다 (10차 계획 10번).
+    var underlineGap: CGFloat = 2
 
-    /// 실선(강조) 두께. 점선(사전)은 이보다 얇게 고정해서 그린다.
+    /// 실선 두께. 지금은 쓰는 곳이 없다 (``Underline/isDotted`` 참고).
     var underlineThickness: CGFloat = 2.5
+
+    /// 점선의 점 하나 지름.
+    ///
+    /// 1.6pt 짜리 얇은 점선이 어머니 눈에 잘 안 띈다는 요청으로 키운 값이다
+    /// (10차 계획 10번, 시안 1 "또렷한 동그란 점").
+    var dottedDotDiameter: CGFloat = 3
+
+    /// 점과 점 사이에 두고 싶은 간격.
+    ///
+    /// **실제 간격은 낱말마다 조금씩 다르다.** 이 값은 "이 정도면 좋겠다"는 기준일
+    /// 뿐이고, 낱말 너비에 점이 몇 개 들어가는지 센 뒤 고르게 다시 나눈다 —
+    /// 그래야 낱말 양 끝에서 점이 잘리지 않는다. ``drawText(in:)`` 참고.
+    var dottedDotSpacing: CGFloat = 3
+
+    /// 밑줄이 `underlineGap` 이 가리키는 자리보다 아래로 내려가는 깊이.
+    ///
+    /// 점선은 점의 반지름만큼, 실선은 두께의 절반만큼 내려간다. 뷰 높이를 잡는
+    /// `sizeThatFits` 가 이 값을 봐야, 점을 키웠을 때 마지막 줄 밑에서 점이
+    /// 잘리지 않는다.
+    var underlineDepthBelowLine: CGFloat {
+        max(dottedDotDiameter / 2, underlineThickness / 2)
+    }
 
     /// `NSLayoutManager.boundingRect(forGlyphRange:in:)`가 돌려주는 사각형은 글자가
     /// 놓인 "줄 한 칸 전체"(line fragment)라서, 문단 스타일의 줄 간격(`lineSpacing`,
@@ -355,6 +409,8 @@ final class UnderlineLabel: UILabel {
         let gap = underlineGap
         let thickness = underlineThickness
         let padding = lineFragmentPadding
+        let dotDiameter = dottedDotDiameter
+        let dotSpacing = dottedDotSpacing
 
         for underline in underlines {
             let glyphRange = layoutManager.glyphRange(forCharacterRange: underline.range, actualCharacterRange: nil)
@@ -381,18 +437,50 @@ final class UnderlineLabel: UILabel {
                 let endX = originX + box.maxX
 
                 context.saveGState()
-                context.setStrokeColor(underline.color.cgColor)
-                context.setLineCap(.round)
                 if underline.isDotted {
-                    context.setLineWidth(1.6)
-                    context.setLineDash(phase: 0, lengths: [1.2, 3.4])
+                    // 점선을 `setLineDash` 로 그리지 않는 이유 — 그 방식은 낱말 왼쪽
+                    // 끝에서 패턴을 시작해 일정 주기로 반복할 뿐이라, 낱말 너비가 그
+                    // 주기로 나눠떨어지지 않으면 오른쪽 끝에서 점이 반쯤 잘린 채
+                    // 끝난다. 그래서 낱말 너비에 점이 몇 개 들어가는지 먼저 세고,
+                    // 양 끝에 점이 온전히 놓이도록 고르게 배분해 하나씩 찍는다.
+                    // 그 대가로 점 간격은 낱말마다 조금씩 달라진다 — 잘리지 않는
+                    // 쪽이 더 중요하다고 봤다 (10차 계획 10번).
+                    let width = endX - startX
+                    // 줄 끝에 점 하나보다 좁은 조각만 걸리는 극단적인 경우에도 점이
+                    // 그 조각 밖으로 삐져나가지 않게, 지름을 너비 안쪽으로 줄인다.
+                    let diameter = min(dotDiameter, width)
+                    let radius = diameter / 2
+                    context.setFillColor(underline.color.cgColor)
+
+                    // 점 "중심"이 놓일 수 있는 구간. 양 끝에서 반지름만큼 안으로
+                    // 들어와야 점이 낱말 밖으로 삐져나가지 않는다. 줄 끝에 한 글자만
+                    // 걸린 경우처럼 점 하나보다 좁으면 0이 된다.
+                    let centerSpan = max(0, width - diameter)
+                    let count = max(1, Int((centerSpan / (diameter + dotSpacing)).rounded()) + 1)
+                    // 점이 하나뿐이면 낱말 한가운데에 놓는다.
+                    let step = count > 1 ? centerSpan / CGFloat(count - 1) : 0
+                    let firstCenterX = count > 1 ? startX + radius : startX + width / 2
+
+                    for index in 0 ..< count {
+                        let centerX = firstCenterX + step * CGFloat(index)
+                        context.fillEllipse(
+                            in: CGRect(
+                                x: centerX - radius,
+                                y: y - radius,
+                                width: diameter,
+                                height: diameter
+                            )
+                        )
+                    }
                 } else {
+                    context.setStrokeColor(underline.color.cgColor)
+                    context.setLineCap(.round)
                     context.setLineWidth(thickness)
                     context.setLineDash(phase: 0, lengths: [])
+                    context.move(to: CGPoint(x: startX, y: y))
+                    context.addLine(to: CGPoint(x: endX, y: y))
+                    context.strokePath()
                 }
-                context.move(to: CGPoint(x: startX, y: y))
-                context.addLine(to: CGPoint(x: endX, y: y))
-                context.strokePath()
                 context.restoreGState()
             }
         }
