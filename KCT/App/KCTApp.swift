@@ -16,7 +16,7 @@
 //  앱 실행
 //    → QuestionCatalog.loaded()  : 받아 둔 것 먼저, 없으면 번들 questions.json
 //    → modelContainer : QuestionProgress·QuestionFocusRecord·ObsRecord 를 저장할 곳 마련
-//    → RootView → QuizView 가 environment 에서 둘을 꺼내 회차를 시작
+//    → RootView(하단 탭바) → MyHistoryView·PracticeHomeView·QuizView 가 environment 에서 꺼내 씀
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : 시스템 (@main)

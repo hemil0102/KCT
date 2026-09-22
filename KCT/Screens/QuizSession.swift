@@ -33,8 +33,12 @@
 //  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
 //  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
 //  ├─ IncorrectCommentary      틀렸을 때 띄울 창의 내용 (고른 답 · 정답 · 해설)
-//  ├─ feedback                 지금 띄워야 할 창. nil 이면 창이 없다
-//  ├─ moveToNextQuestion()     다음 문제로 넘어간다 — 맞혔을 때와 창을 닫을 때 둘 다
+//  ├─ feedback                 지금 띄워야 할 오답 해설 창. nil 이면 창이 없다
+//  ├─ CorrectCommentary        맞혔을 때 띄울 창의 내용 (정답 · 해설) — 고른 답 설명은 없다
+//  ├─ correctFeedback          지금 띄워야 할 정답 해설 창. nil 이면 창이 없다
+//  ├─ presentCorrectFeedback() 정답 해설 창을 띄우고 CommentaryWriter.write(for:) 로 채운다
+//  ├─ dismissCorrectFeedback() 정답 해설 창의 「다음 문제」 — 창을 닫고 다음 문제로
+//  ├─ moveToNextQuestion()     다음 문제로 넘어간다 — 두 창을 닫을 때 모두 (맞았을 때도 이제 창을 거친다)
 //  ├─ reasonForLog()           채점 이유를 로그에 남길 모양으로 다듬는다
 //  └─ uploadObservations()     안 올라간 기록을 뒤에서 밀어 올린다 (기다리지 않는다)
 //
@@ -51,6 +55,10 @@
 //        → QuestionProgress.countAttempt() 로 모든 문항을 센다 (격려용 포함)
 //        → 격려용 슬롯이면 nudgeLadder() 로 2지선다 → O/X 한 칸만
 //        → 아니면 moveLadder() 로 사다리를 올리거나 내린다
+//        → 맞았으면 presentCorrectFeedback() 으로 정답 해설 창을 띄운다
+//              (오답 해설과 같은 CommentaryWriter.write(for:) 를 그대로 쓴다)
+//              → 「다음 문제」를 누르면 dismissCorrectFeedback() → moveToNextQuestion()
+//        → 틀렸으면 오답 해설 창(feedback) → 「다음 문제」→ dismissFeedback() → moveToNextQuestion()
 //        → saveObsRecord() 로 관찰 기록 한 줄을 남긴다 (진척과 무관하게)
 //        → uploadObservations() 로 뒤에서 서버에 올린다 (기다리지 않는다)
 //        → modelContext.save()
@@ -216,6 +224,30 @@ final class QuizSession {
         var isReady: Bool { commentary != Self.placeholder }
     }
 
+    /// 맞혔을 때 띄우는 창의 내용.
+    ///
+    /// ``IncorrectCommentary`` 와 달리 **고른 답을 따로 설명하지 않는다** — 이미
+    /// 맞혔으므로 「무엇을 골랐는지」를 짚을 필요가 없다. 정답 해설 하나만 있으면 된다.
+    /// 해설을 만드는 방법도 같다 — ``CommentaryWriter/write(for:)`` 를 그대로 쓴다.
+    /// "이 답이 왜 맞는지"는 맞고 틀리고와 무관하게 같은 사실(``Question/facts``)에서
+    /// 나오기 때문에, 오답 해설의 "정답 비교" 부분을 만들던 바로 그 함수를 재활용한다.
+    struct CorrectCommentary: Identifiable {
+        /// 해설이 아직 안 왔을 때 창에 넣어 두는 문구.
+        static let placeholder = "잠시만 같이 살펴봐요."
+
+        /// 해설을 끝내 못 만들었을 때의 문구.
+        static let failed = "다음 문제로 이동해주세요."
+
+        /// 이 창이 어느 문항 때문에 떴는지. (``IncorrectCommentary/id`` 와 같은 이유)
+        let id: Int
+
+        let correctAnswer: String
+        let commentary: String
+
+        /// 기다림이 끝났는가. (``IncorrectCommentary/isReady`` 와 같은 이유)
+        var isReady: Bool { commentary != Self.placeholder }
+    }
+
     /// 이번 회차를 묶는 번호. ``start()`` 마다 새로 만든다.
     ///
     /// 이것 하나로 나중에 「이번 회차 평균 대기」와 「회차에 걸린 총 시간」을 셉니다.
@@ -250,6 +282,9 @@ final class QuizSession {
     /// `private(set)` 인 이유 — 화면은 **읽어서 그리기만** 하고, 넣고 비우는 것은
     /// ``QuizSession`` 만 합니다.
     private(set) var feedback: IncorrectCommentary?
+
+    /// 지금 띄워야 할 **정답 해설** 창. `nil` 이면 창이 없다. (``feedback`` 과 같은 이유)
+    private(set) var correctFeedback: CorrectCommentary?
 
     init(catalog: QuestionCatalog, modelContext: ModelContext, size: Int = 5) {
         self.catalog = catalog
@@ -378,7 +413,7 @@ final class QuizSession {
     /// 모델이 실패한 기록을 저장소에 넣는다. 서버로는 ``ObsUploader`` 가 나중에 보낸다.
     ///
     /// - Note: `private` 이 아니다. 여기(``gradeCurrent()``)뿐 아니라 ``QuestionScreen``도
-    ///   낱말 사전 예문(``composeExample(word:gloss:relatedWords:questionText:questionID:)``)이
+    ///   낱말 사전 예문(``composeExample(word:gloss:relatedWords:referenceSentence:questionID:)``)이
     ///   실패했을 때 이 메서드로 넘긴다 — modelContext 는 세션만 들고 있으므로, 화면이
     ///   직접 넣지 않고 항상 세션을 거친다.
     ///
@@ -457,12 +492,55 @@ final class QuizSession {
         moveToNextQuestion()
     }
 
+    /// 정답 해설 창의 「다음 문제」. (``dismissFeedback()`` 과 같은 이유)
+    func dismissCorrectFeedback() {
+        guard correctFeedback != nil else { return }
+        correctFeedback = nil
+        moveToNextQuestion()
+    }
+
     /// 답 없이 다음을 누른 경우 — 안내를 띄우라고 표시한다.
     ///
     /// 버튼을 아예 못 누르게 막지 않는 이유: 눌러도 아무 일이 없으면 어르신은
     /// 앱이 고장 났다고 생각한다. 눌리게 두고 무엇이 필요한지 알려 주는 편이 낫다.
     func requestAnswerHint() {
         needsAnswerHint = true
+    }
+
+    /// 맞혔을 때 정답 해설 창을 띄운다.
+    ///
+    /// 오답을 만났을 때 정답을 설명하던 바로 그 함수(``CommentaryWriter/write(for:)``)를
+    /// 그대로 쓴다 — "이 답이 왜 맞는지"는 이번에 맞혔든 틀렸든 같은 사실에서 나오는
+    /// 같은 문장이기 때문이다. 창을 먼저 띄우고(자리표시 문구), 글이 오면 갈아 끼우는
+    /// 흐름도 오답 해설과 같다 — 9차에서 겪은 "시트가 처음엔 안 채워진 채로 뜨는" 문제를
+    /// 여기서도 피하기 위해서다.
+    private func presentCorrectFeedback(for item: QuizItem) async {
+        let shownAt = ContinuousClock.now
+
+        correctFeedback = CorrectCommentary(
+            id: item.id,
+            correctAnswer: item.question.displayAnswer,
+            commentary: CorrectCommentary.placeholder)
+
+        let written = await commentaryWriter.write(for: item)
+        saveFailures([written.failure])
+
+        let text = written.text
+
+        // 글이 너무 빨리 오면 창이 뜨자마자 바뀌어 깜빡여 보인다. 오답 해설과 같은
+        // 최소 대기를 둔다.
+        await holdWaitingLine(shownAt: shownAt)
+
+        // 실패해도 반드시 갱신한다 — 안 그러면 자리표시 문구가 오지 않는 것을
+        // 계속 기다리며 반짝인다.
+        if correctFeedback != nil {
+            correctFeedback = CorrectCommentary(
+                id: item.id,
+                correctAnswer: item.question.displayAnswer,
+                commentary: text ?? CorrectCommentary.failed)
+        }
+
+        saveObsRecord(for: item, isCorrect: true, explanation: text)
     }
 
     // MARK: - 채점
@@ -476,8 +554,7 @@ final class QuizSession {
         applyProgress(for: item, isCorrect: isCorrect)
         
         if isCorrect {
-            saveObsRecord(for: item, isCorrect: isCorrect, explanation: nil)
-            moveToNextQuestion()
+            await presentCorrectFeedback(for: item)
         } else {
             // 실제로 판단한 낱말이 다른 문항의 정답이면 그 문항의 재료로 설명한다.
             // O/X 는 고른 답이 「맞아요」라 진술문 안의 낱말을 대신 본다.
@@ -688,6 +765,7 @@ final class QuizSession {
         submittedAnswers = [:]
         results = [:]
         feedback = nil
+        correctFeedback = nil
 
         // 관찰 기록도 회차 단위로 새로 시작한다.
         sessionID = UUID()

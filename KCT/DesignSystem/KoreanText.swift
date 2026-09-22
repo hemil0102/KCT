@@ -17,7 +17,10 @@
 //  ├─ makeUIView(context:)           UnderlineLabel 준비 (여러 줄, 세로 크기 우선)
 //  ├─ updateUIView(_:context:)       문단 스타일 + 강조 두 종류를 입힌다
 //  ├─ sizeThatFits(...)              폭에 맞는 높이를 SwiftUI 에 알려준다
-//  └─ keepingNumbersWithUnits(_:)    "2333년" 이 갈라지지 않게 WORD JOINER 삽입
+//  ├─ keepingNumbersWithUnits(_:)    "2333년" 이 갈라지지 않게 WORD JOINER 삽입
+//  ├─ fittingFont(...)               주어진 폭·최대 높이 안에 맞는 가장 큰 글꼴을 고른다
+//  │                                (11차 후속 — 지문이 화면 절반을 넘지 않게 하는 데 쓴다)
+//  └─ measuredHeight(...)            fittingFont 가 후보 글꼴마다 실제 높이를 재는 데 쓰는 도구
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuestionScreen 이 지문·강조·형광펜을 넘긴다
@@ -237,6 +240,62 @@ struct KoreanText: UIViewRepresentable {
             previous = character
         }
         return result
+    }
+
+    /// 주어진 폭·최대 높이 안에 맞는 가장 큰 글꼴을 고른다. (11차 후속)
+    ///
+    /// 어머니가 정답·오답 해설 모달(화면 아래 절반, `.presentationDetents([.medium])`)을
+    /// 내리지 않고도 문제를 같이 보려면, 지문이 항상 화면 위 절반 안에 다 들어와
+    /// 있어야 한다. 짧은 지문은 `baseFont` 그대로 재도 이미 그 안에 들어오므로
+    /// 그대로 돌려준다 — 예전 모습이 안 바뀐다. 길어서 넘치면 `minFontSize`에
+    /// 닿을 때까지 1pt씩 줄여 가며 다시 재서, 절반 안에 드는 가장 큰 크기를 찾는다.
+    /// 그래도 `minFontSize`에서까지 못 들어오면(아주 긴 지문) `minFontSize`를
+    /// 그대로 돌려준다 — 이 경우는 지금처럼 questionArea 의 ScrollView 가 나머지를
+    /// 스크롤로 보여준다.
+    static func fittingFont(
+        for text: String,
+        baseFont: UIFont,
+        minFontSize: CGFloat,
+        maxHeight: CGFloat,
+        width: CGFloat,
+        lineSpacing: CGFloat
+    ) -> UIFont {
+        guard width > 0 else { return baseFont }
+        guard measuredHeight(for: text, font: baseFont, width: width, lineSpacing: lineSpacing) > maxHeight else {
+            return baseFont
+        }
+
+        var fontSize = baseFont.pointSize - 1
+        while fontSize > minFontSize {
+            let candidate = baseFont.withSize(fontSize)
+            if measuredHeight(for: text, font: candidate, width: width, lineSpacing: lineSpacing) <= maxHeight {
+                return candidate
+            }
+            fontSize -= 1
+        }
+        return baseFont.withSize(minFontSize)
+    }
+
+    /// 주어진 폭에서 이 지문이 실제로 차지할 높이를 잰다. `updateUIView`가 실제로
+    /// 쓰는 것과 같은 문단 스타일(`hangulWordPriority`)을 써야 실제 줄바꿈과 같은
+    /// 값이 나온다 — 다만 강조 따옴표 삽입 같은 자잘한 처리는 하지 않는다(글자
+    /// 두어 개 차이라 높이에 거의 영향이 없다).
+    private static func measuredHeight(for text: String, font: UIFont, width: CGFloat, lineSpacing: CGFloat) -> CGFloat {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        paragraph.lineBreakStrategy = .hangulWordPriority
+        paragraph.lineSpacing = lineSpacing
+
+        let attributed = NSAttributedString(
+            string: keepingNumbersWithUnits(text),
+            attributes: [.font: font, .paragraphStyle: paragraph]
+        )
+        let bounding = attributed.boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
+        return ceil(bounding.height)
     }
 }
 

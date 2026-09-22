@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "questions": [
     {
       "id": 1,
@@ -1252,6 +1252,681 @@
           "kind": "mark",
           "weight": 2,
           "text": "훈민정음을 널리 알린 날이에요"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "한글을 만든 조선의 왕은 누구입니까?",
+      "answer": "세종대왕",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "한글을 만든 조선의 왕은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "왕의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "대왕은 훌륭한 왕이라는 뜻이에요"
+        },
+        {
+          "kind": "event",
+          "weight": 2,
+          "text": "이 왕이 한글을 만든 것을 기념해 한글날이 생겼어요"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "임진왜란 때 거북선으로 왜적을 물리친 장군은 누구입니까?",
+      "answer": "이순신",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "임진왜란 때 거북선으로 왜적을 물리친 장군은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "장군의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "거북선은 거북 모양으로 만든 배예요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "지금도 존경받는 대표적인 장군이에요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "임진왜란",
+          "gloss": "조선시대에 일본이 쳐들어온 전쟁"
+        },
+        {
+          "word": "왜적",
+          "gloss": "쳐들어온 일본 군사"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "오만원권 지폐에 그려진 조선시대의 여성 화가는 누구입니까?",
+      "answer": "신사임당",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "오만원권 지폐에 그려진 조선시대의 여성 화가는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "사람 이름을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "오만원짜리 지폐에 얼굴이 그려져 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "그림과 글씨에 뛰어났던 것으로 유명해요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "오만원권",
+          "gloss": "5만 원짜리 지폐"
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "고려를 세운 왕(시조)은 누구입니까?",
+      "answer": "왕건",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "고려를 세운 왕(시조)은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "왕의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "nation",
+          "weight": 3,
+          "text": "고려의 첫 임금이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "여러 나라로 나뉘어 있던 땅을 다시 하나로 모았어요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "시조",
+          "gloss": "그 나라나 집안을 처음 세운 사람",
+          "referenceSentence": "할아버지는 우리 가문의 시조입니다."
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "고구려의 땅을 크게 넓힌 왕은 누구입니까?",
+      "answer": "광개토대왕",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "고구려의 땅을 크게 넓힌 왕은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "왕의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "광개토는 땅을 넓게 열었다는 뜻이에요"
+        },
+        {
+          "kind": "nation",
+          "weight": 2,
+          "text": "고구려를 가장 강한 나라로 만든 왕이에요"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "이토 히로부미를 처단한 독립운동가는 누구입니까?",
+      "answer": "안중근",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "이토 히로부미를 처단한 독립운동가는 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "독립운동가의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "하얼빈에서 이토 히로부미를 저격했어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "나라를 위해 몸 바친 대표적인 인물로 존경받아요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "처단",
+          "gloss": "잘못을 물어 벌을 줌"
+        },
+        {
+          "word": "독립운동가",
+          "gloss": "나라를 되찾으려고 힘쓴 사람"
+        },
+        {
+          "word": "이토 히로부미",
+          "gloss": "조선을 침략한 일본의 정치인"
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "대한민국 임시정부의 주석을 지낸 독립운동가는 누구입니까?",
+      "answer": "김구",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "대한민국 임시정부의 주석을 지낸 독립운동가는 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "독립운동가의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "백범이라는 호로도 잘 알려져 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "광복 후에도 나라의 통일을 위해 힘썼어요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "임시정부",
+          "gloss": "나라를 잃었을 때 임시로 세운 정부"
+        },
+        {
+          "word": "주석",
+          "gloss": "단체를 대표하는 가장 높은 자리"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "category": "역사",
+      "unit": "역사3",
+      "question": "3.1운동을 이끌다 순국한 여성 독립운동가는 누구입니까?",
+      "answer": "유관순",
+      "kind": "person",
+      "shape": "word",
+      "statementFormat": "3.1운동을 이끌다 순국한 여성 독립운동가는 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "독립운동가의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "event",
+          "weight": 3,
+          "text": "만세를 부르며 독립을 외치다가 붙잡혔어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "10대의 어린 나이에 목숨을 바쳤어요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "순국",
+          "gloss": "나라를 위해 목숨을 바침"
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "category": "정치",
+      "unit": "민주주의1",
+      "question": "국민이 나라의 주인이 되어 국민을 위해 정치를 하는 제도는 무엇입니까?",
+      "answer": "민주주의",
+      "kind": "system",
+      "shape": "word",
+      "statementFormat": "국민이 나라의 주인이 되어 국민을 위해 정치를 하는 제도는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "제도의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "민주는 국민이 주인이라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "대한민국은 이 제도를 따르는 나라예요"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "category": "정치",
+      "unit": "민주주의1",
+      "question": "대한민국의 주권은 누구에게 있습니까?",
+      "answer": "국민",
+      "kind": "system",
+      "shape": "word",
+      "statementFormat": "대한민국의 주권은 {답}에게 있다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "주권이 누구에게 있는지 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "주권은 나라의 중요한 일을 스스로 결정하는 권리예요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "대한민국 헌법에 분명히 나와 있어요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "주권",
+          "gloss": "나라의 중요한 일을 스스로 결정하는 권리"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "category": "정치",
+      "unit": "민주주의1",
+      "question": "선거에 참여하여 투표할 수 있는 국민의 권리를 무엇이라고 합니까?",
+      "answer": "선거권",
+      "kind": "system",
+      "shape": "word",
+      "statementFormat": "선거에 참여하여 투표할 수 있는 국민의 권리는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "권리의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "선거권은 뽑을 수 있는 권리라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "만 18세가 되면 생기는 권리예요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "선거",
+          "gloss": "투표로 대표를 뽑는 일"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "category": "정치",
+      "unit": "민주주의1",
+      "question": "선거를 할 때 정해진 용지에 자신의 뜻을 표시해 내는 것을 무엇이라고 합니까?",
+      "answer": "투표",
+      "kind": "system",
+      "shape": "word",
+      "statementFormat": "선거를 할 때 정해진 용지에 자신의 뜻을 표시해 내는 것은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "무엇을 하는 일인지 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "선거일에 투표소에 가서 해요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "표를 던진다는 뜻에서 나온 말이에요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "용지",
+          "gloss": "정해진 모양의 종이"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "category": "정치",
+      "unit": "민주주의1",
+      "question": "대한민국 대통령의 임기는 몇 년입니까?",
+      "answer": "5년",
+      "kind": "system",
+      "shape": "word",
+      "statementFormat": "대한민국 대통령의 임기는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "임기가 몇 년인지 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "임기는 정해진 일을 맡아보는 기간이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "한 번만 할 수 있고 다시는 할 수 없어요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "임기",
+          "gloss": "정해진 일을 맡아보는 기간"
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "category": "정치",
+      "unit": "민주주의1",
+      "question": "대한민국 국회의원의 임기는 몇 년입니까?",
+      "answer": "4년",
+      "kind": "system",
+      "shape": "word",
+      "statementFormat": "대한민국 국회의원의 임기는 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "임기가 몇 년인지 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "국회에서 법을 만드는 사람이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "국민을 대표해서 뽑힌 사람이에요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "임기",
+          "gloss": "정해진 일을 맡아보는 기간"
+        },
+        {
+          "word": "국회의원",
+          "gloss": "국민이 뽑아 나라의 법을 만드는 사람"
+        }
+      ]
+    },
+    {
+      "id": 45,
+      "category": "정치",
+      "unit": "민주주의1",
+      "question": "대통령이 속한 정당을 무엇이라고 합니까?",
+      "answer": "여당",
+      "kind": "system",
+      "shape": "word",
+      "statementFormat": "대통령이 속한 정당은 {답}이다.",
+      "difficulty": 2,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "정당의 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "여당의 여는 정권에 참여한다는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "선거에서 이긴 정당이 이렇게 돼요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "정당",
+          "gloss": "생각이 비슷한 사람들이 모인 정치 단체"
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "category": "문화",
+      "unit": "전통음식1",
+      "question": "밥에 나물과 고기, 고추장을 넣고 비벼 먹는 음식은 무엇입니까?",
+      "answer": "비빔밥",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "밥에 나물과 고기, 고추장을 넣고 비벼 먹는 음식은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "음식 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "비빈다는 말에서 나온 이름이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "전주 비빔밥이 특히 유명해요"
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "category": "문화",
+      "unit": "전통음식1",
+      "question": "쇠고기를 얇게 썰어 양념한 뒤 구워 먹는 음식은 무엇입니까?",
+      "answer": "불고기",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "쇠고기를 얇게 썰어 양념한 뒤 구워 먹는 음식은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "음식 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "불에 구운 고기라는 뜻이에요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "외국인에게도 인기가 많은 한국 음식이에요"
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "category": "문화",
+      "unit": "전통음식1",
+      "question": "명절이나 잔치 때 입는 우리나라 고유의 전통 옷은 무엇입니까?",
+      "answer": "한복",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "명절이나 잔치 때 입는 우리나라 고유의 전통 옷은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "옷 이름을 묻고 있어요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 3,
+          "text": "한복의 한은 우리나라를 뜻해요"
+        },
+        {
+          "kind": "mark",
+          "weight": 2,
+          "text": "색이 곱고 아름다운 것으로 유명해요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "잔치",
+          "gloss": "기쁜 일을 축하하며 여는 모임"
+        }
+      ]
+    },
+    {
+      "id": 49,
+      "category": "문화",
+      "unit": "전통음식1",
+      "question": "겨울을 나기 위해 김치를 한꺼번에 많이 담그는 일을 무엇이라고 합니까?",
+      "answer": "김장",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "겨울을 나기 위해 김치를 한꺼번에 많이 담그는 일은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "무엇을 하는 일인지 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "이웃과 함께 나누어 하기도 해요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "김장 문화는 유네스코에도 등재됐어요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "담그는",
+          "gloss": "재료를 넣고 만드는"
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "category": "문화",
+      "unit": "전통음식1",
+      "question": "배추를 소금에 절여 고춧가루 양념에 버무려 만든 한국의 대표 음식은 무엇입니까?",
+      "answer": "김치",
+      "kind": "thing",
+      "shape": "word",
+      "statementFormat": "배추를 소금에 절여 고춧가루 양념에 버무려 만든 한국의 대표 음식은 {답}이다.",
+      "difficulty": 1,
+      "facts": [
+        {
+          "kind": "asks",
+          "weight": 3,
+          "text": "음식 이름을 묻고 있어요"
+        },
+        {
+          "kind": "mark",
+          "weight": 3,
+          "text": "한국 음식 중 세계적으로 가장 잘 알려진 음식이에요"
+        },
+        {
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "오래 두고 먹을 수 있게 발효시킨 음식이에요"
+        }
+      ],
+      "glossary": [
+        {
+          "word": "절여",
+          "gloss": "소금에 담가 숨을 죽임"
+        },
+        {
+          "word": "버무려",
+          "gloss": "양념을 골고루 섞어"
         }
       ]
     }

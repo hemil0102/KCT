@@ -379,7 +379,10 @@ struct FeedbackSheet: View {
 /// `lineSpacing(7)` 은 CSS 데모에서 실측한 19pt 줄간격(1.5824배)을 SwiftUI의
 /// "줄 사이 추가 간격" 값으로 환산한 것이다. 22pt 로 다시 쓸 일이 생기면 8로
 /// 돌아가야 한다 — 그때 쓰던 값도 함께 남겨 둔다.
-private struct BodyStyle: ViewModifier {
+///
+/// - Note: `private` 이 아니다. 11차 후속(정답 해설 모달)에서 ``CorrectAnswerSheet`` 가
+///   "디자인을 오답 해설과 똑같이" 맞추려고 이 스타일을 그대로 가져다 쓴다.
+struct BodyStyle: ViewModifier {
     var size: CGFloat = 21
 
     func body(content: Content) -> some View {

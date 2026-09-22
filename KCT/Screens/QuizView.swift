@@ -26,10 +26,23 @@
 //    → ResultScreen 의 "다시 풀기" → restart() → session.start() → 낭독
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : RootView
+//  불러 쓰는 곳 : PracticeHomeView ("종합 연습" 버튼 → NavigationLink)
 //  기대는 것    : QuestionCatalog·ModelContext(환경에서 받음), QuizSession,
-//                QuestionScreen·GradingScreen·ResultScreen, SpeechReader
+//                QuestionScreen·GradingScreen·ResultScreen·FeedbackSheet·CorrectAnswerSheet, SpeechReader
 //  건드리지 않는 것 : 출제·채점·진척 저장 — 전부 QuizSession 의 몫이다
+//
+//  11차 후속 — 맞혔을 때도 CorrectAnswerSheet(정답 해설)를 띄운다. session.feedback
+//  (오답)과 session.correctFeedback(정답)을 각각 `.sheet(item:)`으로 따로 띄우는데,
+//  한 문제는 맞거나 틀리거나 둘 중 하나라 두 값이 동시에 채워지는 일은 없다.
+//
+//  11차 후속 — 예전에는 RootView 의 탭 하나가 곧 이 화면이었다. 이제는
+//  PracticeHomeView 의 "종합 연습" 버튼을 눌러 들어오는 화면이 됐다. 들어오면
+//  하단 탭바가 숨고(.toolbar(.hidden, for: .tabBar)), 내비게이션 바도 통째로
+//  숨긴다(.toolbar(.hidden, for: .navigationBar)) — X 버튼을 내비게이션 바
+//  자리에 두면 QuestionScreen 의 진행 막대 줄 위에 빈 공간이 하나 더 생기기
+//  때문이다. X는 QuestionScreen 이 진행 막대와 같은 줄에 직접 그리고, 누르면
+//  onClose 를 통해 여기의 dismiss() 가 불려 PracticeHomeView 로 돌아가며
+//  탭바가 다시 보인다.
 //
 
 import SwiftUI
@@ -58,6 +71,9 @@ struct QuizView: View {
     /// 문제 낭독 도우미.
     @State private var speaker = SpeechReader()
 
+    /// 왼쪽 위 X 버튼으로 이 화면을 나갈 때 쓴다. (11차 후속 — 종합 연습 진입/이탈)
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         Group {
             if let session, !session.isEmpty {
@@ -82,8 +98,24 @@ struct QuizView: View {
                 session?.dismissFeedback()
             }
         }
+        // 11차 후속 — 맞혔을 때도 정답 해설 창을 띄운다. 위 오답 해설과 같은 이유로
+        // `.sheet(item:)`을 따로 둔다 — 두 값이 동시에 채워지는 일은 없으므로
+        // (한 문제는 맞거나 틀리거나 둘 중 하나다) 시트 두 개가 부딪히지 않는다.
+        .sheet(item: Binding(
+            get: { session?.correctFeedback },
+            set: { _ in }
+        )) { feedback in
+            CorrectAnswerSheet(feedback: feedback) {
+                session?.dismissCorrectFeedback()
+            }
+        }
         .background(Color.white)
         .task { prepareSession() }
+        // 11차 후속 — "종합 연습"에서 들어온 화면이라 하단 탭바를 숨기고, 내비게이션
+        // 바도 통째로 숨긴다. X·진행 막대·다시 읽기는 QuestionScreen 이 화면 맨 위에
+        // 한 줄로 직접 그린다 — 내비게이션 바 자리를 따로 쓰지 않는다.
+        .toolbar(.hidden, for: .tabBar)
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     // MARK: - 어느 화면을 보여줄까
@@ -102,7 +134,7 @@ struct QuizView: View {
                 )
             }
         } else {
-            QuestionScreen(session: session, sessionMode: sessionMode) {
+            QuestionScreen(session: session, sessionMode: sessionMode, onClose: { dismiss() }) {
                 readAloud(session.current)
             }
         }

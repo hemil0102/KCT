@@ -14,15 +14,21 @@
 //  │                            .loading/.unavailable/.ready(String) 셋으로 나눈다 —
 //  │                            String? 하나로는 "만드는 중"과 "기기 미지원이라 끝내
 //  │                            없음"을 구분할 수 없었다
-//  └─ showsExample               위로 쓸어 올리거나(또는 눌러서) 예문을 펼쳤는지 — 펼치면
-//                               로딩 중이든 준비됐든 그 상태를 그대로 보여준다
+//  ├─ showsExample               위로 쓸어 올리거나(또는 눌러서) 예문을 펼쳤는지 — 펼치면
+//  │                            로딩 중이든 준비됐든 그 상태를 그대로 보여준다
+//  ├─ onClose                    시트를 닫아야 할 때 위(QuestionScreen)에 부탁한다 —
+//  │                            배경 탭·답 선택·아래로 스와이프·(펼쳤을 때) 하단
+//  │                            「닫기」버튼, 네 경로가 모두 이 하나로 모인다
+//  └─ closeButton                펼쳤을 때만 시트 맨 아래 보이는 「닫기」버튼
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuestionScreen 이 .sheet(...) 로 이 뷰를 띄운다
 //    → presentationDetents 로 iOS 26 Liquid Glass 모양을 그대로 받는다
-//    → 닫는 ✕ 버튼은 없앴다 — 답을 고르거나, 다시 읽기를 누르거나, 배경(지문·여백)을
-//      탭하면 QuestionScreen 이 glossarySelection 을 nil 로 되돌려 닫는다(아래로
-//      쓸어내리는 기본 동작도 그대로 된다)
+//    → 답을 고르거나, 다시 읽기를 누르거나, 배경(지문·여백)을 탭하거나, 아래로
+//      쓸어내리면 QuestionScreen 이 glossarySelection 을 nil 로 되돌려 닫는다
+//    → 펼치면(showsExample) 시트 맨 아래에 「닫기」버튼이 하나 더 생긴다 — 접힌
+//      채로 있던 "안내 문구를 눌러 펼치는" 자리가 펼친 뒤에는 스크롤 제스처로
+//      바뀌므로, 명시적으로 닫을 방법이 하나 필요해서다
 //    → 생성 예문은 만들고 있을 때부터 안내 문구가 바로 보인다. 위로 쓸어 올리면(또는
 //      문구를 누르면) 펼쳐지는데, 아직 안 끝났으면 "로딩 중" 문구가, 끝났으면 실제
 //      예문이 나온다 — exampleState 가 바뀌면 펼친 자리의 내용도 그때그때 바뀐다
@@ -31,6 +37,12 @@
 //  불러 쓰는 곳 : QuestionScreen (.sheet 안)
 //  기대는 것    : AppColor
 //  건드리지 않는 것 : 예문을 만들지 여부 — 그것은 GlossaryComposer(6단계) 의 몫이다
+//
+//  11차 후속 — 닫는 ✕ 버튼을 오른쪽 위에 넣었다가, 이후 ✕는 없애고 대신 펼쳤을
+//  때만 시트 맨 아래에 「닫기」버튼을 두는 것으로 바꿨다. 접힌 채로는 이미 안내
+//  문구 탭/스와이프로 펼치거나 배경·답 선택으로 닫을 수 있어 ✕가 굳이 필요
+//  없었고, 펼친 뒤에만 명시적 닫기 방법이 아쉬웠기 때문이다(오답·정답 해설
+//  모달은 여전히 진행을 강제하는 고정 모달이라 이런 버튼을 넣지 않는다).
 //
 
 import SwiftUI
@@ -80,6 +92,12 @@ struct GlossaryPanel: View {
     /// JSON에 원래 있던 비슷한 낱말 목록. 없으면 빈 배열.
     let relatedWords: [String]
 
+    /// 시트를 닫아야 할 때(배경 탭·답 선택·아래로 스와이프·펼쳤을 때의 하단
+    /// 「닫기」버튼) 부탁할 일. 실제로 시트를 닫는 것은 위쪽(``QuestionScreen``)이
+    /// ``glossarySelection`` 을 nil 로 되돌리는 방식으로 한다 — 모든 경로가 같은
+    /// 곳에서만 상태를 바꾼다.
+    let onClose: () -> Void
+
     /// 접혔을 때(처음 열릴 때) 시트 높이. 손잡이(24) + 위아래 같은 여백(20씩, 아래
     /// .padding(20)) + 낱말·뜻 두 줄 높이 — 손잡이를 뺀 나머지에서 낱말·뜻 묶음
     /// 위아래 여백이 같아지도록 다시 150으로 되돌렸다. 해설을 펼치기 전까지는
@@ -99,6 +117,10 @@ struct GlossaryPanel: View {
     /// 떨어진 구역으로 보이게 한다. 접혔을 때는 해설 자리가 아예 없으므로(showsExample
     /// 이 false면 아래 exampleContent 를 그리지 않는다) 이 간격이 쓰이지 않는다.
     private static let sectionSpacing: CGFloat = 28
+
+    /// 펼쳤을 때 시트 맨 아래에 나오는 「닫기」버튼 높이. 오답·정답 해설 모달의
+    /// 버튼과 같은 값(터치 목표 1cm 권장)이다.
+    private static let buttonHeight: CGFloat = 64
 
     /// 생성 예문을 펼쳤는지. 낱말이 바뀌면(아래 onChange(of: word)), 또는 시트를
     /// 다시 접으면(아래 onChange(of: selectedDetent)) 다시 접어 둔다.
@@ -158,6 +180,17 @@ struct GlossaryPanel: View {
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            // 펼쳤을 때만 보이는 하단 「닫기」— 접힌 채로는 안내 문구 탭/스와이프로
+            // 펼치거나 배경·답 선택으로 닫을 수 있어 필요 없고, 펼친 뒤에만
+            // 명시적으로 닫을 방법이 아쉬워서 이 자리에만 둔다. showsExample 이
+            // onChange(of: selectedDetent) 안 withAnimation 으로 바뀌므로, 이
+            // 버튼이 나타나고 사라지는 것도 같은 애니메이션을 그대로 탄다.
+            if showsExample {
+                closeButton
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 14)
             }
         }
         // 지문에서 낱말을 강조할 때 쓰는 색(시그니처 보라, KoreanText.highlightColor)을
@@ -222,10 +255,28 @@ struct GlossaryPanel: View {
             .frame(maxWidth: .infinity)
     }
 
+    /// 펼쳤을 때 시트 맨 아래 보이는 「닫기」버튼. 흰 알약 + 시그니처 글자로,
+    /// 정답 해설 모달(``CorrectAnswerSheet``)의 「정답 해설 보기」와 같은 무게로
+    /// 뒀다 — 이 시트의 유일한 명시적 버튼이라 눈에 잘 띄어야 하지만, "다음
+    /// 문제"처럼 반드시 눌러야 진행되는 자리는 아니라서(배경을 눌러도 답을
+    /// 골라도 똑같이 닫힌다) 시그니처 채움 버튼(PrimaryActionButton)만큼
+    /// 무겁게 두지는 않았다.
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Text("닫기")
+                .font(.system(size: 21, weight: .bold))
+                .foregroundStyle(AppColor.signature)
+                .frame(maxWidth: .infinity, minHeight: Self.buttonHeight)
+                .background(Color.white, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     /// 낱말 이름표(비슷한 낱말 포함)와 뜻(gloss). 접혔을 때·펼쳤을 때 모두 똑같이
     /// 이 한 뷰를 그린다 — 그래야 낱말·뜻 사이 간격(wordGlossSpacing)이 두 상태에서
-    /// 항상 같다. 닫는 버튼은 없앴다 — 배경을 탭하거나 답을 고르면 QuestionScreen 이
-    /// 시트를 닫는다. 비슷한 낱말은 이 낱말칸 바로 오른쪽에 붙인다 — Spacer 를
+    /// 항상 같다. 닫는 버튼(펼쳤을 때만 나오는 하단 「닫기」)은 이 헤더가 아니라
+    /// body 에서 조건부로 따로 그린다.
+    /// 비슷한 낱말은 이 낱말칸 바로 오른쪽에 붙인다 — Spacer 를
     /// 낱말과 비슷한 낱말 "사이"가 아니라 그 뒤에 둬서, 모달 오른쪽 끝이 아니라
     /// 낱말칸에 바짝 붙어 보이게 한다.
     ///

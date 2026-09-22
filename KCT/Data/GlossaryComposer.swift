@@ -46,7 +46,7 @@ struct GlossaryExample {
 ///   문항에서 어떤 낱말을 탭했을 때 걸렸는지 나중에 되짚을 수 있게 한다.
 func composeExample(
     word: String, gloss: String, relatedWords: [String] = [], referenceSentence: String? = nil,
-    questionText: String, questionID: Int
+    questionID: Int
 ) async -> Writing {
     guard case .available = SystemLanguageModel.default.availability else {
         // 기기가 지원 안 하면 시도조차 안 한다 — 남길 프롬프트가 없으므로 실패

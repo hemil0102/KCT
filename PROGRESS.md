@@ -53,7 +53,7 @@
 - **`FocusStore.usesModelAnalysis = false`** — `FocusAnalyzer`·`QuestionFocusRecord` 는 **지금 안 불리는 코드**
 - **낱말 사전은 따로 두지 않고 문항마다 내장한다** — 예전에는 `GlossaryCatalog` 로 한 번만 저장하고 여러 문항이 참조하게 했지만, 지금은 각 문항의 `glossary` 배열에 직접 넣는다. 문항 JSON 하나만 보면 그 문항에 필요한 낱말 뜻이 다 보인다
 - **낱말 사전 모달은 iOS 기본 `.sheet` 를 쓰고, 커스텀 배경을 넣지 않는다** — `.presentationBackground` 를 넣으면 iOS 26 Liquid Glass 자동 적용이 꺼진다 ([Q&A.md](Q&A.md))
-- **시트 뒤 배경 어둡기는 화면 목적에 따라 다르게 둔다** — 낱말 사전(계속 보며 확인)은 안 어둡게, 오답 해설(다 보기 전엔 못 넘어감)은 어둡게 유지 ([Q&A.md](Q&A.md))
+- **시트 뒤 배경은 낱말 사전·오답 해설 둘 다 안 어둡게, 탭도 되게 통일했다** (11차 확정) — 처음엔 오답 해설(`FeedbackSheet`)만 어둡게·탭 안 되게 남겨 "정답을 다 보기 전엔 못 넘어감"을 지키려 했으나, 이후 요청으로 두 시트 모두 `.presentationBackgroundInteraction(.enabled)`로 통일했다. 스와이프로 닫는 것만 `.interactiveDismissDisabled()`로 막아 둔다 ([Q&A.md](Q&A.md))
 - **PCC(Private Cloud Compute)는 보류** — 2M 다운로드까지만 무료이고 그 뒤 유료 등급이 없다
 
 ---

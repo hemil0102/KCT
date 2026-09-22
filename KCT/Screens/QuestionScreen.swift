@@ -7,7 +7,9 @@
 //
 //  ── 구성 ──────────────────────────────────────────────
 //  QuestionScreen               한 문제를 그리는 화면. 판단은 하지 않는다
-//  ├─ header(for:)              진행 막대 + "다시 읽기"
+//  ├─ header(for:)              X(닫기) + 진행 막대 + 다시 읽기(아이콘만)
+//  ├─ questionFont(for:screenWidth:screenHeight:)  지문 글꼴 크기 — 길면 절반 안에
+//  │                            들어오게 줄인다 (KoreanText.fittingFont(...) 위임)
 //  ├─ questionArea(for:)        지문(KoreanText) + 행동 안내 한 줄 + 입력 영역
 //  ├─ inputArea(for:)           모드에 따라 보기 · O/X · 직접입력 중 하나
 //  ├─ hintBanner                답 없이 다음을 눌렀을 때의 안내
@@ -20,13 +22,25 @@
 //    → "다음" 탭
 //        ├─ 답이 있으면  → session.submitCurrent()
 //        └─ 답이 없으면  → session.requestAnswerHint() + 진동
-//    → "다시 읽기" 탭 → onReadAloud() 로 위(QuizView)에 부탁한다
+//    → 다시 읽기(스피커 아이콘) 탭 → onReadAloud() 로 위(QuizView)에 부탁한다
+//    → X 탭 → onClose() 로 위(QuizView)에 부탁한다 — "종합 연습" 화면으로 나간다
+//
+//  11차 후속 2 — content(for:)를 GeometryReader 로 감싸 이 화면의 실제 크기를 읽고,
+//  지문이 그 절반(세로)을 넘지 않게 글꼴을 줄인다. 정답·오답 해설 모달이 화면
+//  아래 절반을 덮게 되어 있어서(.presentationDetents([.medium])), 지문이 항상
+//  위 절반 안에 다 들어와 있어야 모달을 내리지 않고도 문제를 같이 볼 수 있다.
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizView
 //  기대는 것    : QuizSession(상태·판단), KoreanText·ChoiceButton·PrimaryActionButton
 //                ·SessionProgressBar(표현), SessionMode(형광펜 여부)
 //  건드리지 않는 것 : 채점과 낭독 — 정답 여부는 QuizSession 이, 소리는 QuizView 가 맡는다
+//
+//  11차 후속 — 예전에는 X 버튼을 내비게이션 바 자리(툴바)에 뒀는데, 그러면 진행
+//  막대·다시 읽기가 있는 이 줄 위에 내비게이션 바 몫의 빈 공간이 하나 더 생긴다.
+//  X를 아예 이 줄 안(진행 막대 왼쪽)으로 들여와 QuizView 쪽 내비게이션 바를
+//  완전히 숨기고(.toolbar(.hidden, for: .navigationBar)), X·진행 막대·다시 읽기가
+//  화면 맨 위에 한 줄로 바로 붙게 했다.
 //
 
 import SwiftUI
@@ -82,6 +96,9 @@ struct QuestionScreen: View {
     /// 연습인지 실전인지. 실전에서는 형광펜 같은 도움 장치를 끈다.
     let sessionMode: SessionMode
 
+    /// 이 화면을 닫아 달라는 부탁. 실제로 화면을 내리는 것은 위쪽(``QuizView``)이 맡는다.
+    let onClose: () -> Void
+
     /// 지문을 다시 읽어 달라는 부탁. 소리는 위쪽(``QuizView``)이 맡는다.
     let onReadAloud: () -> Void
     
@@ -96,55 +113,82 @@ struct QuestionScreen: View {
     /// 문제 유형은 표기하지 않는다. 무엇을 해야 하는지는 보기 위의 한 줄 안내가 담당한다.
     private func header(for item: QuizItem) -> some View {
         HStack(spacing: 16) {
+            closeButton
+
             SessionProgressBar(total: session.items.count, currentIndex: session.currentIndex)
 
-            // 읽기 흐름을 끊지 않도록 지문 위쪽에 둔다.
-            // 보조 행동이므로 같은 색 계열이되 채우지 않아 주 행동보다 가볍게.
-            Button(action: {
-                dismissGlossaryIfNeeded()
-                onReadAloud()
-            }) {
-                Label("다시 읽기", systemImage: "speaker.wave.2.fill")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(AppColor.signature)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(AppColor.secondaryBackground, in: Capsule())
-            }
-            .buttonStyle(.plain)
+            rereadButton
         }
     }
 
-    private func content(for item: QuizItem) -> some View {
-        VStack(spacing: 0) {
-            header(for: item)
-            questionArea(for: item)
-
-            if session.needsAnswerHint {
-                hintBanner
-            }
-
-            nextButton
-        }
-        .padding(24)
-        // 낱말 사전 시트가 열려 있을 때 배경(지문·여백)을 탭하면 닫는다. contentShape 로
-        // 빈 여백까지 탭 판정 범위에 넣는다 — 버튼·보기·텍스트필드 같은 자식 뷰는 원래
-        // 자기 탭을 먼저 가져가므로 이 제스처와 부딪히지 않는다.
-        .contentShape(Rectangle())
-        .onTapGesture {
-            dismissGlossaryFromBackgroundTap()
-        }
-        .animation(.easeInOut(duration: 0.2), value: session.needsAnswerHint)
-        // 답을 고르는 것도 "낱말이 아닌 다른 걸 하겠다"는 신호라 시트를 닫는다.
-        .onChange(of: session.userAnswer) { _, _ in
+    /// 왼쪽 위 X. 내비게이션 바 대신 이 줄 안에 두어 별도 공간을 쓰지 않는다.
+    private var closeButton: some View {
+        Button(action: {
             dismissGlossaryIfNeeded()
+            onClose()
+        }) {
+            Image(systemName: "xmark")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.black)
+                .frame(width: 44, height: 44)
+                .background(AppColor.secondaryBackground, in: Circle())
         }
-        .sheet(item: $glossarySelection) { selection in
-            GlossaryPanel(
-                word: selection.word, gloss: selection.gloss,
-                exampleState: exampleState,
-                relatedWords: selection.examples
-            )
+        .buttonStyle(.plain)
+    }
+
+    /// 다시 읽기. 어머니가 눈으로 읽는 대신 소리로도 확인할 수 있게 한다.
+    /// 문구 없이 스피커 아이콘만 두어, X·진행 막대와 같은 줄에서 자리를 덜 차지한다.
+    private var rereadButton: some View {
+        Button(action: {
+            dismissGlossaryIfNeeded()
+            onReadAloud()
+        }) {
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(AppColor.signature)
+                .frame(width: 44, height: 44)
+                .background(AppColor.secondaryBackground, in: Circle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func content(for item: QuizItem) -> some View {
+        // GeometryReader 로 이 화면이 실제로 차지하는 크기(=거의 화면 전체, 탭바·
+        // 내비게이션 바를 이미 숨겼으므로)를 읽는다. 지문 글꼴 크기를 정하려면
+        // "지금 이 화면이 몇 pt 인지"를 알아야 하는데, 그걸 알 수 있는 자리가
+        // 여기(가장 바깥)뿐이라 questionArea(for:)에는 값으로 내려보낸다.
+        GeometryReader { proxy in
+            VStack(spacing: 0) {
+                header(for: item)
+                questionArea(for: item, screenWidth: proxy.size.width, screenHeight: proxy.size.height)
+
+                if session.needsAnswerHint {
+                    hintBanner
+                }
+
+                nextButton
+            }
+            .padding(24)
+            // 낱말 사전 시트가 열려 있을 때 배경(지문·여백)을 탭하면 닫는다. contentShape 로
+            // 빈 여백까지 탭 판정 범위에 넣는다 — 버튼·보기·텍스트필드 같은 자식 뷰는 원래
+            // 자기 탭을 먼저 가져가므로 이 제스처와 부딪히지 않는다.
+            .contentShape(Rectangle())
+            .onTapGesture {
+                dismissGlossaryFromBackgroundTap()
+            }
+            .animation(.easeInOut(duration: 0.2), value: session.needsAnswerHint)
+            // 답을 고르는 것도 "낱말이 아닌 다른 걸 하겠다"는 신호라 시트를 닫는다.
+            .onChange(of: session.userAnswer) { _, _ in
+                dismissGlossaryIfNeeded()
+            }
+            .sheet(item: $glossarySelection) { selection in
+                GlossaryPanel(
+                    word: selection.word, gloss: selection.gloss,
+                    exampleState: exampleState,
+                    relatedWords: selection.examples,
+                    onClose: { dismissGlossaryIfNeeded() }
+                )
+            }
         }
     }
 
@@ -168,14 +212,45 @@ struct QuestionScreen: View {
     }
     
     // MARK: - 지문과 입력
-    private func questionArea(for item: QuizItem) -> some View {
+
+    /// 지문 기본 글꼴 크기. 짧은 지문은 늘 이 크기 그대로 보인다 — 예전과 같다.
+    private static let baseQuestionFontSize: CGFloat = 30
+
+    /// 지문을 줄여도 되는 가장 작은 크기. 이보다 더 줄이면 어머니가 읽기 힘들어진다.
+    private static let minQuestionFontSize: CGFloat = 20
+
+    /// 지문 좌우로 실제로 빠지는 여백의 합. content(for:)의 `.padding(24)` 양쪽(48) +
+    /// 아래 VStack의 `.padding(.horizontal, 4)` 양쪽(8) — 지문이 실제로 쓸 수 있는
+    /// 폭을 재려면 화면 폭에서 이만큼을 먼저 빼야 한다.
+    private static let questionHorizontalInset: CGFloat = 56
+
+    /// 지문이 화면 위 절반을 넘지 않도록 잡는 글꼴을 고른다.
+    ///
+    /// 짧은 지문은 기본 크기(baseQuestionFontSize)로 재도 절반 안에 들어오므로
+    /// 그대로 나간다 — "짧은 질문은 지금과 같이" 그대로 두기 위해서다. 길어서
+    /// 넘칠 때만 `KoreanText.fittingFont(...)`가 1pt씩 줄여 가며 다시 재서, 절반
+    /// 안에 드는 가장 큰 크기를 찾는다. 정답·오답 해설 모달이 화면 아래 절반을
+    /// 덮어도 지문이 항상 위 절반 안에 다 보이게 하려는 것이다(모달을 내리지
+    /// 않고 문제와 해설을 같이 볼 수 있게).
+    private func questionFont(for item: QuizItem, screenWidth: CGFloat, screenHeight: CGFloat) -> UIFont {
+        let width = max(0, screenWidth - Self.questionHorizontalInset)
+        return KoreanText.fittingFont(
+            for: item.displayText,
+            baseFont: .systemFont(ofSize: Self.baseQuestionFontSize, weight: .bold),
+            minFontSize: Self.minQuestionFontSize,
+            maxHeight: screenHeight / 2,
+            width: width,
+            lineSpacing: 8)
+    }
+
+    private func questionArea(for item: QuizItem, screenWidth: CGFloat, screenHeight: CGFloat) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // 지문: 왼쪽 정렬 + 한글 단어 단위 줄바꿈.
                 // O/X 는 진술문을 보여주고, 판단 대상인 답을 시그니처 색으로 강조한다.
                 KoreanText(
                     text: item.displayText,
-                    font: .systemFont(ofSize: 30, weight: .bold),
+                    font: questionFont(for: item, screenWidth: screenWidth, screenHeight: screenHeight),
                     highlight: item.highlightText,
                     marker: sessionMode.showsFocusHighlight ? item.markerText : nil,
                     // 사전 시트가 열려 있는 낱말만 배경색을 칠한다. 시트가 닫히면
@@ -207,7 +282,6 @@ struct QuestionScreen: View {
                                 gloss: entry.gloss,
                                 relatedWords: entry.examples,
                                 referenceSentence: referenceSentence,
-                                questionText: item.displayText,
                                 questionID: item.id
                             )
                             // 이미 펼쳐 본 상태(showsExample)라면 로딩 문구에서 실제 예문으로

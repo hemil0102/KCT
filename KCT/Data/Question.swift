@@ -89,7 +89,7 @@ struct Question: Identifiable, Codable, Hashable {
     /// 해설에 쓸 사실 조각. 모델은 여기 있는 것만 씁니다.
     var facts: [QuestionFact] = []
     
-    /// 지문 속 어려운 낱말들의 뜻. 없는 문항이 더 많습니다(30문항 중 11개).
+    /// 지문 속 어려운 낱말들의 뜻. 모든 문항에 있지는 않습니다(11차 기준 50문항 중 39개).
     var glossary: [GlossaryEntry] = []
     
     // MARK: - 해독
@@ -176,7 +176,7 @@ struct GlossaryEntry: Codable, Hashable {
     /// 짧고 쉬운 뜻. 10~20자로 이미 다듬어 놓았습니다.
     let gloss: String
 
-    /// 비슷한 낱말 목록. 대부분 비어 있습니다(39개 중 5개만 있음).
+    /// 비슷한 낱말 목록. 대부분 비어 있습니다(11차 기준 87개 중 9개만 있음).
     var examples: [String] = []
 
     /// 사람이 미리 써 둔 참고 예문. "기리다"처럼 Foundation Models 가 활용형을
