@@ -1,16 +1,28 @@
 //
-//  AnswerKind.swift
+//  AnswerTypes.swift
 //  KCT
 //
-//  역할 : 정답이 어떤 종류인가. 해설을 어떤 방식으로 쓸지 정한다
-//  요점 : 사람 이름은 글자를 풀 수 없고, 제도는 글자를 푸는 게 가장 좋다
+//  역할 : 「답을 보는 낱말들」 한 벌. 답의 모양·주제·출처·판정 근거와 채점 결과
+//  요점 : 로직 없이 케이스만 있는 작은 열거형들이라 한 주제로 모아 둔다 (규칙 24)
 //
 //  ── 구성 ──────────────────────────────────────────────
-//  AnswerKind   아홉 가지. 답의 「주제」 - 모양은 AnswerShape 가 맡는다
+//  AnswerShape     답이 **어떻게 생겼나** — 채점이 본다 (word · closedList · openList · sentence)
+//  AnswerKind      답이 **무엇이냐** — 해설이 본다 (아홉 가지 주제)
+//  AnswerSource    답이 **어디서 왔나** — 손으로 쳤나 말로 했나
+//  CheckBasis      **모델이** 고르는 판정 근거 (@Generable)
+//  MatchBasis      **코드가** 정하는 판정 근거 (AnswerMatcher 만 만든다)
+//  GradingResult   한 문항의 채점 결과. 세 층 중 어디서 판정됐든 이 모양으로 모인다
+//
+//  ── 축이 둘인 것이 핵심이다 ────────────────────────────
+//  「고구려, 백제, 신라」는 **목록이면서 동시에 place** 다. 한 열거형에 넣으면
+//  둘 중 하나를 잃고, 해설이 주제를 못 고른다. 그래서 모양(Shape)과 주제(Kind)를
+//  나눠 두고, 쓰는 쪽도 갈라 둔다 — 채점은 Shape 를, 해설은 Kind 를 본다.
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : Question(문항이 들고 다닌다) · CommentaryWriter(지침을 고른다)
-//  기대는 것    : 없음
+//  불러 쓰는 곳 : Question(문항이 Shape·Kind 를 들고 다닌다) ·
+//                AnswerMatcher·AnswerChecker(채점) · CommentaryWriter(말투를 고른다) ·
+//                QuizSession(GradingResult 를 모은다)
+//  기대는 것    : FoundationModels(CheckBasis 의 @Generable 때문에만)
 //  건드리지 않는 것 : 해설 문장 - 어떻게 쓸지는 CommentaryWriter 가 정한다
 //
 
@@ -104,4 +116,21 @@ enum MatchBasis: String {
     case typo
     /// 목록의 항목이 맞지 않는다
     case listMismatch
+}
+
+/// 한 문항의 **채점 결과.** 화면과 로그가 쓴다.
+///
+/// 세 층(``RuleGrader``·``AnswerMatcher``·``AnswerChecker``) 중 어디서 판정됐든
+/// 이 한 모양으로 모입니다 — ``QuizSession/results`` 가 문제 id 로 들고 있습니다.
+struct GradingResult {
+    let isCorrect: Bool
+
+    /// 왜 그렇게 봤는지. 규칙으로 끝난 선다형·O/X 는 설명할 것이 없어 빈 문자열이다
+    /// (``QuizSession/reasonForLog(_:)`` 가 로그로 옮길 때 `nil` 로 바꾼다).
+    let reason: String
+
+    /// 무엇을 근거로 판정했나. 코드가 정한 것(``MatchBasis``)과 모델이 고른 것
+    /// (``CheckBasis``)이 함께 들어와 **열거형이 아니라 글자**다.
+    /// 로그에만 쓰이므로 타입을 지킬 값어치가 없다.
+    let basis: String?
 }

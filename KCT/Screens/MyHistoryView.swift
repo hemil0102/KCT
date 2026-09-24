@@ -12,8 +12,10 @@
 //  ├─ questionCatalog          전체 문항 수 표시용 (환경에서 받음)
 //  ├─ cumulativeCorrect        지금까지 맞힌 총 횟수
 //  ├─ masteredCount            완전히 익힌 문제 수
-//  ├─ cumulativeCard           누적 정답을 크게 보여주는 카드 (ResultScreen과 같은 모양)
 //  └─ storyModeEntry           "스토리 모드 시작하기" — StoryModeView로 넘어간다
+//
+//  누적 카드·마스터 배지는 CumulativeCountCard·MasteredBadge 로, 제목은 ScreenTitle 로,
+//  진입 버튼은 ActionCapsuleLabel 로 **ResultScreen·PracticeHomeView 와 함께 쓴다.**
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  RootView의 "나의 이력" 탭이 이 화면을 띄운다
@@ -61,15 +63,17 @@ struct MyHistoryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                Text("나의 이력")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ScreenTitle("나의 이력")
 
-                cumulativeCard
+                // 결과 화면(ResultScreen)과 **같은 부품**이다 — 회차가 끝날 때만
+                // 보이던 숫자를 언제든 다시 볼 수 있게 이 탭으로 옮겨 온 것이므로,
+                // 두 화면이 같은 모습이어야 "같은 숫자"로 읽힌다.
+                CumulativeCountCard(
+                    count: cumulativeCorrect,
+                    caption: "전체 \(totalQuestionCount)문항 중 도전하고 있어요")
 
                 if masteredCount > 0 {
-                    masteredBadge
+                    MasteredBadge(count: masteredCount)
                 }
 
                 Spacer()
@@ -81,45 +85,15 @@ struct MyHistoryView: View {
         }
     }
 
-    // MARK: - 누적 강조 (ResultScreen과 같은 모양)
-
-    private var cumulativeCard: some View {
-        VStack(spacing: 6) {
-            Text("지금까지 맞힌 문제")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-            Text("\(cumulativeCorrect)개")
-                .font(.system(size: 52, weight: .heavy))
-                .foregroundStyle(.white)
-            Text("전체 \(totalQuestionCount)문항 중 도전하고 있어요")
-                .font(.headline)
-                .foregroundStyle(.white)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .background(AppColor.signature, in: RoundedRectangle(cornerRadius: 24))
-    }
-
-    private var masteredBadge: some View {
-        Label("완전히 익힌 문제 \(masteredCount)개", systemImage: "star.fill")
-            .font(.title3.weight(.bold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
-            .background(AppColor.mastered, in: Capsule())
-    }
-
     // MARK: - 스토리 모드 입구
 
+    /// 「문제 풀기」 탭의 진입 버튼(``PracticeHomeView``)과 **같은 모습**이다 —
+    /// 두 탭의 입구가 같은 무게로 보여야 어느 쪽도 더 중요해 보이지 않는다.
     private var storyModeEntry: some View {
         NavigationLink {
             StoryModeView()
         } label: {
-            Text("스토리 모드 시작하기")
-                .font(.system(size: 23, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 60)
-                .background(AppColor.signature, in: Capsule())
+            ActionCapsuleLabel(title: "스토리 모드 시작하기", minHeight: 60)
         }
         .buttonStyle(.plain)
     }

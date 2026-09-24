@@ -12,8 +12,9 @@
 //  └─ action     항상 호출된다 — 준비가 안 됐으면 부르는 쪽이 안내를 띄운다
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : QuestionScreen(다음/제출), ResultScreen(다시 풀기)
-//  기대는 것    : AppColor 뿐
+//  불러 쓰는 곳 : QuestionScreen(다음/제출) · ResultScreen(다시 풀기) ·
+//                FeedbackSheet·CorrectAnswerSheet(다음 문제) · MatchingQuestionScreen(다음)
+//  기대는 것    : ActionCapsuleLabel(모습) — NavigationLink 진입 버튼과 같은 것을 쓴다
 //
 
 import SwiftUI
@@ -36,12 +37,7 @@ struct PrimaryActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 23, weight: .bold))
-                .foregroundStyle(isReady ? .white : AppColor.disabledText)
-                .frame(maxWidth: .infinity, minHeight: minHeight)
-                .background(isReady ? AppColor.signature : AppColor.disabledBackground,
-                            in: Capsule())
+            ActionCapsuleLabel(title: title, minHeight: minHeight, isReady: isReady)
         }
         .buttonStyle(.plain)
     }

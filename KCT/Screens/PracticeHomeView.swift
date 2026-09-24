@@ -38,10 +38,7 @@ struct PracticeHomeView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                Text("문제 풀기")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ScreenTitle("문제 풀기")
 
                 Spacer()
 
@@ -54,15 +51,13 @@ struct PracticeHomeView: View {
         }
     }
 
+    /// 「나의 이력」 탭의 진입 버튼(``MyHistoryView``)과 **같은 모습**이다 —
+    /// 두 탭의 입구가 같은 무게로 보여야 어느 쪽도 더 중요해 보이지 않는다.
     private var practiceEntry: some View {
         NavigationLink {
             QuizView()
         } label: {
-            Text("종합 연습")
-                .font(.system(size: 23, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 60)
-                .background(AppColor.signature, in: Capsule())
+            ActionCapsuleLabel(title: "종합 연습", minHeight: 60)
         }
         .buttonStyle(.plain)
     }
@@ -71,5 +66,6 @@ struct PracticeHomeView: View {
 #Preview {
     PracticeHomeView()
         .environment(QuestionCatalog.loaded())
+        .environment(MatchingSetCatalog.loaded())
         .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
 }

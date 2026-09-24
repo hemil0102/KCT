@@ -19,6 +19,7 @@
 //  화면 진입 (.task)
 //    → prepareSession() : QuizSession 생성 → start() → 첫 문제 낭독
 //    → screen(for:) 이 세션에 물어 화면을 고른다
+//        ├─ 지금 칸이 연결 문제다 → MatchingQuestionScreen (스스로 채점, 해설 없음)
 //        ├─ 아직 안 끝났다      → QuestionScreen
 //        ├─ 끝났고 마무리 3초다 → GradingScreen
 //        └─ 끝나고 채점도 됐다  → ResultScreen
@@ -62,6 +63,9 @@ struct QuizView: View {
 
     /// 출제할 문제집. (번들 JSON → 나중에 서버에서 교체)
     @Environment(QuestionCatalog.self) private var questionCatalog
+
+    /// 연결 문제 세트. 회차 한 칸을 이 중 하나가 차지한다.
+    @Environment(MatchingSetCatalog.self) private var matchingSetCatalog
 
     @Environment(\.modelContext) private var modelContext
 
@@ -133,6 +137,16 @@ struct QuizView: View {
                     onEraseProgress: { erase(session) }
                 )
             }
+        } else if session.isMatchingSlot, let matchingSet = session.matchingSet {
+            // 연결 문제 칸. 이 화면은 스스로 채점하고, 다 맞히면 onComplete 로
+            // 다음 칸을 부탁한다 — 해설 창을 거치지 않는다.
+            MatchingQuestionScreen(
+                matchingSet: matchingSet,
+                sessionTotal: session.slotCount,
+                sessionCurrentIndex: session.currentIndex,
+                onClose: { dismiss() },
+                onComplete: { session.completeMatchingSlot() }
+            )
         } else {
             QuestionScreen(session: session, sessionMode: sessionMode, onClose: { dismiss() }) {
                 readAloud(session.current)
@@ -146,7 +160,11 @@ struct QuizView: View {
     private func prepareSession() {
         guard session == nil else { return }
 
-        let newSession = QuizSession(catalog: questionCatalog, modelContext: modelContext)
+        let newSession = QuizSession(
+            catalog: questionCatalog,
+            modelContext: modelContext,
+            matchingCatalog: matchingSetCatalog
+        )
         newSession.start()
         session = newSession
     }
@@ -173,5 +191,6 @@ struct QuizView: View {
 #Preview {
     QuizView()
         .environment(QuestionCatalog.loaded())
+        .environment(MatchingSetCatalog.loaded())
         .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
 }

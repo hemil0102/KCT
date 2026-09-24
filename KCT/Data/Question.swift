@@ -9,12 +9,23 @@
 //  Question                    문제 한 개 (고정 데이터)
 //  ├─ id                       영구 고정. 진척이 이 값으로 연결된다
 //  ├─ category / unit          분류 / 단원 (단원은 균등 출제 단위)
-//  ├─ question / answer        지문 / 정답
+//  ├─ question / answer        지문 / 정답(「/」로 여러 표기를 담는다)
+//  ├─ displayAnswer            화면·해설에 쓸 대표 표기 — 「/」의 맨 앞엣것
 //  ├─ statementFormat          O/X 진술문 틀. "{답}" 자리에 답이 들어간다
+//  ├─ kind                     [답의 축 1] 답의 **주제** (AnswerKind) — 해설이 본다
+//  ├─ shape                    [답의 축 2] 답의 **모양** (AnswerShape) — 채점이 본다
 //  ├─ difficulty               [축 A] 문제 고유 난이도. 고정
+//  ├─ facts                    해설에 쓸 사실 조각들. 모델은 여기 있는 것만 쓴다
+//  ├─ glossary                 지문 속 어려운 낱말의 뜻 (GlossaryEntry)
+//  ├─ init(from:)              손으로 적은 해독기 — 뒤에 더한 칸만 decodeIfPresent
 //  ├─ statement(with:)         진술문 만들기
 //  ├─ makeChoices(count:answerPool:)   선다형 보기 만들기
 //  └─ makeTrueFalse(answerPool:)       O/X 문항 만들기
+//
+//  이 파일 안의 형제 타입 (같이 쓰이고 같이 바뀐다 — 규칙 24)
+//  ├─ QuestionPayload          문제집 파일 한 벌 (version + questions)
+//  ├─ QuestionFact             해설에 쓸 사실 한 조각 (kind · weight · text)
+//  └─ GlossaryEntry            어려운 낱말 하나 (word · gloss · relatedWords · referenceSentence)
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizItem.make() 가 묻는 방식을 정한 뒤
@@ -23,8 +34,9 @@
 //    → 만들어진 재료는 ModePayload 에 담겨 화면으로 간다
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : QuizItem.make(), QuestionCatalog
-//  기대는 것    : 없음 — Foundation 뿐. 이 파일은 앱의 어떤 것도 모른다
+//  불러 쓰는 곳 : QuizItem.make(), QuestionCatalog, CommentaryWriter(facts 를 읽는다)
+//  기대는 것    : AnswerKind·AnswerShape 두 열거형과 Foundation 뿐 —
+//                이 파일은 화면도 진척도 모델도 모른다
 //  건드리지 않는 것 : 맞은/틀린 기록 — 그것은 QuestionProgress 의 몫이다
 //
 
@@ -80,12 +92,6 @@ struct Question: Identifiable, Codable, Hashable {
     ///   두 축을 섞으면 설계가 무너집니다.
     let difficulty: Int
     
-    /// 이 문항을 묶는 이름들. 낱말로 문항을 찾을 때 쓴다.
-    ///
-    /// 「국경일」처럼 **답이 아닌 낱말**도 들어갑니다. 다만 태그는 묶는 것이지
-    /// 설명하는 것이 아니라, 뜻은 낱말 사전(``Glossary``)에 있습니다.
-    var tags: [String] = []
-
     /// 해설에 쓸 사실 조각. 모델은 여기 있는 것만 씁니다.
     var facts: [QuestionFact] = []
     
@@ -97,8 +103,12 @@ struct Question: Identifiable, Codable, Hashable {
     /// 손으로 적은 해독기.
     ///
     /// 자동 생성되는 것은 **기본값을 쓰지 않아** 파일에 칸이 없으면 던집니다.
-    /// 뒤에 더한 칸(``tags``·``facts``)은 옛 파일에 없는 것이 정상이므로
-    /// 그 둘만 `decodeIfPresent` 로 받습니다.
+    /// 뒤에 더한 칸(``shape``·``facts``·``glossary``)은 옛 파일에 없는 것이 정상이므로
+    /// 그 셋만 `decodeIfPresent` 로 받습니다.
+    ///
+    /// - Note: JSON 에 남아 있는 `tags` 키는 **읽지 않습니다.** 넣어 두기만 하고 읽는
+    ///   곳이 없어 2026-09-23 리팩토링에서 프로퍼티를 지웠습니다 (`Refactoring.md` 1단계).
+    ///   `Codable` 은 모르는 키를 조용히 넘기므로 데이터 파일은 그대로 둡니다.
     init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -111,8 +121,6 @@ struct Question: Identifiable, Codable, Hashable {
         kind            = try box.decode(AnswerKind.self, forKey: .kind)
         difficulty      = try box.decode(Int.self,        forKey: .difficulty)
 
-        tags  = try box.decodeIfPresent([String].self,      forKey: .tags)  ?? []
-        
         shape = try box.decodeIfPresent(AnswerShape.self, forKey: .shape) ?? .word
         
         facts = try box.decodeIfPresent([QuestionFact].self, forKey: .facts) ?? []
@@ -176,22 +184,37 @@ struct GlossaryEntry: Codable, Hashable {
     /// 짧고 쉬운 뜻. 10~20자로 이미 다듬어 놓았습니다.
     let gloss: String
 
-    /// 비슷한 낱말 목록. 대부분 비어 있습니다(11차 기준 87개 중 9개만 있음).
-    var examples: [String] = []
+    /// **비슷한 낱말** 목록. 대부분 비어 있습니다(11차 기준 87개 중 9개만 있음).
+    ///
+    /// 낱말 사전 시트에서 낱말 배지 오른쪽에 「비슷한 낱말 — …」로 바로 보여줍니다.
+    ///
+    /// - Note: JSON 키는 여전히 `examples` 입니다(아래 ``CodingKeys``). 담긴 것이
+    ///   예문이 아니라 낱말이라 이름이 거짓말을 하고 있어서 2026-09-23 리팩토링에서
+    ///   Swift 이름만 고쳤습니다 — `questions.json` 은 한 글자도 안 바꿉니다
+    ///   (`Refactoring.md` 9단계).
+    var relatedWords: [String] = []
 
     /// 사람이 미리 써 둔 참고 예문. "기리다"처럼 Foundation Models 가 활용형을
-    /// 헷갈리는 낱말에 한해 채워 둔다 — 있으면 ``composeExample`` 이 이 문장을
+    /// 헷갈리는 낱말에 한해 채워 둔다 — 있으면 ``GlossaryExampleWriter`` 가 이 문장을
     /// 참고해서 만들고, 없으면(대부분) 모델이 알아서 만든다.
     ///
-    /// - Note: `examples`(비슷한 낱말 목록)와 이름이 헷갈리지 않도록 일부러
-    ///   다른 이름을 썼다 — 이건 낱말이 아니라 문장 하나다.
+    /// - Note: ``relatedWords``(비슷한 낱말 목록)와 헷갈리지 않도록 이름을 나눠 뒀다 —
+    ///   이건 낱말이 아니라 **문장 하나**다.
     var referenceSentence: String? = nil
+
+    /// `relatedWords` 만 JSON 키가 다르다 — 데이터 파일을 안 건드리려고 여기서 맵핑한다.
+    enum CodingKeys: String, CodingKey {
+        case word
+        case gloss
+        case relatedWords = "examples"
+        case referenceSentence
+    }
 
     init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
         word     = try box.decode(String.self, forKey: .word)
         gloss    = try box.decode(String.self, forKey: .gloss)
-        examples = try box.decodeIfPresent([String].self, forKey: .examples) ?? []
+        relatedWords = try box.decodeIfPresent([String].self, forKey: .relatedWords) ?? []
         referenceSentence = try box.decodeIfPresent(String.self, forKey: .referenceSentence)
     }
 }

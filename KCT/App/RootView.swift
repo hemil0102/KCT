@@ -76,5 +76,6 @@ struct RootView: View {
 #Preview {
     RootView()
         .environment(QuestionCatalog.loaded())
+        .environment(MatchingSetCatalog.loaded())
         .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
 }

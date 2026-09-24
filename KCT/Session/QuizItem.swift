@@ -16,7 +16,7 @@
 //  ├─ affectsProgress          격려용 슬롯이면 false — 진척에 반영하지 않는다
 //  ├─ focus                    질문이 묻는 대상 (형광펜용)
 //  ├─ displayText              화면에 크게 보여줄 본문
-//  ├─ highlightText            본문에서 색+밑줄로 강조할 부분 (O/X 의 판단 대상)
+//  ├─ highlightText            본문에서 색+굵기+따옴표로 강조할 부분 (O/X 의 판단 대상)
 //  ├─ markerText               형광펜으로 칠할 부분 (묻는 대상)
 //  ├─ actionGuide              "답을 골라보세요" 같은 한 줄 안내
 //  └─ make(...)                문제 + 방식 → 재료를 파생해 항목 완성 (출제 시 1회)
@@ -81,7 +81,11 @@ struct QuizItem: Identifiable {
         }
     }
 
-    /// 본문에서 색과 굵은 밑줄로 강조할 부분. (O/X 의 판단 대상인 답)
+    /// 본문에서 **색 + 더 굵은 글자 + 큰따옴표**로 강조할 부분. (O/X 의 판단 대상인 답)
+    ///
+    /// - Note: 9차까지는 밑줄이었습니다. 어려운 낱말의 점선 밑줄과 같은 자리에서 겹쳐
+    ///   보여, 세 시안 중 어머니가 고른 「색상 + 굵기」안으로 바꾸고 따옴표를 더했습니다.
+    ///   ``KoreanText`` 가 그 셋을 입힙니다.
     var highlightText: String? {
         switch payload {
         case .trueFalse(_, let candidate, _): candidate
@@ -91,7 +95,11 @@ struct QuizItem: Identifiable {
 
     /// 지문에서 형광펜으로 칠할 부분. (질문이 묻는 대상)
     ///
-    /// O/X 는 판단 대상이 이미 밑줄로 강조되어 있으므로 겹치지 않게 생략합니다.
+    /// O/X 는 판단 대상이 이미 ``highlightText`` 로 강조되어 있으므로 겹치지 않게 생략합니다.
+    ///
+    /// - Important: ⚠️ 지금 형광펜은 **꺼져 있습니다** — ``KoreanText`` 의
+    ///   `showsMarkerHighlight` 가 `false` 다(밑줄 버그를 따로 보려던 진단용).
+    ///   값 자체는 여기서 계속 넘어가고 있습니다.
     var markerText: String? {
         switch payload {
         case .trueFalse: nil
@@ -110,7 +118,7 @@ struct QuizItem: Identifiable {
         }
     }
     
-    /// 지문에 점선 밑줄을 입힐 낱말들. `KoreanText`가 받는 모양으로 미리 바꿔 둔다.
+    /// 지문에 점선 밑줄을 입히고 탭하면 뜻을 보여줄 낱말들. ``Question`` 것을 그대로 넘긴다.
     var glossary: [GlossaryEntry] {
         question.glossary
     }

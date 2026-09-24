@@ -28,8 +28,13 @@
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizSession(start · warmFocusCache)
-//  기대는 것    : QuestionFocusExtractor(3층), FocusAnalyzer(2층), QuestionFocusRecord(캐시)
+//  기대는 것    : QuestionFocusExtractor(3층), FocusAnalyzer(2층), QuestionFocusRecord(캐시),
+//                ModelContext.fetchKeyed(by:)
 //  건드리지 않는 것 : 화면 표시 — 무엇을 칠할지는 QuizItem.markerText 가 정한다
+//
+//  ⚠️ 2층이 꺼져 있으므로(usesModelAnalysis = false) FocusAnalyzer.swift ·
+//     QuestionFocusRecord.swift 는 **지금 아무도 부르지 않는 코드**다. 버그가 아니라
+//     결정 기록에 있는 의도된 상태이고, 다시 켤 자리라 지우지 않는다 (PROGRESS.md).
 //
 
 import Foundation
@@ -102,8 +107,7 @@ struct FocusStore {
     // MARK: - 캐시 다루기
 
     private func cachedRecords() -> [Int: QuestionFocusRecord] {
-        let records = (try? modelContext.fetch(FetchDescriptor<QuestionFocusRecord>())) ?? []
-        return Dictionary(records.map { ($0.questionID, $0) }, uniquingKeysWith: { first, _ in first })
+        modelContext.fetchKeyed(by: \.questionID)
     }
 
     private func save(_ focus: QuestionFocus, for question: Question) {

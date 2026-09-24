@@ -316,3 +316,24 @@ enum Encounter {
 | **인수인계 파일 (handoff)** | 세션이 끊겨도 다음 세션이 이어받을 수 있게 현재 상태를 적어 두는 파일. 이 저장소에서는 `PROGRESS.md` |
 | **서브에이전트 (subagent)** | 넓은 조사를 대신 시키는 별도의 AI. 파일을 여럿 뒤져도 **결론만** 돌아오므로 본 대화가 무거워지지 않습니다 |
 | **MCP 도구** | AI가 Xcode를 직접 조작하는 통로. `XcodeRead`·`XcodeGrep`·`BuildProject` 등. 셸 명령보다 싸고 승인 절차가 없습니다 |
+
+---
+
+## 리팩토링 (2026-09-23)
+
+1차 리팩토링에서 쓴 말들입니다. 무엇을 왜 고쳤는지는 [Refactoring.md](Refactoring.md).
+
+| 용어 | 뜻 |
+|---|---|
+| **리팩토링 (refactoring)** | **동작을 하나도 안 바꾸면서** 코드의 모양만 고치는 일. 화면이 바뀌면 리팩토링이 아니라 기능 변경입니다 — 그래서 성공 기준이 「보이는 게 그대로인가」입니다 |
+| **재사용 부품 추출 (extract component)** | 같은 코드가 두 곳에 있을 때 한 곳으로 빼고 둘이 그것을 부르게 하는 것. 두 해설 시트의 카드·배지·본문이 `CommentarySheet.swift` 로 갔습니다 |
+| **중복 (duplication)** | 같은 것이 두 벌 있는 상태. 위험한 이유는 「한쪽만 고쳐진다」입니다 — 고친 사람은 다 고쳤다고 믿고, 나머지 한쪽은 조용히 어긋납니다 |
+| **의존성 방향 (dependency direction)** | 「누가 누구를 아는가」. 이 앱은 `Data → Progress → Session → Grading → Screens` 한 방향입니다. `Data` 가 `Grading` 을 알면 문제집만 갈아끼우는 일이 불가능해집니다 |
+| **네임스페이스 오염 (namespace pollution)** | 아주 일반적인 이름(`Coordinator`·`BodyStyle`)을 모듈 전체에 떠 있게 두는 것. 다음에 같은 이름을 쓰려 할 때 부딪힙니다. **타입 안에 중첩**(`KoreanText.Coordinator`)하거나 이름에 맥락을 붙여 막습니다 |
+| **씸 (seam)** | 나중에 갈아끼울 자리를 미리 비워 둔 곳. `SessionBuilder.isUnlocked`·`ContentFile.saveDownloaded` 처럼 **지금은 아무도 안 부르지만 지우지 않는** 코드입니다. 죽은 코드와 구별하려고 주석에 「아직 부르는 곳이 없다」를 적어 둡니다 |
+| **죽은 코드 (dead code)** | 부르는 곳이 **0인데 되살릴 계획도 없는** 코드. 씸과 다릅니다 — 씸은 왜 남겼는지가 문서에 있고, 죽은 코드는 없습니다 |
+| **`CodingKeys` 맵핑** | Swift 프로퍼티 이름과 JSON 키 이름을 **다르게** 두는 방법. `case relatedWords = "examples"` 라고 적으면 코드에서는 `relatedWords`, 파일에서는 `examples` 로 읽힙니다 — 데이터 파일을 안 건드리고 이름만 고칠 수 있습니다 |
+| **보일러플레이트 (boilerplate)** | 뜻은 없고 형식만 되풀이되는 코드. 모델을 부를 때마다 나오던 「세션 만들기 → 물어보기 → catch → 실패 기록」 넷이 그것이고, `ModelCall.generate` 하나로 모았습니다 |
+| **키패스 (KeyPath)** | 프로퍼티를 **값처럼 넘기는** 문법. `\QuestionProgress.questionID` 처럼 씁니다. `fetchKeyed(by: \.questionID)` 가 「무엇을 키로 쓸지」를 이렇게 받습니다 |
+| **훅 (hook)** | 공통 함수 안에서 「여기서 부를 것 있으면 부르세요」 하고 비워 둔 클로저 자리. `ModelCall.generate` 의 `onFailure` 가 그 자리이고, 세션 객체가 필요한 기능(애플 신고 첨부)을 살리려고 뒀습니다 |
+| **PreferenceKey** | 자식 뷰가 부모 쪽으로 값을 **올려 보내는** SwiftUI 장치. 타입 하나가 키 하나라서, 왼쪽·오른쪽을 가르려면 원래 타입이 둘 필요했습니다 — 가르는 것을 **키의 값**(`CardSlot.side`)으로 옮겨 하나로 줄였습니다 |

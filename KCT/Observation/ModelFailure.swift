@@ -16,13 +16,13 @@
 //  └─ uploadedAt               서버로 갔나. nil 이면 아직
 //
 //  ── 흐름 ──────────────────────────────────────────────
-//  CommentaryWriter · GlossaryComposer 가 실패하면 ModelFailureDraft 를 함께 돌려준다
+//  ModelCall.generate 가 실패하면 ModelFailureDraft 를 Writing 에 담아 돌려준다
 //    → QuizSession(saveFailures) — QuestionScreen 은 이 메서드를 통해서만 넣는다 —
 //      이 ModelFailure 로 만들어 저장한다
 //    → ObsUploader 가 관찰 기록과 함께 서버로 보낸다
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : CommentaryWriter·GlossaryComposer(만든다) · QuizSession·QuestionScreen(저장) · ObsUploader(보낸다)
+//  불러 쓰는 곳 : ModelCall.generate(만든다) · QuizSession.saveFailures·QuestionScreen(저장) · ObsUploader(보낸다)
 //  기대는 것    : SwiftData
 //  건드리지 않는 것 : 화면 — 어머니에게는 아무것도 안 보인다
 //

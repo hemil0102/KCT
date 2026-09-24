@@ -19,16 +19,20 @@
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession.judge() 의 ③층
-//    → check(answer:correctAnswer:)
-//    → 시한 12초를 걸고 세션에 묻는다
+//    → check(answer:correctAnswer:shape:)
+//    → 시한(timeout, 60초)을 걸고 세션에 묻는다
 //    → 유도 생성으로 AnswerCheck 를 그대로 받는다
-//    → 다 쓴 세션은 버리고 새것을 미리 데워 둔다
 //    → 실패하거나 시한이 지나면 throw → QuizSession 이 조용히 오답 처리한다
+//
+//  ⚠️ 여기만 실패를 **던진다.** 다른 모델 호출(해설·낱말 예문)은 ModelCall.generate 가
+//     실패를 Writing 으로 돌려주는데, 채점은 「판정이 없다」를 화면이 대신 채울 수 없어
+//     호출한 쪽이 알아야 한다. 그래서 generate 를 쓰지 않고 withTimeout 만 쓴다.
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizSession.judge()
-//  기대는 것    : FoundationModels, CheckBasis, withTimeout
+//  기대는 것    : FoundationModels, CheckBasis, ModelCall.withTimeout
 //  건드리지 않는 것 : 문제 지문 - 프롬프트에 넣지 않는다 (안전 필터)
+//                    채점 결과 타입(GradingResult)은 AnswerTypes.swift 에 있다
 //
 
 import Foundation
@@ -45,16 +49,6 @@ struct AnswerCheck {
 
     @Guide(description: "판정의 근거")
     let basis: CheckBasis
-}
-
-/// 한 문항의 채점 결과. 화면과 로그가 쓴다.
-struct GradingResult {
-    let isCorrect: Bool
-    let reason: String
-
-    /// 무엇을 근거로 판정했나. 코드가 정한 것과 모델이 고른 것이 함께 들어와
-    /// **열거형이 아니라 글자**다. 로그에만 쓰이므로 타입을 지킬 값어치가 없다.
-    let basis: String?
 }
 
 /// 코드가 못 가른 답만 모델에게 묻습니다. ``AnswerMatcher`` 와 짝을 이룹니다.
@@ -89,8 +83,11 @@ final class AnswerChecker {
             답변이 정답과 같은지 채점하세요.
             """
 
+        // ModelCall.generate 를 쓰지 않는 이유 — 그쪽은 실패를 Writing 으로 **돌려주고**,
+        // 여기는 실패를 **던져 올려야** 한다. QuizSession.judge() 가 그 throw 를 받아
+        // 조용히 오답으로 두기 때문이다. 공통으로 쓰는 것은 시한 하나다.
         let session = LanguageModelSession(instructions: instructions)
-        let response = try await withTimeout(seconds: Self.timeout) {
+        let response = try await ModelCall.withTimeout(seconds: Self.timeout) {
             try await session.respond(
                 to: prompt,
                 generating: AnswerCheck.self,

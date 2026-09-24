@@ -96,7 +96,7 @@ if let byRule = RuleGrader.grade(item, userAnswer: answer) {
 어르신에게 「모델을 사용할 수 없습니다」는 아무 의미가 없습니다. 그리고 이 앱은 화면에
 부정적 표현을 쓰지 않기로 했습니다 — 오답도 「다시 볼 문제 / 곧 다시 만나요」로 표시합니다.
 
-시한은 `withTimeout(seconds:_:)` 이 겁니다. **안 돌아오는 것과 실패하는 것을 같게** 만들어,
+시한은 ``ModelCall/withTimeout(seconds:_:)`` 이 겁니다. **안 돌아오는 것과 실패하는 것을 같게** 만들어,
 부르는 쪽이 `catch` 하나만 쓰면 되게 합니다.
 
 > Note: 위 두 층이 코드라서, 모델이 없는 기기에서도 **직접입력의 상당수가 그대로 채점됩니다.**
@@ -118,7 +118,7 @@ if let byRule = RuleGrader.grade(item, userAnswer: answer) {
 
 자세한 것은 <doc:TwoAxes> 의 「격려용 슬롯」 절에 있습니다.
 
-``GradingResult`` 는 세 층이 함께 쓰는 결과 타입입니다. 모델이 만드는 것은 ``AnswerCheck``
+``GradingResult``(`AnswerTypes.swift` 에 있다) 는 세 층이 함께 쓰는 결과 타입입니다. 모델이 만드는 것은 ``AnswerCheck``
 이고, ``GradingResult`` 는 **화면과 로그가 쓰는 것**이라 `@Generable` 이 아닙니다.
 
 ## See Also

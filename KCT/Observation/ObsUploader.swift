@@ -14,20 +14,25 @@
 //  ├─ uploadPending()          안 올라간 관찰 기록을 모아 한 번에 보낸다 (입구)
 //  ├─ uploadPendingFailures()  안 올라간 모델 실패 기록을 보낸다 (입구)
 //  ├─ FailurePayload           model_failure 표의 한 줄
-//  ├─ pendingRecords()         uploadedAt 이 nil 인 줄을 꺼낸다
-//  └─ send(_:)                 실제 HTTP POST. 성공하면 true
+//  ├─ flush(_:to:label:payload:stamp:)
+//  │                           **두 입구가 함께 쓰는 네 걸음** —
+//  │                           보내기 → 도장 찍기 → 저장 (+ 진단 로그)
+//  ├─ pendingRecords()         obs_record 중 uploadedAt 이 nil 인 줄
+//  ├─ pendingFailures()        model_failure 중 uploadedAt 이 nil 인 줄
+//  └─ send(_:to:)              실제 HTTP POST. 성공하면 true
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession 이 회차를 시작할 때 / 채점을 마쳤을 때
 //    → uploadPending()
 //    → pendingRecords() : uploadedAt == nil 인 줄을 최대 200개
-//    → Payload 로 옮겨 담아 JSON 배열 하나로 만든다
+//    → flush() 가 Payload 로 옮겨 담아 JSON 배열 하나로 만들고
 //    → send() : POST {projectURL}/rest/v1/obs_record
 //    → 2xx 면 그 줄들의 uploadedAt 에 지금 시각을 찍고 save()
 //    → 실패하면 아무것도 하지 않는다. 다음 회차가 다시 시도한다
 //
 //  ── 연결 ──────────────────────────────────────────────
-//  불러 쓰는 곳 : QuizSession.start() · QuizSession.moveToNextQuestion()
+//  불러 쓰는 곳 : QuizSession.start() · QuizSession.uploadObservations() ·
+//                QuizSession.uploadFailuresNow()(회차 중간, 낱말 사전 실패 직후)
 //  기대는 것    : ObsRecord(무엇을 보낼지), SupabaseConfig(어디로 보낼지)
 //  건드리지 않는 것 : 화면 — 성공도 실패도 어머니에게 보이지 않는다.
 //                    실패를 알려 봐야 어머니가 할 수 있는 일이 없다
@@ -136,35 +141,30 @@ struct ObsUploader {
         Self.isUploading = true
         defer { Self.isUploading = false }
 
-        let records = pendingRecords()
-        print("📤 안 올라간 줄:", records.count)
-        guard !records.isEmpty else { return }
-        
-        let payloads = records.map { record in
-            Payload(
-                deviceID: Self.deviceID,
-                sessionID: record.sessionID,
-                askedAt: record.askedAt,
-                questionID: record.questionID,
-                secToFirstTouch: record.secToFirstTouch,
-                secToSubmit: record.secToSubmit,
-                isCorrect: record.isCorrect,
-                modeRaw: record.modeRaw,
-                wasFirstEver: record.wasFirstEver,
-                affectsProgress: record.affectsProgress,
-                chosen: record.chosen,
-                reason: record.reason,
-                explanation: record.explanation,
-                basis: record.basis,
-                explanationSource: record.explanationSource
-            )
-        }
-        
-        guard await send(payloads, to: "/rest/v1/obs_record") else { return }
-        
-        let now = Date.now
-        for record in records { record.uploadedAt = now }
-        try? modelContext.save()
+        await flush(
+            pendingRecords(),
+            to: "/rest/v1/obs_record",
+            label: "줄",
+            payload: { record in
+                Payload(
+                    deviceID: Self.deviceID,
+                    sessionID: record.sessionID,
+                    askedAt: record.askedAt,
+                    questionID: record.questionID,
+                    secToFirstTouch: record.secToFirstTouch,
+                    secToSubmit: record.secToSubmit,
+                    isCorrect: record.isCorrect,
+                    modeRaw: record.modeRaw,
+                    wasFirstEver: record.wasFirstEver,
+                    affectsProgress: record.affectsProgress,
+                    chosen: record.chosen,
+                    reason: record.reason,
+                    explanation: record.explanation,
+                    basis: record.basis,
+                    explanationSource: record.explanationSource
+                )
+            },
+            stamp: { $0.uploadedAt = $1 })
     }
     
     // MARK: - 모델 실패 기록
@@ -184,40 +184,66 @@ struct ObsUploader {
     ///
     /// 관찰 기록과 표가 달라 따로 보냅니다. 실패는 드물어 대개 보낼 것이 없습니다.
     func uploadPendingFailures() async {
-        var descriptor = FetchDescriptor<ModelFailure>(
-            predicate: #Predicate { $0.uploadedAt == nil },
-            sortBy: [SortDescriptor(\.occurredAt)]
-        )
-        descriptor.fetchLimit = batchLimit
-
-        let failures = (try? modelContext.fetch(descriptor)) ?? []
-        print("📤 안 올라간 실패 기록:", failures.count)
-        guard !failures.isEmpty else { return }
-
-        let payloads = failures.map {
-            FailurePayload(
-                deviceID: Self.deviceID,
-                occurredAt: $0.occurredAt,
-                job: $0.job,
-                questionID: $0.questionID,
-                reason: $0.reason,
-                instructions: $0.instructions,
-                prompt: $0.prompt)
-        }
-
-        guard await send(payloads, to: "/rest/v1/model_failure") else {
-            print("❌ 실패 기록 업로드 실패 — 다음 기회에 다시 시도")
-            return
-        }
-        print("✅ 실패 기록 업로드 성공:", failures.count)
-
-        let now = Date.now
-        for failure in failures { failure.uploadedAt = now }
-        try? modelContext.save()
+        // ⚠️ 여기에는 `isUploading` 재진입 가드가 **없다.** uploadPending() 과 달리
+        //    회차 중간에도 불릴 수 있고(QuizSession.uploadFailuresNow()), 실패는
+        //    드물어 겹칠 확률이 낮다는 판단으로 그대로 두었다. 2026-09-23 리팩토링
+        //    때 넣을지 보다가 **동작이 바뀌므로 안 넣었다** — Brainstorm.md 에 후보로 남겼다.
+        await flush(
+            pendingFailures(),
+            to: "/rest/v1/model_failure",
+            label: "실패 기록",
+            payload: {
+                FailurePayload(
+                    deviceID: Self.deviceID,
+                    occurredAt: $0.occurredAt,
+                    job: $0.job,
+                    questionID: $0.questionID,
+                    reason: $0.reason,
+                    instructions: $0.instructions,
+                    prompt: $0.prompt)
+            },
+            stamp: { $0.uploadedAt = $1 })
     }
 
     // MARK: - 안에서 하는 일
-    
+
+    /// 안 올라간 줄을 **보내고, 성공하면 도장을 찍고, 저장한다.**
+    ///
+    /// 두 표(`obs_record`·`model_failure`)가 이 네 걸음을 똑같이 밟습니다 —
+    /// 꺼내기 → Payload 로 옮기기 → 보내기 → `uploadedAt` 찍고 저장. 다른 것은
+    /// 「어느 표」·「어떤 모양」·「어디에 도장을 찍나」 셋뿐이라 인자로 받습니다.
+    ///
+    /// - Important: **실패하면 아무것도 하지 않습니다.** 도장을 안 찍으니 그 줄은
+    ///   `uploadedAt == nil` 인 채로 폰에 남아 다음 기회에 다시 갑니다.
+    ///
+    /// - Parameters:
+    ///   - rows: 보낼 저장소 객체들.
+    ///   - path: PostgREST 경로.
+    ///   - label: 진단 로그에 쓸 이름 ("줄" · "실패 기록").
+    ///   - payload: 저장소 객체 → 서버로 보낼 JSON 모양.
+    ///   - stamp: 성공했을 때 도장을 찍는 방법. `uploadedAt` 이 두 타입에 따로 있어
+    ///     키패스 하나로는 못 받는다.
+    private func flush<Row, Body: Encodable>(
+        _ rows: [Row],
+        to path: String,
+        label: String,
+        payload: (Row) -> Body,
+        stamp: (Row, Date) -> Void
+    ) async {
+        print("📤 안 올라간 \(label):", rows.count)
+        guard !rows.isEmpty else { return }
+
+        guard await send(rows.map(payload), to: path) else {
+            print("❌ \(label) 업로드 실패 — 다음 기회에 다시 시도")
+            return
+        }
+        print("✅ \(label) 업로드 성공:", rows.count)
+
+        let now = Date.now
+        for row in rows { stamp(row, now) }
+        try? modelContext.save()
+    }
+
     /// ``ObsRecord/uploadedAt`` 이 `nil` 인 줄을 오래된 것부터 꺼냅니다.
     private func pendingRecords() -> [ObsRecord] {
         var descriptor = FetchDescriptor<ObsRecord>(
@@ -225,7 +251,18 @@ struct ObsUploader {
             sortBy: [SortDescriptor(\.askedAt)]
         )
         descriptor.fetchLimit = batchLimit
-        
+
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    /// ``ModelFailure/uploadedAt`` 이 `nil` 인 줄을 오래된 것부터 꺼냅니다.
+    private func pendingFailures() -> [ModelFailure] {
+        var descriptor = FetchDescriptor<ModelFailure>(
+            predicate: #Predicate { $0.uploadedAt == nil },
+            sortBy: [SortDescriptor(\.occurredAt)]
+        )
+        descriptor.fetchLimit = batchLimit
+
         return (try? modelContext.fetch(descriptor)) ?? []
     }
     

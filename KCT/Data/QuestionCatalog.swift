@@ -14,7 +14,7 @@
 //  ├─ answerPool(preferringKindOf:)   같은 종류를 최대한 채우고 모자란 만큼만 다른 데서 채운 정답 모음
 //  ├─ loaded()                 받아 둔 것 먼저, 없으면 번들
 //  ├─ replace(with:)           문제집 통째 교체 — 안전한 시점에만
-//  ├─ question(id:)            id 로 한 개 찾기
+//  │                           ⚠️ 아직 부르는 곳이 없다 (서버 갱신을 붙일 자리)
 //  └─ question(answering:)     그 답이 정답인 문항 찾기
 //
 //  ── 흐름 ──────────────────────────────────────────────
@@ -63,17 +63,12 @@ final class QuestionCatalog {
     /// 둘 다 실패하면 빈 문제집을 돌려줍니다. 앱이 죽는 것보다 빈 화면이 낫고,
     /// 개발 중에는 `assertionFailure` 가 즉시 알려 줍니다.
     static func loaded() -> QuestionCatalog {
-        let contentFile = ContentFile<QuestionPayload>(fileName: "questions")
-        
-        if let downloaded = contentFile.loadDownloaded(), !downloaded.questions.isEmpty {
-            return QuestionCatalog(payload: downloaded)
-        }
-        
-        do { return QuestionCatalog(payload: try contentFile.loadBundled())
-        } catch {
-            assertionFailure("기본 문제집을 읽지 못했습니다: \(error)")
-            return QuestionCatalog(payload: QuestionPayload(version: 0, questions: []))
-        }
+        QuestionCatalog(
+            payload: ContentFile<QuestionPayload>(fileName: "questions")
+                .loadPreferringDownloaded(
+                    isEmpty: { $0.questions.isEmpty },
+                    fallback: QuestionPayload(version: 0, questions: []),
+                    failureMessage: "기본 문제집을 읽지 못했습니다"))
     }
     
     /// 문제집을 통째로 교체합니다. 버전이 더 높고 내용이 비어 있지 않을 때만 바꿉니다.
@@ -100,13 +95,11 @@ final class QuestionCatalog {
         return questions.first { $0.displayAnswer.filter { $0.isLetter || $0.isNumber } == wanted }
     }
 
-    /// id 로 문제 하나를 찾는다.
-    func question(id: Int) -> Question? {
-        questions.first { $0.id == id }
-    }
-
     /// 정답 모음을 만든다. `Set` 을 거쳐 중복을 없앤다 — 같은 보기가 두 번 나오면 안 된다.
     /// ❓answerPool이 뭐하는거지?
+    ///    → **선다형의 「오답 보기」를 뽑아 오는 통.** 문항마다 오답을 손으로 적어 두는
+    ///      대신 「다른 문제들의 정답」을 모아 두고 거기서 뽑는다. 그래서 오답이 그럴듯하고,
+    ///      문제집을 갈아끼우면 보기도 저절로 따라 바뀐다. (Q&A.md 참고)
     private static func makeAnswerPool(from questions: [Question]) -> [String] {
         Array(Set(questions.map(\.displayAnswer)))
     }

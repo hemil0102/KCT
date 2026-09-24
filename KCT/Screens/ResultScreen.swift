@@ -10,7 +10,6 @@
 //  ├─ progresses (@Query)       누적 통계용. 화면 표시라서 @Query 로 받는다
 //  ├─ cumulativeCorrect         지금까지 맞힌 총 횟수 — 이 화면의 주인공
 //  ├─ masteredCount             완전히 익힌 문제 수
-//  ├─ cumulativeCard            누적 정답을 크게 보여주는 시그니처 카드
 //  ├─ resultRow(for:)           문제 하나의 결과 카드
 //  ├─ onRestart                 "다시 풀기" — 위쪽에 새 회차를 부탁한다
 //  └─ onEraseProgress           "학습 기록 초기화" — 확인창을 거친 뒤 부탁한다
@@ -23,7 +22,8 @@
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizView — 회차가 끝나고 채점도 끝났을 때
-//  기대는 것    : QuizSession(회차 결과), QuestionProgress(누적 통계), AppColor
+//  기대는 것    : QuizSession(회차 결과), QuestionProgress(누적 통계), AppColor,
+//                CumulativeCountCard·MasteredBadge(MyHistoryView 와 함께 쓰는 부품)
 //  건드리지 않는 것 : 기록 삭제 자체 — QuizSession.eraseAllProgress() 가 한다
 //
 
@@ -68,10 +68,14 @@ struct ResultScreen: View {
                 .font(.system(size: 34, weight: .bold))
                 .foregroundStyle(.black)
 
-            cumulativeCard
+            // 누적 카드와 마스터 배지는 「나의 이력」 탭과 **같은 부품**이다 —
+            // 같은 숫자가 두 화면에서 다르게 보이면 어느 쪽을 믿을지 알 수 없다.
+            CumulativeCountCard(
+                count: cumulativeCorrect,
+                caption: "오늘 \(session.items.count)문제 중 \(session.correctCount)개 맞혔어요")
 
             if masteredCount > 0 {
-                masteredBadge
+                MasteredBadge(count: masteredCount)
             }
 
             ScrollView {
@@ -87,34 +91,6 @@ struct ResultScreen: View {
             eraseButton
         }
         .padding(24)
-    }
-
-    // MARK: - 누적 강조
-
-    private var cumulativeCard: some View {
-        VStack(spacing: 6) {
-            Text("지금까지 맞힌 문제")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-            Text("\(cumulativeCorrect)개")
-                .font(.system(size: 52, weight: .heavy))
-                .foregroundStyle(.white)
-            Text("오늘 \(session.items.count)문제 중 \(session.correctCount)개 맞혔어요")
-                .font(.headline)
-                .foregroundStyle(.white)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .background(AppColor.signature, in: RoundedRectangle(cornerRadius: 24))
-    }
-
-    private var masteredBadge: some View {
-        Label("완전히 익힌 문제 \(masteredCount)개", systemImage: "star.fill")
-            .font(.title3.weight(.bold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
-            .background(AppColor.mastered, in: Capsule())
     }
 
     // MARK: - 문제별 결과

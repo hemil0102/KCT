@@ -2,13 +2,18 @@
 //  QuizSession.swift
 //  KCT
 //
-//  역할 : 한 회차(5문제)의 상태를 들고, 시작·제출·채점을 결정한다
+//  역할 : 한 회차(7칸)의 상태를 들고, 시작·제출·채점을 결정한다
 //  요점 : 화면은 "무엇을 그릴까"만 묻고, "무엇이 맞나"는 전부 여기서 답한다
 //
 //  ── 구성 ──────────────────────────────────────────────
 //  QuizSession                 회차의 주인. 화면이 아니라 진행을 소유한다
-//  ├─ items                    이번 회차 출제 항목 (SessionBuilder 가 만든 것)
-//  ├─ currentIndex             몇 번째 문제를 풀고 있나 (0부터)
+//  ├─ items                    이번 회차 출제 항목 (SessionBuilder 가 만든 것).
+//  │                           **연결 문제는 여기 안 들어 있다** — 아래 참고
+//  ├─ matchingSet/matchingSlot 이번 회차의 연결 문제와 그것이 놓인 칸 번호
+//  ├─ slotCount                회차의 칸 수 = items.count + (연결 문제 있으면 1)
+//  ├─ isMatchingSlot           지금 칸이 연결 문제인가 (QuizView 가 화면을 고르는 기준)
+//  ├─ completeMatchingSlot()   연결 문제를 다 맞혔다 → 다음 칸으로
+//  ├─ currentIndex             몇 번째 **칸**인가 (0부터). items 의 자리가 아니다
 //  ├─ userAnswer               지금 고르거나 입력한 답
 //  │                           └ 값이 들어오면 안내를 스스로 거둔다 (setter 안에서)
 //  ├─ results                  채점 결과 (문제 id → 결과)
@@ -32,21 +37,45 @@
 //  ├─ wrapUp()                 회차 끝의 3초 박자
 //  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
 //  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
-//  ├─ IncorrectCommentary      틀렸을 때 띄울 창의 내용 (고른 답 · 정답 · 해설)
-//  ├─ feedback                 지금 띄워야 할 오답 해설 창. nil 이면 창이 없다
-//  ├─ CorrectCommentary        맞혔을 때 띄울 창의 내용 (정답 · 해설) — 고른 답 설명은 없다
-//  ├─ correctFeedback          지금 띄워야 할 정답 해설 창. nil 이면 창이 없다
+//  ├─ feedback                 지금 띄워야 할 오답 해설 창(IncorrectCommentary). nil 이면 창이 없다
+//  ├─ correctFeedback          지금 띄워야 할 정답 해설 창(CorrectCommentary). nil 이면 창이 없다
+//  ├─ isShowingCommentary      둘 중 하나라도 떠 있는가 (뒤 화면의 손가락을 막는 데 쓴다)
 //  ├─ presentCorrectFeedback() 정답 해설 창을 띄우고 CommentaryWriter.write(for:) 로 채운다
-//  ├─ dismissCorrectFeedback() 정답 해설 창의 「다음 문제」 — 창을 닫고 다음 문제로
+//  ├─ dismissFeedback()        오답 해설 창의 「다음 문제」 — 창을 닫고 다음 문제로
+//  ├─ dismissCorrectFeedback() 정답 해설 창의 「다음 문제」 — 같은 일
 //  ├─ moveToNextQuestion()     다음 문제로 넘어간다 — 두 창을 닫을 때 모두 (맞았을 때도 이제 창을 거친다)
+//  ├─ completeMatchingSlot()   연결 문제 칸을 마쳤다 → 다음 칸 (채점도 해설도 없다)
+//  ├─ applyProgress()          countAttempt + moveLadder/nudgeLadder 를 한 자리에서
+//  ├─ ensureProgressExists()   진척이 없는 문항에 QuestionProgress 를 만들어 둔다
+//  ├─ fetchProgressByID()      저장소에서 진척을 읽어 id 로 찾을 수 있게
+//  ├─ itemIndex(for:)          칸 번호 → items 안의 자리 (연결 문제 칸을 건너뛴다)
+//  ├─ clearAnswers()           답·결과·시간을 회차 단위로 처음 상태로
+//  ├─ warmFocusCache()         묻는 대상을 뒤에서 분석해 캐시에 채운다
 //  ├─ reasonForLog()           채점 이유를 로그에 남길 모양으로 다듬는다
 //  └─ uploadObservations()     안 올라간 기록을 뒤에서 밀어 올린다 (기다리지 않는다)
+//
+//  ⚠️ 해설 창에 **들어갈 내용**(IncorrectCommentary · CorrectCommentary ·
+//     CommentaryPlaceholder)은 이 파일에 없다 — Grading/Commentary.swift 로 옮겼다.
+//     창을 그리는 화면이 회차 전체를 아는 타입을 거치지 않게 하려는 것이다.
+//
+//  ── 연결 문제가 낀 회차 ────────────────────────────────
+//  연결 문제(MatchingSet)는 Question 이 아니라서 items 에 못 담는다. 그래서
+//  회차를 "칸(slot)" 으로 세고, 그중 한 칸만 연결 문제로 비워 둔다.
+//
+//    칸:    0      1      2          3      4      5      6
+//         [문제] [문제] [연결문제]  [문제] [문제] [문제] [문제]
+//    items: 0      1       —         2      3      4      5
+//
+//  currentIndex 는 **칸 번호**이고, items 를 찾을 때만 itemIndex(for:) 로
+//  한 칸 당겨 본다. 연결 문제 칸에서는 current 가 nil 이라 submitCurrent()·
+//  낭독 같은 일반 문제용 경로가 저절로 비활성된다.
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  화면 진입
 //    → start()
 //        → 진척이 없는 문제에 QuestionProgress 생성
-//        → SessionBuilder.build() 로 출제 계획을 받아 items 에 보관
+//        → 연결 문제를 한 세트 뽑고(있으면) 3·4·5번째 중 한 칸을 그 자리로 예약
+//        → SessionBuilder.build() 로 나머지 칸의 출제 계획을 받아 items 에 보관
 //        → FocusStore 로 백그라운드 캐시 워밍 (기다리지 않는다)
 //    → 사용자가 답 선택 → userAnswer 에 저장 (안내 자동 해제)
 //    → submitCurrent() → 답 기록 → currentIndex += 1
@@ -92,6 +121,10 @@ final class QuizSession {
     private let catalog: QuestionCatalog
     private let modelContext: ModelContext
 
+    /// 연결 문제 세트 보관소. `nil` 이면 이번 회차엔 연결 문제를 넣지 않는다
+    /// (프리뷰·테스트처럼 안 넘긴 경우).
+    private let matchingCatalog: MatchingSetCatalog?
+
     /// 뜻으로 채점하는 쪽. 직접입력에만 쓴다. (선다·O/X 는 ``RuleGrader`` 가 즉시 처리)
     private let answerChecker = AnswerChecker()
     private let commentaryWriter = CommentaryWriter()
@@ -103,8 +136,22 @@ final class QuizSession {
     /// 아직 안 만들어졌거나 모델이 실패한 경우입니다. **어느 쪽이든 화면은 기다리지 않습니다.**
     private var encouragements: [String] = []
 
-    /// 한 회차에 낼 문제 수.
+    /// 한 회차의 **칸 수**. 연결 문제가 들어가면 그중 한 칸을 차지하므로,
+    /// 일반 문제는 그만큼 덜 뽑는다 — 회차 길이는 언제나 이 값이다.
     let size: Int
+
+    /// 이번 회차에 낼 연결 문제. `nil` 이면 연결 문제 없이 예전처럼 일반 문제로만 찬다.
+    private(set) var matchingSet: MatchingSet?
+
+    /// 연결 문제가 놓인 칸 번호(0부터). 연결 문제가 없으면 `nil`.
+    private(set) var matchingSlot: Int?
+
+    /// 연결 문제가 올 수 있는 칸 — 3·4·5번째(0부터 세면 2·3·4).
+    ///
+    /// 첫 칸과 마지막 칸은 ``SessionBuilder/shapeRound(_:progressByID:focusByID:)`` 가
+    /// 격려용 쉬운 2지선다로 쓰는 자리라 비켜 둔다. 6번째 칸은 음성 입력 문제
+    /// 자리로 비워 둘 예정인데 아직 그 유형이 없어서, 지금은 일반 문제가 온다.
+    private static let matchingSlotCandidates = [2, 3, 4]
 
     // MARK: - 상태
 
@@ -162,92 +209,6 @@ final class QuizSession {
         let secToSubmit: Double
     }
     
-    /// 틀렸을 때 띄우는 창의 내용.
-    ///
-    /// 창에는 세 덩어리가 있고, 이 타입의 세 값과 하나씩 대응합니다 —
-    /// 「고르신 것」 · 「이 문제의 답」 · 해설.
-    ///
-    /// - Note: `private` 이 아닌 이유 — 창을 그리는 화면이 이 타입을 알아야 합니다.
-    ///   ``ObsTiming`` 은 화면이 볼 일이 없어서 `private` 입니다.
-    ///
-    /// - Note: `commentary` 가 옵셔널이 아닌 이유 — 모델이 해설을 못 만들어도
-    ///   **창은 뜨고 정답은 보여 줍니다.** 그때는 대체 문구가 들어갑니다.
-    ///   다만 **로그에는 `nil` 로 남깁니다** — 그래야 실패한 횟수를 셀 수 있습니다.
-    ///   화면에 보여줄 값과 로그에 남길 값은 달라도 됩니다(``reasonForLog(_:)`` 와 같은 방식).
-    struct IncorrectCommentary: Identifiable {
-        /// 해설이 아직 안왔을 때 창에 넣어두는 문구.
-        static let placeholder = "잠시만 같이 살펴봐요."
-
-        /// 해설을 끝내 못 만들었을 때의 문구.
-        ///
-        /// 기다리라는 말을 계속 두면 **오지 않는 것을 기다리게** 됩니다.
-        /// 어르신에게 「모델 오류」는 아무 뜻이 없으므로 **다음에 할 일**을 알려 줍니다.
-        static let failed = "다음 문제로 이동해주세요."
-
-        /// **고른 답 설명**이 없을 때의 문구.
-        ///
-        /// 두 경우에 나옵니다 — ① 만들다 실패했을 때 ② 「고죠선」 같은 오타라
-        /// 어느 문항의 정답도 아니어서 **설명할 재료가 아예 없을 때.**
-        ///
-        /// 줄을 비워 두면 창이 갑자기 짧아져 「뭔가 사라졌나」 싶어집니다.
-        /// 자리를 지키면서 **다음에 할 일**로 이어 줍니다.
-        static let noteFailed = "정답을 살펴볼까요?"
-
-        /// 이 창이 어느 문항 때문에 떴는지. **같은 문항의 창이 자리 잡는 동안
-        /// (기다리는 문구 → 도착한 해설로) 값이 그대로라, 시트가 다시 열리지
-        /// 않고 내용만 바뀝니다.** (9차에서 겪은 것과 같은 이유로 `QuestionScreen`도
-        /// `.sheet(item:)`을 씁니다.)
-        let id: Int
-
-        let selectedAnswer: String
-
-        /// 고른 답이 무엇인지 알려 주는 한 문장. 아직 안 왔거나 재료가 없으면 `nil`.
-        let selectedNote: String?
-
-        /// 기다리는 동안 보여줄 응원 한 줄. 창이 만들어질 때 정해진다.
-        let waitingLine: String
-
-        /// 고른 답 설명이 **올 예정인가.**
-        ///
-        /// `selectedNote` 가 `nil` 인 이유가 둘이라 깃발이 따로 필요합니다 —
-        /// 「아직 안 왔다」와 「어느 문항의 정답도 아니라 설명할 재료가 없다」.
-        /// 앞이면 자리를 비워 두고 기다리게 하고, 뒤면 그 줄을 아예 안 그립니다.
-        let expectsNote: Bool
-
-        let correctAnswer: String
-        let commentary: String
-        
-        /// 기다림이 끝났는가. **성공이든 실패든 더 기다릴 것이 없으면 참**입니다.
-        ///
-        /// 화면은 이 값으로 맥동을 멈춥니다. 「도착했나」가 아니라 「더 기다릴 것이 있나」로
-        /// 두는 이유 — 실패했을 때도 반짝임은 멈춰야 합니다.
-        var isReady: Bool { commentary != Self.placeholder }
-    }
-
-    /// 맞혔을 때 띄우는 창의 내용.
-    ///
-    /// ``IncorrectCommentary`` 와 달리 **고른 답을 따로 설명하지 않는다** — 이미
-    /// 맞혔으므로 「무엇을 골랐는지」를 짚을 필요가 없다. 정답 해설 하나만 있으면 된다.
-    /// 해설을 만드는 방법도 같다 — ``CommentaryWriter/write(for:)`` 를 그대로 쓴다.
-    /// "이 답이 왜 맞는지"는 맞고 틀리고와 무관하게 같은 사실(``Question/facts``)에서
-    /// 나오기 때문에, 오답 해설의 "정답 비교" 부분을 만들던 바로 그 함수를 재활용한다.
-    struct CorrectCommentary: Identifiable {
-        /// 해설이 아직 안 왔을 때 창에 넣어 두는 문구.
-        static let placeholder = "잠시만 같이 살펴봐요."
-
-        /// 해설을 끝내 못 만들었을 때의 문구.
-        static let failed = "다음 문제로 이동해주세요."
-
-        /// 이 창이 어느 문항 때문에 떴는지. (``IncorrectCommentary/id`` 와 같은 이유)
-        let id: Int
-
-        let correctAnswer: String
-        let commentary: String
-
-        /// 기다림이 끝났는가. (``IncorrectCommentary/isReady`` 와 같은 이유)
-        var isReady: Bool { commentary != Self.placeholder }
-    }
-
     /// 이번 회차를 묶는 번호. ``start()`` 마다 새로 만든다.
     ///
     /// 이것 하나로 나중에 「이번 회차 평균 대기」와 「회차에 걸린 총 시간」을 셉니다.
@@ -286,33 +247,69 @@ final class QuizSession {
     /// 지금 띄워야 할 **정답 해설** 창. `nil` 이면 창이 없다. (``feedback`` 과 같은 이유)
     private(set) var correctFeedback: CorrectCommentary?
 
-    init(catalog: QuestionCatalog, modelContext: ModelContext, size: Int = 5) {
+    init(
+        catalog: QuestionCatalog,
+        modelContext: ModelContext,
+        matchingCatalog: MatchingSetCatalog? = nil,
+        size: Int = 7
+    ) {
         self.catalog = catalog
         self.modelContext = modelContext
+        self.matchingCatalog = matchingCatalog
         self.size = size
     }
 
     // MARK: - 화면이 물어보는 것
 
     /// 아직 회차가 구성되지 않았는지.
-    var isEmpty: Bool { items.isEmpty }
+    var isEmpty: Bool { items.isEmpty && matchingSet == nil }
 
-    /// 모든 문제를 다 풀었는지.
-    var isFinished: Bool { !items.isEmpty && currentIndex >= items.count }
+    /// 이번 회차의 **칸 수**. 일반 문제 + (있다면) 연결 문제 한 칸.
+    ///
+    /// 진행 막대는 `items.count` 가 아니라 이 값을 써야 한다 — 연결 문제는
+    /// ``items`` 에 안 들어 있어서, 그대로 두면 막대 칸이 하나 모자란다.
+    var slotCount: Int { items.count + (matchingSet == nil ? 0 : 1) }
 
-    /// 지금 풀고 있는 문제. 다 풀었으면 `nil`.
+    /// 지금 칸이 연결 문제인가. ``QuizView`` 가 이 값으로 어느 화면을 띄울지 고른다.
+    var isMatchingSlot: Bool { matchingSet != nil && currentIndex == matchingSlot }
+
+    /// 모든 칸을 다 지났는지.
+    var isFinished: Bool { !isEmpty && currentIndex >= slotCount }
+
+    /// 지금 풀고 있는 문제. **연결 문제 칸이거나** 다 풀었으면 `nil`.
     var current: QuizItem? {
-        guard items.indices.contains(currentIndex) else { return nil }
-        return items[currentIndex]
+        guard !isMatchingSlot else { return nil }
+
+        let index = itemIndex(for: currentIndex)
+        guard items.indices.contains(index) else { return nil }
+        return items[index]
     }
+
+    /// 칸 번호 → ``items`` 안의 자리.
+    ///
+    /// 연결 문제는 ``items`` 에 없으므로, 그 칸을 지난 뒤로는 한 칸씩 당겨진다.
+    private func itemIndex(for slot: Int) -> Int {
+        guard let matchingSlot, matchingSet != nil, slot > matchingSlot else { return slot }
+        return slot - 1
+    }
+
+    /// 해설 창(오답·정답)이 떠 있는가.
+    ///
+    /// 창이 떠 있는 동안은 뒤 문제 화면의 답을 못 바꾸게 막는 데 쓴다
+    /// (``QuestionScreen`` 의 `allowsHitTesting`). 두 창 모두 배경을 어둡게 하지
+    /// 않고 뒤가 그대로 비치도록 열어 두었는데(`presentationBackgroundInteraction`),
+    /// 그러면 창이 덮지 않은 위쪽의 보기 버튼이 **그대로 눌린다.** 이미 채점이
+    /// 끝난 뒤라 그때 답을 바꿔도 결과는 안 바뀌지만, 눌리는데 아무 일도 안
+    /// 일어나면 고장으로 보인다.
+    var isShowingCommentary: Bool { feedback != nil || correctFeedback != nil }
 
     /// 답을 고르거나 입력했는지.
     var hasAnswer: Bool {
         !rawAnswer.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// 지금이 마지막 문제인지. (하단 버튼 문구를 "제출" 로 바꾸는 데 쓴다)
-    var isLastQuestion: Bool { currentIndex == items.count - 1 }
+    /// 지금이 마지막 칸인지. (하단 버튼 문구를 "제출" 로 바꾸는 데 쓴다)
+    var isLastQuestion: Bool { currentIndex == slotCount - 1 }
 
     /// 이번 회차에서 맞힌 개수.
     var correctCount: Int { results.values.filter(\.isCorrect).count }
@@ -332,12 +329,24 @@ final class QuizSession {
         // 채점이 isIntroduced 를 켜기 전에 "처음 보는 문항" 을 미리 읽어 둔다.
         wasFirstEverByID = progressByID.mapValues { !$0.isIntroduced }
 
+        // 이번 회차에 연결 문제를 넣을지 먼저 정한다. 넣으면 일반 문제를 한 칸
+        // 덜 뽑아야 회차 길이(size)가 그대로 유지된다.
+        let chosenSet = matchingCatalog?.randomSet()
+        matchingSet = chosenSet
+
         let store = FocusStore(modelContext: modelContext)
         items = SessionBuilder(catalog: catalog).build(
-            size: size,
+            size: chosenSet == nil ? size : size - 1,
             progressByID: progressByID,
             focusByID: store.focuses(for: catalog.questions)
         )
+
+        // 연결 문제가 들어갈 칸을 3·4·5번째 중 무작위로 고른다 — 매 회차 다른
+        // 자리에 오게 하려는 것이다. 문제집이 작아 일반 문제가 그보다 적게
+        // 뽑혔으면 맨 뒤 칸으로 물러선다(범위를 벗어나지 않게).
+        matchingSlot = chosenSet == nil
+            ? nil
+            : min(Self.matchingSlotCandidates.randomElement() ?? 2, items.count)
 
         clearAnswers()
         isWrappingUp = false
@@ -413,7 +422,7 @@ final class QuizSession {
     /// 모델이 실패한 기록을 저장소에 넣는다. 서버로는 ``ObsUploader`` 가 나중에 보낸다.
     ///
     /// - Note: `private` 이 아니다. 여기(``gradeCurrent()``)뿐 아니라 ``QuestionScreen``도
-    ///   낱말 사전 예문(``composeExample(word:gloss:relatedWords:referenceSentence:questionID:)``)이
+    ///   낱말 사전 예문(``GlossaryExampleWriter/write(word:gloss:relatedWords:referenceSentence:questionID:)``)이
     ///   실패했을 때 이 메서드로 넘긴다 — modelContext 는 세션만 들고 있으므로, 화면이
     ///   직접 넣지 않고 항상 세션을 거친다.
     ///
@@ -492,6 +501,18 @@ final class QuizSession {
         moveToNextQuestion()
     }
 
+    /// 연결 문제 칸을 마쳤다. ``MatchingQuestionScreen`` 이 짝을 다 맞히고
+    /// 「다음」을 눌렀을 때 부른다.
+    ///
+    /// 채점도 해설도 없다 — 화면이 짝이 맞는지 스스로 판정하고, **다 맞혀야만**
+    /// 「다음」이 눌리기 때문이다. 진척(``QuestionProgress``) 사다리도 건드리지
+    /// 않는다. 사다리는 문항 하나(=한 사실)가 한 칸을 오르내리는 구조인데,
+    /// 연결 문제는 묶음 전체를 한 번에 묻는 것이라 올릴 자리가 없다.
+    func completeMatchingSlot() {
+        guard isMatchingSlot else { return }
+        moveToNextQuestion()
+    }
+
     /// 정답 해설 창의 「다음 문제」. (``dismissFeedback()`` 과 같은 이유)
     func dismissCorrectFeedback() {
         guard correctFeedback != nil else { return }
@@ -520,7 +541,7 @@ final class QuizSession {
         correctFeedback = CorrectCommentary(
             id: item.id,
             correctAnswer: item.question.displayAnswer,
-            commentary: CorrectCommentary.placeholder)
+            commentary: CommentaryPlaceholder.waiting)
 
         let written = await commentaryWriter.write(for: item)
         saveFailures([written.failure])
@@ -537,7 +558,7 @@ final class QuizSession {
             correctFeedback = CorrectCommentary(
                 id: item.id,
                 correctAnswer: item.question.displayAnswer,
-                commentary: text ?? CorrectCommentary.failed)
+                commentary: text ?? CommentaryPlaceholder.failed)
         }
 
         saveObsRecord(for: item, isCorrect: true, explanation: text)
@@ -571,11 +592,11 @@ final class QuizSession {
                 id: item.id,
                 selectedAnswer: answer,
                 // 설명할 재료가 아예 없으면 기다릴 것도 없다. 바로 다음 걸음을 알려 준다.
-                selectedNote: chosenQuestion == nil ? IncorrectCommentary.noteFailed : nil,
+                selectedNote: chosenQuestion == nil ? CommentaryPlaceholder.noteFailed : nil,
                 waitingLine: waitingLine,
                 expectsNote: chosenQuestion != nil,
                 correctAnswer: item.question.displayAnswer,
-                commentary: IncorrectCommentary.placeholder)
+                commentary: CommentaryPlaceholder.waiting)
 
             // 둘을 나란히 부른다. 하나씩 기다리면 대기가 두 배가 된다.
             async let commentary = commentaryWriter.write(for: item)
@@ -598,7 +619,7 @@ final class QuizSession {
             if feedback != nil {
                 // 설명을 기다리던 자리였다면, 못 만들었어도 그 자리를 문구로 채운다.
                 let note = noteText
-                    ?? (chosenQuestion != nil ? IncorrectCommentary.noteFailed : nil)
+                    ?? (chosenQuestion != nil ? CommentaryPlaceholder.noteFailed : nil)
 
                 feedback = IncorrectCommentary(
                     id: item.id,
@@ -608,7 +629,7 @@ final class QuizSession {
                     // 더 기다릴 것이 없다. 맥동을 멈춘다.
                     expectsNote: false,
                     correctAnswer: item.question.displayAnswer,
-                    commentary: text ?? IncorrectCommentary.failed)
+                    commentary: text ?? CommentaryPlaceholder.failed)
             }
             
             saveObsRecord(for: item, isCorrect: isCorrect, explanation: text)
@@ -695,8 +716,7 @@ final class QuizSession {
 
     /// 저장소에서 진척을 읽어 id 로 찾을 수 있게 만든다.
     private func fetchProgressByID() -> [Int: QuestionProgress] {
-        let rows = (try? modelContext.fetch(FetchDescriptor<QuestionProgress>())) ?? []
-        return Dictionary(rows.map { ($0.questionID, $0) }, uniquingKeysWith: { first, _ in first })
+        modelContext.fetchKeyed(by: \.questionID)
     }
 
     // MARK: - 관찰 기록

@@ -2,21 +2,26 @@
 //  CommentaryWriter.swift
 //  KCT
 //
-//  역할 : 틀린 문항에 대해 "왜 그것이 답인지" 세 문장 이내로 만든다
+//  역할 : "왜 그것이 답인지"를 50~60자로 만든다 (오답·정답 해설이 같은 글을 쓴다)
 //  요점 : 사실은 우리가 주고, 문장은 모델이 만든다. 재료에 없는 것은 못 쓴다
 //
 //  ── 구성 ──────────────────────────────────────────────
 //  Commentary (@Generable)   모델이 만들어 주는 해설 한 덩어리
-//  └─ text                   세 문장 이내의 한국어
+//  └─ text                   50~60자의 한국어 (창에서 서너 줄)
 //
-//  Writing                   만든 결과 - 글, 또는 실패했을 때 무엇을 시켰는지
 //  ChoiceNote (@Generable)   고른 답이 무엇인지 한 문장
 //
 //  CommentaryWriter
 //  ├─ write(for:)            정답 해설. 실패하면 무엇을 시켰는지가 담겨 나온다
-//  ├─ describe(_:)           고른 답이 무엇인지 한 문장. 재료가 없으면 빈 Writing
+//  ├─ describe(_:)           고른 답이 무엇인지 한 문장. 재료가 없으면 Writing.empty
+//  ├─ shortened(_:)          받아 온 글이 너무 길면 문장 단위로 잘라 낸다
 //  ├─ materials(for:)        facts 를 무게 순으로 골라 프롬프트에 넣을 목록으로
 //  └─ tone(for:)             주제마다 다른 말투 한 줄 (문장 틀이 아니다)
+//
+//  ⚠️ 모델을 실제로 부르고·실패를 남기는 일은 이 파일에 없다 — ModelCall.generate 가
+//     한다. 이 파일이 아는 것은 「무엇을 시킬지」(지시문·프롬프트·재료)와
+//     「받은 글을 어떻게 다듬을지」(shortened)뿐이다. 결과 타입 Writing 은
+//     Grading/Writing.swift 에 있다(세 writer 가 함께 쓴다).
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession.gradeCurrent() 가 오답을 만나면
@@ -39,22 +44,11 @@ import FoundationModels
 /// 오답 해설 한 덩어리. 모델이 이 구조체 모양으로 직접 만들어 준다.
 ///
 /// 문장을 나눠 받지 않고 `text` 하나로 받는 이유 — 어머니가 창에서 읽는 것은
-/// **이어지는 세 문장**입니다. 쪼개 받아 다시 붙이면 이음매가 어색해집니다.
+/// **이어지는 짧은 글**입니다. 쪼개 받아 다시 붙이면 이음매가 어색해집니다.
 @Generable
 struct Commentary {
-    @Guide(description: "알려진 사실만 써서 만든 한국어 설명. 세 문장 이내")
+    @Guide(description: "알려진 사실만 써서 만든 한국어 설명. 띄어쓰기를 포함해 50자 이상 60자 이내")
     let text: String
-}
-
-/// 글 한 덩어리를 만든 결과. **성공하면 글이, 실패하면 무엇을 시켰는지가 담긴다.**
-///
-/// 실패를 `nil` 로만 돌려주면 「왜 실패했는지」가 사라집니다. 안전 필터에 걸린 이유는
-/// **우리가 보낸 글 안에** 있으므로, 그 글을 함께 들고 나옵니다.
-struct Writing {
-    let text: String?
-    let failure: ModelFailureDraft?
-
-    static let empty = Writing(text: nil, failure: nil)
 }
 
 /// 고른 답이 무엇인지 알려 주는 한 문장.
@@ -80,7 +74,7 @@ struct ChoiceNote {
 /// | 지킬 것 | 왜 |
 /// |---|---|
 /// | 재료에 없는 것을 쓰지 않는다 | 환각이 나는 자리는 늘 **빈칸을 채우라고 시킨 곳**이었습니다 |
-/// | 세 문장 이내 | 어머니는 창을 몇 초 봅니다 |
+/// | 50~60자 | 어머니는 창을 몇 초 봅니다. 창에서 서너 줄로 끝나는 길이입니다 |
 /// | 고른 답을 부정하지 않는다 | 어머니는 **이미 자기가 틀린 걸 압니다** |
 /// | 문제 지문을 넣지 않는다 | 「일제의 지배」 같은 낱말이 안전 필터에 걸립니다 (2026-09-06) |
 ///
@@ -88,13 +82,40 @@ struct ChoiceNote {
 ///   돌려주면 ``ObsRecord/explanation`` 이 `null` 로 남고, **몇 번 실패했는지 셀 수 있습니다.**
 struct CommentaryWriter {
 
-    /// 프롬프트에 넣을 재료의 최대 개수. 세 문장에 담을 수 있는 만큼만.
-    private static let materialLimit = 4
+    /// 해설 길이의 상한(글자 수, 띄어쓰기 포함). 창에서 **서너 줄**로 끝나는 길이다.
+    /// (해설 본문 21pt 기준으로 한 줄에 약 17자가 들어간다.)
+    ///
+    /// 프롬프트로만 막으면 기기 모델이 종종 넘긴다 — 작은 모델은 글자를 세지 못한다.
+    /// 그래서 ``shortened(_:)`` 가 받아 온 글도 한 번 더 자른다.
+    private static let maxCharacters = 60
+
+    /// 해설 길이의 **하한.** 이보다 짧으면 창이 허전하고, 알려 주는 것도 적다.
+    /// 창에서 세 줄에 해당한다.
+    ///
+    /// 상한과 달리 이 값은 **코드가 채워 줄 수 없다** — 짧게 온 글에 말을 보탤 수는
+    /// 없으니 프롬프트로 부탁하는 수밖에 없다. 코드가 하는 일은 ``shortened(_:)`` 가
+    /// **자르다가 이 선 밑으로 떨어뜨리지 않게** 막는 것까지다.
+    private static let minCharacters = 50
+
+    /// 자르다가 ``minCharacters`` 밑으로 떨어질 때만 봐주는 길이.
+    ///
+    /// 「60자에 맞추려고 한 문장을 버렸더니 30자가 됐다」가 제일 나쁘다. 그럴 때는
+    /// 차라리 60자를 조금 넘기고 문장을 살린다 — 이 값이 그 "조금"의 한계다.
+    private static let overflowLimit = 70
+
+    /// 프롬프트에 넣을 재료의 최대 개수.
+    ///
+    /// 4개 → 2개로 줄였다가, 길이를 50~60자로 늘리면서 **3개**로 다시 올렸다.
+    /// 재료가 2개뿐이면 50자를 채우려고 같은 말을 늘여 쓰게 된다. 반대로 너무 많이
+    /// 주면 다 욱여넣으려다 길어지거나 사실을 뭉뚱그려 틀린 말을 만든다.
+    /// 어느 3개가 뽑힐지는 ``materials(for:)`` 가 매번 섞으므로 같은 문항이라도 글은 달라진다.
+    private static let materialLimit = 3
 
     /// 틀린 문항의 해설을 만든다. 못 만들면 `nil`.
     ///
-    /// - Parameter item: 방금 틀린 문항
-    /// - Returns: 세 문장 이내의 해설. 실패하면 무엇을 시켰는지가 담긴 ``Writing``
+    /// - Parameter item: 방금 푼 문항 (맞았을 때도 같은 함수를 쓴다 —
+    ///   "이 답이 왜 맞는지"는 맞고 틀리고와 무관하게 같은 사실에서 나온다)
+    /// - Returns: 50~60자의 해설. 실패하면 무엇을 시켰는지가 담긴 ``Writing``
     func write(for item: QuizItem) async -> Writing {
         let facts = materials(for: item.question)
 
@@ -110,11 +131,13 @@ struct CommentaryWriter {
 
             [반드시 지킨다]
             1. '알려진 사실'에 있는 것만 씁니다. 거기 없는 연도, 날짜, 숫자, 글자 뜻은 절대 넣지 않습니다.
-            2. 세 문장을 넘기지 않습니다.
-            3. 답을 문장 안에 그대로 넣습니다.
-            4. 답이 아닌 다른 답은 말하지 않습니다.
-            5. '문제에 나온 설명처럼' 같은 말을 쓰지 않습니다. 읽는 분에게 문제는 보이지 않습니다.
-            6. 쉬운 말로 씁니다. 새로운 어려운 말을 꺼내지 않습니다.
+            2. 글 전체를 띄어쓰기 포함 **50자 이상 60자 이내**로 씁니다. 50자보다 짧으면 안 됩니다.
+            3. 짧은 문장 세 개쯤으로 끝냅니다. 한 문장이 25자를 넘지 않게 합니다.
+            4. 재료를 다 쓰려고 하지 않습니다. 가장 중요한 것 하나만 고릅니다.
+            5. 답을 문장 안에 그대로 넣습니다.
+            6. 답이 아닌 다른 답은 말하지 않습니다.
+            7. '문제에 나온 설명처럼' 같은 말을 쓰지 않습니다. 읽는 분에게 문제는 보이지 않습니다.
+            8. 쉬운 말로 씁니다. 새로운 어려운 말을 꺼내지 않습니다.
             """
 
         // 문제 지문은 넣지 않는다. 글자를 설명하는 데 필요 없고,
@@ -125,27 +148,21 @@ struct CommentaryWriter {
             알려진 사실:
             \(facts.map { "· \($0)" }.joined(separator: "\n"))
 
-            위 사실만 써서 세 문장 이내의 글을 쓰세요.
+            위 사실만 써서 **50자 이상 60자 이내**(띄어쓰기 포함)로 쓰세요.
+            짧은 문장 세 개쯤이면 그 정도가 됩니다. 한두 문장만 쓰면 너무 짧습니다.
             """
 
-        do {
-            let session = LanguageModelSession(instructions: instructions)
-            let response = try await session.respond(to: prompt, generating: Commentary.self)
-
-            let text = response.content.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            return Writing(text: text.isEmpty ? nil : text, failure: nil)
-        } catch {
-            // 이유를 버리면 「잠시만 같이 살펴봐요.」가 왜 남는지 알 수 없고,
-            // 무엇을 시켰는지 없으면 다시 만들어 볼 수가 없다.
-            print("❌ 해설 실패 q\(item.question.id) \(item.question.displayAnswer):", error)
-
-            return Writing(text: nil, failure: ModelFailureDraft(
-                job: "commentary",
-                questionID: item.question.id,
-                reason: String(describing: error),
-                instructions: instructions,
-                prompt: prompt))
-        }
+        // 부르고·받고·실패를 남기는 일은 ModelCall.generate 가 한다 — 이 함수가 아는
+        // 것은 「무엇을 시킬지」와 「받은 글을 어떻게 다듬을지」 둘뿐이다.
+        //
+        // 프롬프트로 길이를 부탁만 하고 끝내지 않는다 — 넘겨 오면 shortened(_:)가 자른다.
+        return await ModelCall.generate(
+            job: "commentary",
+            questionID: item.question.id,
+            instructions: instructions,
+            prompt: prompt,
+            generating: Commentary.self,
+            extract: { Self.shortened($0.text.trimmingCharacters(in: .whitespacesAndNewlines)) })
     }
 
     /// **고른 답이 무엇인지** 한 문장으로 알려 준다. 못 만들면 `nil`.
@@ -181,22 +198,63 @@ struct CommentaryWriter {
             위 사실만 써서 이 낱말이 무엇인지 한 문장으로 알려 주세요.
             """
 
-        do {
-            let session = LanguageModelSession(instructions: instructions)
-            let response = try await session.respond(to: prompt, generating: ChoiceNote.self)
+        return await ModelCall.generate(
+            job: "note",
+            questionID: question.id,
+            instructions: instructions,
+            prompt: prompt,
+            generating: ChoiceNote.self,
+            extract: \.text)
+    }
 
-            let text = response.content.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            return Writing(text: text.isEmpty ? nil : text, failure: nil)
-        } catch {
-            print("❌ 고른 답 설명 실패 q\(question.id) \(question.displayAnswer):", error)
+    /// 받아 온 해설이 ``maxCharacters`` 를 넘으면 **문장 단위로** 잘라 낸다.
+    ///
+    /// 프롬프트에 "60자 이내"라고 적어도 기기 모델은 종종 넘긴다 — 글자를 세지
+    /// 못하기 때문이다. 그렇다고 글자 수로 뚝 자르면 「단군왕검은 고조선을 세운」
+    /// 처럼 말이 끊긴 채로 창에 남는다. 그래서 **문장 끝(. ! ?)을 기준으로** 50자를
+    /// 넘지 않는 데까지만 남긴다.
+    ///
+    /// - Note: 첫 문장 하나가 이미 50자를 넘으면 그 문장은 통째로 남긴다. 조금 길더라도
+    ///   말이 끊긴 것보다 낫다. 같은 이유로, 한 문장을 버렸을 때 ``minCharacters``(50자)
+    ///   밑으로 떨어진다면 ``overflowLimit``(70자)까지는 그 문장을 살려 둔다.
+    private static func shortened(_ text: String) -> String {
+        guard text.count > Self.maxCharacters else { return text }
 
-            return Writing(text: nil, failure: ModelFailureDraft(
-                job: "note",
-                questionID: question.id,
-                reason: String(describing: error),
-                instructions: instructions,
-                prompt: prompt))
+        // 문장 단위로 쪼갠다.
+        var sentences: [String] = []
+        var current = ""
+        for character in text {
+            current.append(character)
+            if character == "." || character == "!" || character == "?" {
+                let sentence = current.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !sentence.isEmpty { sentences.append(sentence) }
+                current = ""
+            }
         }
+        // 마침표 없이 끝난 꼬리도 한 문장으로 친다.
+        let tail = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !tail.isEmpty { sentences.append(tail) }
+
+        // 50자를 넘지 않는 데까지만 이어 붙인다.
+        var kept = ""
+        for sentence in sentences {
+            let candidate = kept.isEmpty ? sentence : kept + " " + sentence
+
+            if candidate.count > Self.maxCharacters {
+                // 첫 문장은 아무리 길어도 받는다 — 빈 창을 띄울 수는 없다.
+                let isFirst = kept.isEmpty
+                // 여기서 멈추면 50자 밑으로 떨어지는 경우엔, 70자까지 봐주고 살린다.
+                let stoppingWouldBeTooShort =
+                    kept.count < Self.minCharacters && candidate.count <= Self.overflowLimit
+
+                guard isFirst || stoppingWouldBeTooShort else { break }
+            }
+
+            kept = candidate
+            if kept.count >= Self.maxCharacters { break }
+        }
+
+        return kept.isEmpty ? text : kept
     }
 
     /// 프롬프트에 넣을 재료를 고른다. **무게 높은 순, 같은 무게끼리는 섞어서.**
