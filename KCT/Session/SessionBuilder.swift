@@ -15,7 +15,7 @@
 //  │   ├─ Queues               후보를 세 줄로 나눠 담은 것 (복습·신규·마스터)
 //  │   │   ├─ reviewQueue()    복습 줄 세우기 (예정 시각 이른 순 → 쉬운 순)
 //  │   │   ├─ newcomerQueue()  신규 줄 세우기 (쉬운 순 + 단원 번갈아)
-//  │   │   │   └─ introduceOrder()   단원 라운드로빈
+//  │   │   │   └─ introduceOrder()   단원 라운드로빈 — 적게 나온 단원부터 돈다
 //  │   │   └─ masteredQueue()  마스터 줄 세우기 (랜덤)
 //  │   ├─ fillSlots()          size 칸을 채운다 (신규 2칸·마스터 1칸 먼저 예약)
 //  │   └─ shapeRound()         묻는 방식 배정 + 첫·마지막을 격려용 2지선다로
@@ -120,8 +120,15 @@ struct SessionBuilder {
         from questions: [Question],
         progressByID: [Int: QuestionProgress]
     ) -> [Question] {
-        introduceOrder(
-            questions.filter { !isMastered($0, progressByID) && !isIntroduced($0, progressByID) }
+        // 단원마다 이미 나온 문항 수. **적게 나온 단원부터** 새 문제를 꺼내는 데 쓴다.
+        var introducedByUnit: [String: Int] = [:]
+        for question in questions where isIntroduced(question, progressByID) {
+            introducedByUnit[question.unit, default: 0] += 1
+        }
+
+        return introduceOrder(
+            questions.filter { !isMastered($0, progressByID) && !isIntroduced($0, progressByID) },
+            introducedByUnit: introducedByUnit
         )
     }
 
@@ -136,7 +143,21 @@ struct SessionBuilder {
     /// 신규 문제를 쉬운 순으로 두되, 단원을 번갈아(라운드로빈) 도입한다.
     ///
     /// 쉬운 순으로만 세우면 한 단원이 통째로 먼저 나와 편식하게 됩니다.
-    func introduceOrder(_ questions: [Question]) -> [Question] {
+    ///
+    /// - Parameter introducedByUnit: 단원마다 **이미 나온** 문항 수. 라운드로빈을 이 값이
+    ///   작은 단원부터 시작한다.
+    ///
+    /// ## 왜 「이미 나온 수」로 시작 단원을 정하나 (11차 4-36)
+    ///
+    /// 이 줄은 **회차마다 새로 세워지고**, 회차에는 신규가 **2칸**만 들어갑니다. 예전에는
+    /// 매번 같은 단원(처음 나온 단원 = 역사1·국경일)부터 돌았기 때문에, 그 두 단원이 바닥날
+    /// 때까지 **다른 단원 차례가 오지 않았습니다.** 초기화 뒤 흉내 내 보니 11차에 새로 넣은
+    /// 정치(39~45)는 11~23회차, 음식(46~50)은 13~17회차에야 처음 나왔습니다.
+    /// 적게 나온 단원부터 돌게 하자 모든 단원의 첫 문제가 1~2회차에 나오고, 그 뒤로도
+    /// 단원마다 서너 회차에 하나씩 고르게 들어옵니다. (전부 한 번씩 나오는 데 걸리는 회차 —
+    /// 약 23회 — 는 신규 2칸이 정하므로 그대로입니다.)
+    func introduceOrder(_ questions: [Question],
+                        introducedByUnit: [String: Int] = [:]) -> [Question] {
         let sorted = questions.sorted { ($0.difficulty, $0.id) < ($1.difficulty, $1.id) }
 
         // 단원별 큐로 나눈다. (처음 등장한 단원 순서를 유지해야 쉬운 단원이 앞에 온다)
@@ -149,6 +170,14 @@ struct SessionBuilder {
             }
             byUnit[question.unit]?.append(question)
         }
+
+        // 적게 나온 단원이 앞으로. 같으면 원래 순서(쉬운 단원이 앞)를 지킨다.
+        unitOrder = unitOrder.enumerated()
+            .sorted {
+                (introducedByUnit[$0.element, default: 0], $0.offset)
+                    < (introducedByUnit[$1.element, default: 0], $1.offset)
+            }
+            .map(\.element)
 
         // 단원을 번갈아 하나씩 꺼낸다. 한 바퀴에 아무것도 못 꺼내면 끝난 것이다.
         var result: [Question] = []

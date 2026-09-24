@@ -8,7 +8,7 @@
 //  ── 구성 ──────────────────────────────────────────────
 //  KoreanText (UIViewRepresentable → UILabel)
 //  ├─ text / font / color / lineSpacing
-//  ├─ highlight / highlightColor     따옴표로 감싸고 색 + 더 굵은 글자로 강조 (O/X 의 판단 대상, 밑줄 없음)
+//  ├─ highlight / highlightColor     낫표(「 」)로 감싸고 색 + 더 굵은 글자로 강조 (O/X 의 판단 대상, 밑줄 없음)
 //  ├─ marker / markerColor           형광펜(배경색)으로 칠할 부분 (묻는 대상)
 //  ├─ selectedWord / selectedWordBackgroundColor / selectedWordTextColor
 //  │     하단 사전 시트가 열려 있는 낱말 — 배경은 연라벤더 배지(wordBadgeBackground),
@@ -114,10 +114,13 @@ struct KoreanText: UIViewRepresentable {
 
         var displayed = Self.preparedForLineBreaks(text)
 
-        // O/X 판단 대상("답")을 여는/닫는 큰따옴표(“ ”)로 감싸 강조한다. 지문
-        // 원문에는 없는 문자라 화면에 보여줄 때만 문자열에 끼워 넣는다 — 색+
-        // 굵기(아래 강조 처리 참고)만으로는 신호가 약할 수 있어서 따옴표를
-        // 더했다(10차 계획 9번 후속 요청). 여기서 찾은 범위(따옴표 포함)를
+        // O/X 판단 대상("답")을 낫표(「 」)로 감싸 강조한다. 지문 원문에는 없는
+        // 문자라 화면에 보여줄 때만 문자열에 끼워 넣는다 — 색+굵기(아래 강조 처리
+        // 참고)만으로는 신호가 약할 수 있어서 기호를 더했다(10차 계획 9번 후속 요청).
+        // 처음엔 큰따옴표(“ ”)였는데, 데모의 낫표가 낱말 경계가 더 또렷해 보여
+        // 바꿨다(11차 4-32). 낫표와 낱말 사이에는 WORD JOINER(U+2060)를 넣어
+        // 「 만 줄 끝에 남거나 」 만 다음 줄 첫머리로 떨어지지 않게 붙여 둔다.
+        // 여기서 찾은 범위(낫표 포함)를
         // highlightRange 에 남겨 뒀다가 강조 처리에서 그대로 쓴다 — attributed
         // 문자열을 만들기 전에 끼워 넣어야 그 뒤 marker·glossary 검색이 이
         // 문자열 기준으로 어긋나지 않는다.
@@ -125,7 +128,7 @@ struct KoreanText: UIViewRepresentable {
         if let highlight, !highlight.isEmpty {
             let target = Self.preparedForLineBreaks(highlight)
             if let swiftRange = displayed.range(of: target) {
-                let quoted = "“\(target)”"
+                let quoted = "「\u{2060}\(target)\u{2060}」"
                 displayed.replaceSubrange(swiftRange, with: quoted)
                 highlightRange = (displayed as NSString).range(of: quoted)
             }
@@ -153,10 +156,10 @@ struct KoreanText: UIViewRepresentable {
         // 겹칠 수 있다. 색만 여기서 입히고, 실제 선은 UnderlineLabel 이 간격을 두고 그린다.
         var underlines: [UnderlineLabel.Underline] = []
 
-        // 강조 구간("답", 따옴표 포함)은 밑줄이 아니라 색 + 더 굵은 글자로
+        // 강조 구간("답", 낫표 포함)은 밑줄이 아니라 색 + 더 굵은 글자로
         // 표시한다 — 10차 계획 9번, 세 시안 중 어머니가 고른 "시안 1(색상+
         // 굵기만)". 지문 글자가 이미 기본으로 굵어서(.bold), 구분되게 보이려면
-        // 그보다 한 단계 더 굵은 무게(.heavy)를 줘야 한다. 범위는 위에서 따옴표를
+        // 그보다 한 단계 더 굵은 무게(.heavy)를 줘야 한다. 범위는 위에서 낫표를
         // 끼워 넣을 때 이미 구해 둔 highlightRange 를 그대로 쓴다. 밑줄을 안
         // 그리므로 낱말의 점선 밑줄과 같은 자리에서 겹칠 일이 없다 — 그래서
         // 아래 사전 낱말 루프도 "강조와 겹치는 낱말은 건너뛴다"는 예외 없이

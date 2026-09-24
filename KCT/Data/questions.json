@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "questions": [
     {
       "id": 1,
@@ -13,9 +13,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "나라 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "하늘의 자손이 세웠다는 이야기가 전해져요"
         },
         {
           "kind": "wordplay",
@@ -51,9 +51,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "나라 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "도읍은 아사달이었어요"
         },
         {
           "kind": "wordplay",
@@ -85,9 +85,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "사람 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "단군 할아버지라고도 불러요"
         },
         {
           "kind": "nation",
@@ -131,9 +131,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "사람 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "단군 할아버지라고도 불러요"
         },
         {
           "kind": "nation",
@@ -193,9 +193,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "사람 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "단군 할아버지라고도 불러요"
         },
         {
           "kind": "nation",
@@ -232,9 +232,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "사람 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "단군 할아버지라고도 불러요"
         },
         {
           "kind": "nation",
@@ -306,9 +306,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "이야기 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "하늘의 아들 환웅이 땅에 내려온 이야기예요"
         },
         {
           "kind": "mark",
@@ -353,9 +353,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "이야기 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "하늘의 아들 환웅이 땅에 내려온 이야기예요"
         },
         {
           "kind": "mark",
@@ -391,9 +391,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "나라 이름 셋을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "고구려는 북쪽, 백제는 서남쪽, 신라는 동남쪽에 있었어요"
         },
         {
           "kind": "mark",
@@ -425,9 +425,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "사람 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "어려서부터 용감하고 활 솜씨가 좋았어요"
         },
         {
           "kind": "nation",
@@ -460,9 +460,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "국경일 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "이날 독립 선언서를 읽었어요"
         },
         {
           "kind": "event",
@@ -518,9 +518,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "국경일 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "헌법은 나라의 가장 중요한 법이에요"
         },
         {
           "kind": "event",
@@ -576,9 +576,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "국경일 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "이날은 집집마다 국기를 달아요"
         },
         {
           "kind": "event",
@@ -626,9 +626,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "국경일 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "우리나라의 생일 같은 날이에요"
         },
         {
           "kind": "event",
@@ -676,9 +676,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "국경일 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "처음 이름은 훈민정음이었어요"
         },
         {
           "kind": "event",
@@ -730,9 +730,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "기념일 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "이날은 깃발을 조금 내려서 달아요"
         },
         {
           "kind": "wordplay",
@@ -769,9 +769,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "국기 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "흰 바탕은 평화를 뜻해요"
         },
         {
           "kind": "wordplay",
@@ -812,9 +812,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "노래 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "나라 행사에서 다 함께 불러요"
         },
         {
           "kind": "wordplay",
@@ -840,9 +840,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "꽃 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "나라꽃이라고도 불러요"
         },
         {
           "kind": "wordplay",
@@ -874,9 +874,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "사람 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "스페인에서 오래 활동한 음악가예요"
         },
         {
           "kind": "mark",
@@ -908,9 +908,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "명절 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "세배를 하면 세뱃돈을 받아요"
         },
         {
           "kind": "mark",
@@ -954,9 +954,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "제사 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "명절 아침에 지내요"
         },
         {
           "kind": "wordplay",
@@ -992,9 +992,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "명절 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "보름달을 보며 소원을 빌어요"
         },
         {
           "kind": "wordplay",
@@ -1042,9 +1042,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "음식 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "온 가족이 모여 함께 빚어요"
         },
         {
           "kind": "wordplay",
@@ -1084,9 +1084,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "절기 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "이날이 지나면 낮이 길어져요"
         },
         {
           "kind": "mark",
@@ -1127,9 +1127,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "날짜를 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "이날 독립 선언서를 읽었어요"
         },
         {
           "kind": "event",
@@ -1155,9 +1155,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "날짜를 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "헌법은 나라의 가장 중요한 법이에요"
         },
         {
           "kind": "event",
@@ -1183,9 +1183,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "날짜를 묻고 있어요"
+          "kind": "wordplay",
+          "weight": 2,
+          "text": "광복은 빛을 되찾았다는 뜻이에요"
         },
         {
           "kind": "event",
@@ -1211,9 +1211,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "날짜를 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "우리나라의 생일 같은 날이에요"
         },
         {
           "kind": "event",
@@ -1239,9 +1239,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "날짜를 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "우리 글자 한글의 생일이에요"
         },
         {
           "kind": "event",
@@ -1267,9 +1267,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "왕의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "백성을 아끼고 사랑한 임금이에요"
         },
         {
           "kind": "wordplay",
@@ -1295,9 +1295,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "장군의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "광화문 광장에 큰 동상이 있어요"
         },
         {
           "kind": "wordplay",
@@ -1333,9 +1333,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "사람 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "율곡 이이의 어머니예요"
         },
         {
           "kind": "mark",
@@ -1367,9 +1367,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "왕의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "지금의 개성을 도읍으로 삼았어요"
         },
         {
           "kind": "nation",
@@ -1402,9 +1402,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "왕의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "업적을 새긴 큰 비석이 남아 있어요"
         },
         {
           "kind": "wordplay",
@@ -1430,9 +1430,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "독립운동가의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "붙잡힌 뒤에도 끝까지 당당했어요"
         },
         {
           "kind": "event",
@@ -1472,9 +1472,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "독립운동가의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "백범일지라는 책을 썼어요"
         },
         {
           "kind": "wordplay",
@@ -1510,9 +1510,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "독립운동가의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "이화학당에 다니던 학생이었어요"
         },
         {
           "kind": "event",
@@ -1544,9 +1544,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "제도의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "선거로 대표를 뽑아요"
         },
         {
           "kind": "wordplay",
@@ -1572,9 +1572,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "주권이 누구에게 있는지 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "모든 권력은 국민으로부터 나와요"
         },
         {
           "kind": "wordplay",
@@ -1606,9 +1606,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "권리의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "대통령과 국회의원을 뽑을 수 있어요"
         },
         {
           "kind": "wordplay",
@@ -1640,9 +1640,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "무엇을 하는 일인지 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "누구를 뽑았는지 비밀로 지켜져요"
         },
         {
           "kind": "mark",
@@ -1674,9 +1674,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "임기가 몇 년인지 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "대통령은 국민이 직접 뽑아요"
         },
         {
           "kind": "wordplay",
@@ -1708,9 +1708,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "임기가 몇 년인지 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "다시 뽑히면 또 할 수 있어요"
         },
         {
           "kind": "mark",
@@ -1746,9 +1746,9 @@
       "difficulty": 2,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "정당의 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "대통령과 함께 나라 일을 이끌어요"
         },
         {
           "kind": "wordplay",
@@ -1780,9 +1780,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "음식 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "여러 색깔의 나물을 올려요"
         },
         {
           "kind": "wordplay",
@@ -1808,9 +1808,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "음식 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "간장 양념으로 달콤하게 만들어요"
         },
         {
           "kind": "wordplay",
@@ -1836,9 +1836,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "옷 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "여자는 치마와 저고리를 입어요"
         },
         {
           "kind": "wordplay",
@@ -1870,9 +1870,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "무엇을 하는 일인지 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "늦가을이나 초겨울에 해요"
         },
         {
           "kind": "mark",
@@ -1904,9 +1904,9 @@
       "difficulty": 1,
       "facts": [
         {
-          "kind": "asks",
-          "weight": 3,
-          "text": "음식 이름을 묻고 있어요"
+          "kind": "mark",
+          "weight": 2,
+          "text": "배추김치, 깍두기처럼 종류가 많아요"
         },
         {
           "kind": "mark",

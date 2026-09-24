@@ -39,8 +39,17 @@
 //  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
 //  ├─ feedback                 지금 띄워야 할 오답 해설 창(IncorrectCommentary). nil 이면 창이 없다
 //  ├─ correctFeedback          지금 띄워야 할 정답 해설 창(CorrectCommentary). nil 이면 창이 없다
-//  ├─ isShowingCommentary      둘 중 하나라도 떠 있는가 (뒤 화면의 손가락을 막는 데 쓴다)
-//  ├─ presentCorrectFeedback() 정답 해설 창을 띄우고 CommentaryWriter.write(for:) 로 채운다
+//  ├─ reviewItems / reviewIndex  복습할 문항(본 풀이에서 틀린 것) / 지금 자리 (11차 4-37)
+//  ├─ isShowingReviewIntro     복습 시작 화면을 띄울 차례인가
+//  ├─ isInReview               복습 중인가 — current 가 복습 문항을 준다
+//  ├─ reviewResults            문항 id → 복습에서 맞혔나 (본 풀이 results 와 따로)
+//  ├─ startReview()            복습 시작 화면의 버튼 → 첫 복습 문제
+//  ├─ trueFalseFeedback        지금 띄워야 할 O/X 해설 창(TrueFalseCommentary). 맞힘·틀림 공용
+//  ├─ trueFalseVerdict         O/X 판정 — 누른 버튼을 녹색·붉은색으로 칠한다 (채점 전 nil)
+//  ├─ isShowingCommentary      셋 중 하나라도 떠 있는가 (뒤 화면의 손가락을 막는 데 쓴다)
+//  ├─ presentCorrectFeedback() 정답 해설 창을 띄우고 CommentaryWriter.explain(_:length: .full) 로 채운다
+//  ├─ presentTrueFalseFeedback() 0.6초 뒤 O/X 창을 띄운다. 바른 문장은 코드, 해설만 모델
+//  ├─ dismissTrueFalseFeedback() O/X 해설 창의 「다음 문제」
 //  ├─ dismissFeedback()        오답 해설 창의 「다음 문제」 — 창을 닫고 다음 문제로
 //  ├─ dismissCorrectFeedback() 정답 해설 창의 「다음 문제」 — 같은 일
 //  ├─ moveToNextQuestion()     다음 문제로 넘어간다 — 두 창을 닫을 때 모두 (맞았을 때도 이제 창을 거친다)
@@ -85,7 +94,7 @@
 //        → 격려용 슬롯이면 nudgeLadder() 로 2지선다 → O/X 한 칸만
 //        → 아니면 moveLadder() 로 사다리를 올리거나 내린다
 //        → 맞았으면 presentCorrectFeedback() 으로 정답 해설 창을 띄운다
-//              (오답 해설과 같은 CommentaryWriter.write(for:) 를 그대로 쓴다)
+//              (오답 해설과 같은 CommentaryWriter.explain(_:length: .full) 을 그대로 쓴다)
 //              → 「다음 문제」를 누르면 dismissCorrectFeedback() → moveToNextQuestion()
 //        → 틀렸으면 오답 해설 창(feedback) → 「다음 문제」→ dismissFeedback() → moveToNextQuestion()
 //        → saveObsRecord() 로 관찰 기록 한 줄을 남긴다 (진척과 무관하게)
@@ -247,6 +256,52 @@ final class QuizSession {
     /// 지금 띄워야 할 **정답 해설** 창. `nil` 이면 창이 없다. (``feedback`` 과 같은 이유)
     private(set) var correctFeedback: CorrectCommentary?
 
+    /// 지금 띄워야 할 **O/X 해설** 창. 맞혔든 틀렸든 O/X 는 이 창 하나를 쓴다. (``feedback`` 과 같은 이유)
+    private(set) var trueFalseFeedback: TrueFalseCommentary?
+
+    // MARK: - 복습 (11차 4-37)
+    //
+    // 회차의 모든 칸을 지나면, 결과 화면 전에 **이번 회차에 틀린 문제만** 한 번 더 묻는다.
+    // 흐름: 마지막 칸 → 복습 시작 화면(isShowingReviewIntro) → 복습 문제들(isInReview)
+    //       → 3초 박자(isWrappingUp) → 결과 화면. 틀린 게 없으면 복습 없이 곧바로 결과로 간다.
+
+    /// 복습할 문항 — 이번 회차 본 풀이에서 틀린 것들. 순서는 회차에 나온 순서 그대로.
+    private(set) var reviewItems: [QuizItem] = []
+
+    /// 지금 복습 중인 자리 (``reviewItems`` 안의 번호).
+    private(set) var reviewIndex = 0
+
+    /// 복습 시작 화면을 띄울 차례인가.
+    private(set) var isShowingReviewIntro = false
+
+    /// 복습 문제를 푸는 중인가. 이 동안 ``current`` 는 복습 문항을 돌려준다.
+    private(set) var isInReview = false
+
+    /// 문항 id → 복습에서 맞혔나. **본 풀이 결과(``results``)는 건드리지 않고** 따로 둔다 —
+    /// 결과 화면이 「정답 / 다시 풀어서 정답 / 틀렸어요」를 가르려면 둘 다 필요하다.
+    private(set) var reviewResults: [Int: Bool] = [:]
+
+    /// 복습에서 맞혔는지. 복습하지 않은 문항이면 `nil`.
+    func reviewOutcome(for questionID: Int) -> Bool? { reviewResults[questionID] }
+
+    /// 복습 시작 화면의 버튼. 첫 복습 문제로 들어간다.
+    func startReview() {
+        guard isShowingReviewIntro, !reviewItems.isEmpty else { return }
+        isShowingReviewIntro = false
+        isInReview = true
+        reviewIndex = 0
+        rawAnswer = ""
+        shownAt = .now
+        firstTouchAt = nil
+    }
+
+    /// 지금 O/X 문항의 판정. 누른 버튼을 녹색(맞음)·붉은색(틀림)으로 칠하는 데 쓴다.
+    /// 아직 채점 전이면 `nil`.
+    ///
+    /// O/X 는 **누르는 순간 채점**된다 — 버튼 색이 곧 결과라, 해설 창이 올라온 뒤에도
+    /// 창 위로 보이는 버튼에서 「내가 뭘 골랐는지」가 남는다(11차 4-30).
+    private(set) var trueFalseVerdict: Bool?
+
     init(
         catalog: QuestionCatalog,
         modelContext: ModelContext,
@@ -278,6 +333,11 @@ final class QuizSession {
 
     /// 지금 풀고 있는 문제. **연결 문제 칸이거나** 다 풀었으면 `nil`.
     var current: QuizItem? {
+        // 복습 중이면 복습 문항을 준다. 화면(QuestionScreen)은 복습인지 몰라도 같은 식으로 그린다.
+        if isInReview {
+            return reviewItems.indices.contains(reviewIndex) ? reviewItems[reviewIndex] : nil
+        }
+
         guard !isMatchingSlot else { return nil }
 
         let index = itemIndex(for: currentIndex)
@@ -301,7 +361,9 @@ final class QuizSession {
     /// 그러면 창이 덮지 않은 위쪽의 보기 버튼이 **그대로 눌린다.** 이미 채점이
     /// 끝난 뒤라 그때 답을 바꿔도 결과는 안 바뀌지만, 눌리는데 아무 일도 안
     /// 일어나면 고장으로 보인다.
-    var isShowingCommentary: Bool { feedback != nil || correctFeedback != nil }
+    var isShowingCommentary: Bool {
+        feedback != nil || correctFeedback != nil || trueFalseFeedback != nil
+    }
 
     /// 답을 고르거나 입력했는지.
     var hasAnswer: Bool {
@@ -387,10 +449,15 @@ final class QuizSession {
         let trimmed = rawAnswer.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
-        submittedAnswers[item.id] = trimmed
+        // 복습 풀이는 본 풀이의 답·시간 기록을 덮어쓰지 않는다 (관찰 기록은 본 풀이만 남긴다).
+        if !isInReview {
+            submittedAnswers[item.id] = trimmed
+        }
 
         // 시간을 여기서 잰다 — 화면이 바뀌기 전이 마지막 기회다.
-        recordTiming(for: item)
+        if !isInReview {
+            recordTiming(for: item)
+        }
 
         Task { await gradeCurrent(item, answer: trimmed) }
     }
@@ -408,12 +475,36 @@ final class QuizSession {
     private func moveToNextQuestion() {
         rawAnswer = ""
         needsAnswerHint = false
+        trueFalseVerdict = nil
+
+        // 복습 중이면 복습 안에서 다음으로. 다 풀면 결과 화면으로 간다.
+        if isInReview {
+            reviewIndex += 1
+            shownAt = .now
+            firstTouchAt = nil
+
+            if reviewIndex >= reviewItems.count {
+                isInReview = false
+                uploadObservations()
+                wrapUp()
+            }
+            return
+        }
+
         currentIndex += 1
 
         shownAt = .now
         firstTouchAt = nil
 
         if isFinished {
+            // 틀린 문제가 있으면 결과 전에 복습부터. 회차에 나온 순서 그대로 다시 묻는다.
+            let missed = items.filter { results[$0.id]?.isCorrect == false }
+            if !missed.isEmpty {
+                reviewItems = missed
+                isShowingReviewIntro = true
+                return
+            }
+
             uploadObservations()
             wrapUp()
         }
@@ -513,6 +604,13 @@ final class QuizSession {
         moveToNextQuestion()
     }
 
+    /// O/X 해설 창의 「다음 문제」. (``dismissFeedback()`` 과 같은 이유)
+    func dismissTrueFalseFeedback() {
+        guard trueFalseFeedback != nil else { return }
+        trueFalseFeedback = nil
+        moveToNextQuestion()
+    }
+
     /// 정답 해설 창의 「다음 문제」. (``dismissFeedback()`` 과 같은 이유)
     func dismissCorrectFeedback() {
         guard correctFeedback != nil else { return }
@@ -530,7 +628,7 @@ final class QuizSession {
 
     /// 맞혔을 때 정답 해설 창을 띄운다.
     ///
-    /// 오답을 만났을 때 정답을 설명하던 바로 그 함수(``CommentaryWriter/write(for:)``)를
+    /// 오답을 만났을 때 정답을 설명하던 바로 그 함수(``CommentaryWriter/explain(_:length:)``, `.full`)를
     /// 그대로 쓴다 — "이 답이 왜 맞는지"는 이번에 맞혔든 틀렸든 같은 사실에서 나오는
     /// 같은 문장이기 때문이다. 창을 먼저 띄우고(자리표시 문구), 글이 오면 갈아 끼우는
     /// 흐름도 오답 해설과 같다 — 9차에서 겪은 "시트가 처음엔 안 채워진 채로 뜨는" 문제를
@@ -543,7 +641,7 @@ final class QuizSession {
             correctAnswer: item.question.displayAnswer,
             commentary: CommentaryPlaceholder.waiting)
 
-        let written = await commentaryWriter.write(for: item)
+        let written = await commentaryWriter.explain(item.question, length: .full)
         saveFailures([written.failure])
 
         let text = written.text
@@ -564,16 +662,82 @@ final class QuizSession {
         saveObsRecord(for: item, isCorrect: true, explanation: text)
     }
 
+    /// O/X 를 누른 뒤 창이 올라오기까지의 한 박자 — 버튼 색이 바뀐 것을 먼저 보게 한다.
+    private static let trueFalseColorBeat: Duration = .milliseconds(600)
+
+    /// O/X 해설 창을 띄운다.
+    ///
+    /// 바른 문장은 **코드가** 만든다(``Question/correctedStatementParts()``) — 답이 하나로
+    /// 정해지는 일이라 모델에게 맡기지 않는다. 아래 해설만 모델(``CommentaryWriter/explain(_:length:)``, `.full`)이
+    /// 쓴다. 해설은 버튼 색을 보여 주는 박자 동안 **뒤에서 미리** 만들기 시작한다.
+    private func presentTrueFalseFeedback(for item: QuizItem, answer: String, isCorrect: Bool) async {
+        guard case .trueFalse(_, let candidate, let isTrue) = item.payload else { return }
+
+        let parts = item.question.correctedStatementParts()
+
+        func content(_ text: String) -> TrueFalseCommentary {
+            TrueFalseCommentary(
+                id: item.id,
+                pickedLabel: answer,
+                isCorrect: isCorrect,
+                statementWasTrue: isTrue,
+                shownCandidate: candidate,
+                correctAnswer: item.question.displayAnswer,
+                sentenceBefore: parts.before,
+                sentenceAfter: parts.after,
+                commentary: text)
+        }
+
+        async let written = commentaryWriter.explain(item.question, length: .full)
+
+        try? await Task.sleep(for: Self.trueFalseColorBeat)
+
+        trueFalseFeedback = content(CommentaryPlaceholder.waiting)
+        let shownAt = ContinuousClock.now
+
+        let result = await written
+        saveFailures([result.failure])
+
+        // 글이 너무 빨리 오면 창이 뜨자마자 바뀌어 깜빡여 보인다. 다른 창과 같은 최소 대기.
+        await holdWaitingLine(shownAt: shownAt)
+
+        // 실패해도 반드시 갱신한다 — 안 그러면 자리표시 문구가 계속 반짝인다.
+        if trueFalseFeedback != nil {
+            trueFalseFeedback = content(result.text ?? CommentaryPlaceholder.failed)
+        }
+
+        saveObsRecord(for: item, isCorrect: isCorrect, explanation: result.text)
+    }
+
     // MARK: - 채점
     private func gradeCurrent(_ item: QuizItem, answer: String) async {
         // 직접입력만 모델이 판정해 시간이 걸린다. 선다·O/X 는 곧바로 다음 문제로 이어진다.
         if item.mode == .typing { isGrading = true }
 
+        // 복습 풀이는 본 풀이 결과를 덮어쓰지 않는다 — judge 가 results 에 적으므로
+        // 미리 들고 있다가 되돌리고, 복습 결과는 reviewResults 에 따로 적는다.
+        let mainResult = isInReview ? results[item.id] : nil
+
         let isCorrect = await judge(item, answer: answer)
         isGrading = false
-        
+
+        if isInReview {
+            reviewResults[item.id] = isCorrect
+            results[item.id] = mainResult
+        }
+
+        // O/X 는 판정이 나오는 즉시 버튼 색으로 보여 준다.
+        if item.isTrueFalse { trueFalseVerdict = isCorrect }
+
         applyProgress(for: item, isCorrect: isCorrect)
-        
+
+        // O/X 는 맞혔든 틀렸든 전용 창 하나로 보여 준다.
+        if item.isTrueFalse {
+            await presentTrueFalseFeedback(for: item, answer: answer, isCorrect: isCorrect)
+            try? modelContext.save()
+            return
+        }
+
         if isCorrect {
             await presentCorrectFeedback(for: item)
         } else {
@@ -599,8 +763,8 @@ final class QuizSession {
                 commentary: CommentaryPlaceholder.waiting)
 
             // 둘을 나란히 부른다. 하나씩 기다리면 대기가 두 배가 된다.
-            async let commentary = commentaryWriter.write(for: item)
-            async let note = commentaryWriter.describe(chosenQuestion)
+            async let commentary = commentaryWriter.explain(item.question, length: .full)
+            async let note = commentaryWriter.explain(chosenQuestion, length: .oneLine)
 
             let written = await commentary
             let noted = await note
@@ -644,7 +808,11 @@ final class QuizSession {
         }
         
         progress.countAttempt(correct: isCorrect)
-        
+
+        // 복습은 방금 정답을 본 직후라 실력보다 쉽게 맞힌다 — 맞힌 개수에는 세지만
+        // 난이도 사다리는 움직이지 않는다 (11차 4-37).
+        guard !isInReview else { return }
+
         if item.affectsProgress {
             progress.moveLadder(correct: isCorrect)
         } else {
@@ -741,6 +909,9 @@ final class QuizSession {
     ///   시간을 못 잰 문항(``timingByID`` 에 없는 경우)은 **조용히 건너뜁니다** —
     ///   추측한 값으로 채우면 나중에 그 줄이 참인지 알 수 없게 됩니다.
     private func saveObsRecord(for item: QuizItem, isCorrect: Bool, explanation: String?) {
+        // 복습 풀이는 남기지 않는다 — obs_record 에는 「복습이었나」를 가를 칸이 아직 없어,
+        // 섞이면 본 풀이 통계(정답률·시간)가 흐려진다. 칸을 만든 뒤 남기기로 한다.
+        guard !isInReview else { return }
         guard let timing = timingByID[item.id] else { return }
         
         modelContext.insert(
@@ -786,6 +957,13 @@ final class QuizSession {
         results = [:]
         feedback = nil
         correctFeedback = nil
+        trueFalseFeedback = nil
+        trueFalseVerdict = nil
+        reviewItems = []
+        reviewIndex = 0
+        isShowingReviewIntro = false
+        isInReview = false
+        reviewResults = [:]
 
         // 관찰 기록도 회차 단위로 새로 시작한다.
         sessionID = UUID()

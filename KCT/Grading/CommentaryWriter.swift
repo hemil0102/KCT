@@ -12,8 +12,10 @@
 //  ChoiceNote (@Generable)   고른 답이 무엇인지 한 문장
 //
 //  CommentaryWriter
-//  ├─ write(for:)            정답 해설. 실패하면 무엇을 시켰는지가 담겨 나온다
-//  ├─ describe(_:)           고른 답이 무엇인지 한 문장. 재료가 없으면 Writing.empty
+//  ├─ Length                 .full(50~60자, 정답 해설) · .oneLine(한 문장, 고른 오답이 무엇인지)
+//  ├─ explain(_:length:)     문항 하나의 facts 로 그 답을 설명한다. 유일한 바깥 입구
+//  ├─ full(_:facts:)         .full 의 지시문·프롬프트 (예전 write(for:))
+//  ├─ oneLine(_:facts:)      .oneLine 의 지시문·프롬프트 (예전 describe(_:))
 //  ├─ shortened(_:)          받아 온 글이 너무 길면 문장 단위로 잘라 낸다
 //  ├─ materials(for:)        facts 를 무게 순으로 골라 프롬프트에 넣을 목록으로
 //  └─ tone(for:)             주제마다 다른 말투 한 줄 (문장 틀이 아니다)
@@ -26,7 +28,7 @@
 //  ── 흐름 ──────────────────────────────────────────────
 //  QuizSession.gradeCurrent() 가 오답을 만나면
 //    → 창(feedback)을 먼저 띄우고
-//    → write(for:) 호출
+//    → explain(정답 문항, length: .full) · explain(고른 답의 문항, length: .oneLine) 호출
 //    → Question.facts 에서 무게 높은 순으로 서너 개를 골라 프롬프트에 넣는다
 //    → 모델은 그 재료만으로 문장을 만든다
 //    → 실패하면 nil — 창은 이미 떠 있으므로 아무 일도 일어나지 않는다
@@ -111,27 +113,55 @@ struct CommentaryWriter {
     /// 어느 3개가 뽑힐지는 ``materials(for:)`` 가 매번 섞으므로 같은 문항이라도 글은 달라진다.
     private static let materialLimit = 3
 
-    /// 틀린 문항의 해설을 만든다. 못 만들면 `nil`.
+    /// 해설 길이. 같은 재료로 **몇 줄을 쓸지**만 다르다.
+    enum Length {
+        /// 50~60자, 짧은 문장 세 개쯤. **정답**을 설명할 때 — 오답 창의 ✅ 줄,
+        /// 정답 해설 창, O/X 창.
+        case full
+
+        /// 한 문장. **고른 오답**이 무엇인지 알려 줄 때 — 오답 창의 ❌ 줄.
+        /// 맞다 틀리다는 말하지 않는다.
+        case oneLine
+    }
+
+    /// 문항 하나의 ``Question/facts`` 로 **그 문항의 답이 무엇인지** 설명한다.
     ///
-    /// - Parameter item: 방금 푼 문항 (맞았을 때도 같은 함수를 쓴다 —
-    ///   "이 답이 왜 맞는지"는 맞고 틀리고와 무관하게 같은 사실에서 나온다)
-    /// - Returns: 50~60자의 해설. 실패하면 무엇을 시켰는지가 담긴 ``Writing``
-    func write(for item: QuizItem) async -> Writing {
-        let facts = materials(for: item.question)
+    /// 예전에는 `write(for:)`(정답, 50~60자)와 `describe(_:)`(고른 답, 한 문장) 두 함수였다.
+    /// 둘 다 「문항 하나의 재료로 그 낱말을 설명한다」는 같은 일이고 길이·지시문만 달라서
+    /// 하나로 합쳤다(11차 4-33). 재료 고르기(``materials(for:)``)와 모델 부르기
+    /// (`ModelCall.generate`)도 원래부터 같았다. **지시문·프롬프트 문장은 합치면서 한 글자도 안 바꿨다.**
+    ///
+    /// 추석 문제에 「개천절」을 고르셨다면 —
+    /// `explain(개천절 문항, length: .oneLine)` 이 ❌ 줄을, `explain(추석 문항, length: .full)` 이 ✅ 줄을 만든다.
+    ///
+    /// - Parameters:
+    ///   - question: 설명할 답을 가진 문항. `nil` 이면(고른 답이 어느 문항의 정답도 아닐 때,
+    ///     예: 「고죠선」 같은 오타) 아무것도 하지 않는다
+    ///   - length: 몇 줄로 쓸지
+    /// - Returns: 해설. 재료가 없으면 ``Writing/empty``, 실패하면 무엇을 시켰는지가 담긴 ``Writing``
+    func explain(_ question: Question?, length: Length) async -> Writing {
+        guard let question else { return .empty }
+
+        let facts = materials(for: question)
 
         // 재료가 없으면 지어내라는 뜻이 된다. 차라리 해설을 안 만든다.
         guard !facts.isEmpty else { return .empty }
 
-        let instructions = """
-            당신은 어르신에게 한국의 역사와 제도를 알려주는 사람입니다.
-            방금 문제를 놓친 분에게 정답을 기억에 남게 알려주는 짧은 글을 씁니다.
-            읽는 분은 70대이고 한국어에 서투릅니다.
+        switch length {
+        case .full:    return await full(question, facts: facts)
+        case .oneLine: return await oneLine(question, facts: facts)
+        }
+    }
 
-            \(tone(for: item.question.kind))
+    /// ``Length/full`` — 50~60자의 정답 해설.
+    private func full(_ question: Question, facts: [String]) async -> Writing {
+        let instructions = """
+            당신은 어르신에게 한국의 역사와 제도를 친절하고 다정하고 긍정적으로 즐겁게 알려주는 사람입니다.
+            읽는 분은 70대이고 한국어에 서투릅니다.
 
             [반드시 지킨다]
             1. '알려진 사실'에 있는 것만 씁니다. 거기 없는 연도, 날짜, 숫자, 글자 뜻은 절대 넣지 않습니다.
-            2. 글 전체를 띄어쓰기 포함 **50자 이상 60자 이내**로 씁니다. 50자보다 짧으면 안 됩니다.
+            2. 글 전체를 띄어쓰기 포함 50자 이상 60자 이내로 씁니다. 50자보다 짧으면 안 됩니다.
             3. 짧은 문장 세 개쯤으로 끝냅니다. 한 문장이 25자를 넘지 않게 합니다.
             4. 재료를 다 쓰려고 하지 않습니다. 가장 중요한 것 하나만 고릅니다.
             5. 답을 문장 안에 그대로 넣습니다.
@@ -143,13 +173,12 @@ struct CommentaryWriter {
         // 문제 지문은 넣지 않는다. 글자를 설명하는 데 필요 없고,
         // 「일제의 지배」 같은 낱말이 안전 필터에 걸린다 (2026-09-06).
         let prompt = """
-            답: \(item.question.displayAnswer)
-
+            답: \(question.displayAnswer)
             알려진 사실:
             \(facts.map { "· \($0)" }.joined(separator: "\n"))
 
-            위 사실만 써서 **50자 이상 60자 이내**(띄어쓰기 포함)로 쓰세요.
-            짧은 문장 세 개쯤이면 그 정도가 됩니다. 한두 문장만 쓰면 너무 짧습니다.
+            위 사실을 자연스럽게 문장을 추가하여 50자 이상 60자 이내(띄어쓰기 포함)로 쓰세요.
+            답을 풀어서 부연 설명합니다. 답이 중요하다는 강조는 하지 않고, 쉬운 단어로 아름답게 풀어씁니다.
             """
 
         // 부르고·받고·실패를 남기는 일은 ModelCall.generate 가 한다 — 이 함수가 아는
@@ -158,35 +187,28 @@ struct CommentaryWriter {
         // 프롬프트로 길이를 부탁만 하고 끝내지 않는다 — 넘겨 오면 shortened(_:)가 자른다.
         return await ModelCall.generate(
             job: "commentary",
-            questionID: item.question.id,
+            questionID: question.id,
             instructions: instructions,
             prompt: prompt,
             generating: Commentary.self,
             extract: { Self.shortened($0.text.trimmingCharacters(in: .whitespacesAndNewlines)) })
     }
 
-    /// **고른 답이 무엇인지** 한 문장으로 알려 준다. 못 만들면 `nil`.
+    /// ``Length/oneLine`` — **고른 답이 무엇인지** 한 문장.
     ///
-    /// 어머니가 추석 문제에 「개천절」을 골랐다면, 개천절이 정답인 문항의 재료를 가져와
+    /// 어머니가 추석 문제에 「개천절」을 골랐다면, 개천절이 정답인 문항의 재료로
     /// 「개천절은 …이에요」를 만듭니다. **나무라는 것이 아니라 고른 것도 알려 주는 것**입니다.
-    ///
-    /// - Parameter question: **고른 답이 정답인** 문항. ``QuestionCatalog/question(answering:)`` 가
-    ///   못 찾으면 `nil` 이 들어오고, 그때는 아무것도 하지 않는다
-    func describe(_ question: Question?) async -> Writing {
-        guard let question else { return .empty }
-
-        let facts = materials(for: question)
-        guard !facts.isEmpty else { return .empty }
-
+    private func oneLine(_ question: Question, facts: [String]) async -> Writing {
         let instructions = """
             당신은 어르신에게 한국의 역사와 제도를 알려주는 사람입니다.
             읽는 분은 70대이고 한국어에 서투릅니다.
 
             [반드시 지킨다]
             1. '알려진 사실'에 있는 것만 씁니다. 거기 없는 것은 절대 넣지 않습니다.
-            2. 한 문장만 씁니다.
+            2. 짧은 문장 두 개쯤으로 끝냅니다. 한 문장이 25자를 넘지 않게 합니다.
             3. 그것이 무엇인지만 말합니다. 맞다 틀리다는 말하지 않습니다.
             4. 쉬운 말로 씁니다.
+            5. 글 전체를 띄어쓰기 포함 40자 이상 50자 이내로 씁니다. 30자 보다 짧으면 안됩니다.
             """
 
         let prompt = """
@@ -195,7 +217,7 @@ struct CommentaryWriter {
             알려진 사실:
             \(facts.map { "· \($0)" }.joined(separator: "\n"))
 
-            위 사실만 써서 이 낱말이 무엇인지 한 문장으로 알려 주세요.
+            위 사실만 써서 이 낱말이 무엇인지 한 두 문장으로 알려 주세요.
             """
 
         return await ModelCall.generate(

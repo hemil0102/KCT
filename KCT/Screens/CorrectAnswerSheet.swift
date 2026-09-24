@@ -41,7 +41,7 @@
 //  "접힘(축하) → 펼침(해설)"으로 넘어가는 두 박자다 — 맞았을 때는 해설을 보는
 //  것 자체가 **선택**이라, 안 봐도 되는 사람은 곧바로 다음 문제로 갈 수 있게
 //  두 버튼을 처음부터 나란히 뒀다. 해설 문장을 만드는 방법은 오답 해설과 완전히
-//  같다 — ``QuizSession/presentCorrectFeedback(for:)`` 가 ``CommentaryWriter/write(for:)``
+//  같다 — ``QuizSession/presentCorrectFeedback(for:)`` 가 ``CommentaryWriter/explain(_:length:)``(`.full`)
 //  를 그대로 호출해 만든다(Foundation Model 재활용).
 //
 //  ── 연결 ──────────────────────────────────────────────

@@ -165,9 +165,12 @@ struct WordBadge: View {
     let background: Color
     let foreground: Color
 
+    /// 글자 크기. 기본은 해설 본문과 같은 크기다.
+    var size: CGFloat = CommentaryMetrics.noteSize
+
     var body: some View {
         Text(word)
-            .font(.system(size: CommentaryMetrics.noteSize, weight: .black))
+            .font(.system(size: size, weight: .black))
             .foregroundStyle(foreground)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 9)

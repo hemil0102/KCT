@@ -22,7 +22,7 @@
 
 추석 문제에 「개천절」을 고르셨다면, **개천절도 어딘가의 정답**입니다.
 ``QuestionCatalog/question(answering:)`` 이 그 문항을 찾아오고,
-``CommentaryWriter/describe(_:)`` 가 그 문항의 ``Question/facts`` 로 한 문장을 만듭니다.
+``CommentaryWriter/explain(_:length:)``(`.oneLine`) 이 그 문항의 ``Question/facts`` 로 한 문장을 만듭니다.
 
 **나무라는 것이 아니라 하나 더 알려 드리고 넘어가는 것**입니다.
 

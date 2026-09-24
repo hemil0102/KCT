@@ -3,14 +3,17 @@
 //  KCT
 //
 //  역할 : 회차가 끝난 뒤 결과를 보여주는 화면
-//  요점 : "틀렸다"를 쓰지 않는다. 맞힌 것을 칭찬하고, 못 맞힌 것은 "다시 볼 문제"로 부른다
+//  요점 : 결과를 세 칸으로 나눈다 — 정답(녹색) · 다시 풀어서 정답(노랑) · 틀렸어요(분홍).
+//         모든 줄에 정답을 적는다. (11차 4-37 — 복습 모드가 생기며, 복습에서도 틀린 것은
+//         「틀렸어요」라고 분명히 부르기로 사용자가 정했다. 예전엔 「다시 볼 문제」였다)
 //
 //  ── 구성 ──────────────────────────────────────────────
 //  ResultScreen                 결과를 그리는 화면
 //  ├─ progresses (@Query)       누적 통계용. 화면 표시라서 @Query 로 받는다
 //  ├─ cumulativeCorrect         지금까지 맞힌 총 횟수 — 이 화면의 주인공
 //  ├─ masteredCount             완전히 익힌 문제 수
-//  ├─ resultRow(for:)           문제 하나의 결과 카드
+//  ├─ state(for:)               정답 / 다시 풀어서 정답 / 틀렸어요 — 본 풀이·복습 결과로 가른다
+//  ├─ resultRow(for:)           문제 하나의 결과 카드 (모든 줄에 「정답: …」)
 //  ├─ onRestart                 "다시 풀기" — 위쪽에 새 회차를 부탁한다
 //  └─ onEraseProgress           "학습 기록 초기화" — 확인창을 거친 뒤 부탁한다
 //
@@ -95,18 +98,74 @@ struct ResultScreen: View {
 
     // MARK: - 문제별 결과
 
-    /// 문제 하나의 결과 카드. 맞히면 칭찬, 아니면 "다시 볼 문제"로 부드럽게.
+    /// 한 문제의 결과가 어느 칸에 드나. (11차 4-37)
+    private enum RowState {
+        /// 본 풀이에서 맞혔다.
+        case correct
+        /// 본 풀이에서 틀렸지만 **복습에서 맞혔다.**
+        case correctOnReview
+        /// 복습에서도 틀렸다.
+        case wrongOnReview
+        /// 틀렸고 복습 결과가 없다 (복습을 거치지 않은 경우를 위한 자리).
+        case missed
+    }
+
+    private func state(for item: QuizItem) -> RowState {
+        if session.result(for: item.id)?.isCorrect == true { return .correct }
+
+        switch session.reviewOutcome(for: item.id) {
+        case .some(true):  return .correctOnReview
+        case .some(false): return .wrongOnReview
+        case .none:        return .missed
+        }
+    }
+
+    /// 한 문제의 결과 줄.
+    ///
+    /// | 칸 | 아이콘·글자 | 색 |
+    /// |---|---|---|
+    /// | 정답 | ✓ 정답! | 녹색 |
+    /// | 다시 풀어서 정답 | ↻ 다시 풀어서 정답 | **노랑** |
+    /// | 복습에서도 틀림 | ✕ 틀렸어요 | 분홍 |
+    ///
+    /// **모든 줄에 정답을 적는다** — 맞힌 문제도 「무엇이 정답이었는지」를 한 번 더 보게.
     private func resultRow(for item: QuizItem) -> some View {
-        let isCorrect = session.result(for: item.id)?.isCorrect ?? false
+        let rowState = state(for: item)
         let isMastered = progress(for: item.id)?.isMastered == true
-        let accent = isCorrect ? AppColor.correct : AppColor.review
+
+        let accent: Color
+        let background: Color
+        let icon: String
+        let label: String
+        switch rowState {
+        case .correct:
+            accent = AppColor.correct
+            background = AppColor.correct.opacity(0.10)
+            icon = "checkmark.circle.fill"
+            label = "정답!"
+        case .correctOnReview:
+            accent = AppColor.reviewCorrect
+            background = AppColor.reviewCorrectBackground
+            icon = "arrow.clockwise.circle.fill"
+            label = "다시 풀어서 정답"
+        case .wrongOnReview:
+            accent = AppColor.wrongAccent
+            background = AppColor.wrongAccent.opacity(0.09)
+            icon = "xmark.circle.fill"
+            label = "틀렸어요"
+        case .missed:
+            accent = AppColor.review
+            background = AppColor.review.opacity(0.10)
+            icon = "arrow.clockwise.circle.fill"
+            label = "다시 볼 문제"
+        }
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Image(systemName: isCorrect ? "checkmark.circle.fill" : "arrow.clockwise.circle.fill")
+                Image(systemName: icon)
                     .font(.title2)
                     .foregroundStyle(accent)
-                Text(isCorrect ? "정답!" : "다시 볼 문제")
+                Text(label)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(accent)
                 Spacer()
@@ -121,14 +180,11 @@ struct ResultScreen: View {
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.black)
 
-            if isCorrect {
-                Text("잘 맞히셨어요! 👍")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppColor.correct)
-            } else {
-                Text("정답: \(item.question.displayAnswer)")
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(.black)
+            Text("정답: \(item.question.displayAnswer)")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.black)
+
+            if rowState == .wrongOnReview || rowState == .missed {
                 Text("곧 다시 만나요 😊")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(AppColor.textMuted)
@@ -136,7 +192,7 @@ struct ResultScreen: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 18))
+        .background(background, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func progress(for questionID: Int) -> QuestionProgress? {

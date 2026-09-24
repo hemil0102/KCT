@@ -17,14 +17,14 @@
 | 어디 있나 | ``Question/difficulty`` | ``QuestionProgress/mode`` (``AskingMode``) |
 | 성격 | **고정** — 문제집에 적혀 온다 | **동적** — 맞히고 틀리며 변한다 |
 | 무엇을 정하나 | 새 문제의 **도입 순서**만 | 이번에 **어떻게 물을지** |
-| 누가 읽나 | ``SessionBuilder/introduceOrder(_:)`` | ``SessionBuilder/shapeRound(_:progressByID:focusByID:)`` |
+| 누가 읽나 | ``SessionBuilder/introduceOrder(_:introducedByUnit:)`` | ``SessionBuilder/shapeRound(_:progressByID:focusByID:)`` |
 
 ### 축 A는 순서만 정한다
 
 쉬운 문제가 먼저 등장합니다. 그게 전부입니다. 축 A는 **"어떻게 물을지" 에 관여하지
 않습니다** — 어려운 문제도 처음 만날 때는 2지선다로 물어봅니다.
 
-``SessionBuilder/introduceOrder(_:)`` 가 `difficulty` 오름차순으로 줄을 세우되
+``SessionBuilder/introduceOrder(_:introducedByUnit:)`` 가 `difficulty` 오름차순으로 줄을 세우되
 단원을 번갈아 꺼내서, 쉬운 순서를 지키면서도 한 단원에 편식하지 않게 합니다.
 
 ### 축 B는 모든 문제가 같은 사다리를 탄다

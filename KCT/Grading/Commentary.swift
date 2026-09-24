@@ -13,6 +13,7 @@
 //
 //  IncorrectCommentary   틀렸을 때 띄울 창의 내용 (고른 답 · 고른 답 설명 · 정답 · 해설)
 //  CorrectCommentary     맞혔을 때 띄울 창의 내용 (정답 · 해설)
+//  TrueFalseCommentary   O/X 창의 내용 (누른 라벨 · 맞았나 · 바르게 고친 문장 · 해설)
 //
 //  ── 이 파일이 생긴 이유 ────────────────────────────────
 //  두 타입이 ``QuizSession`` 안에 중첩돼 있었다. 그러면 창을 그리는 화면
@@ -102,7 +103,7 @@ struct IncorrectCommentary: Identifiable {
 ///
 /// ``IncorrectCommentary`` 와 달리 **고른 답을 따로 설명하지 않는다** — 이미
 /// 맞혔으므로 「무엇을 골랐는지」를 짚을 필요가 없다. 정답 해설 하나만 있으면 된다.
-/// 해설을 만드는 방법도 같다 — ``CommentaryWriter/write(for:)`` 를 그대로 쓴다.
+/// 해설을 만드는 방법도 같다 — ``CommentaryWriter/explain(_:length:)`` 의 `.full` 을 그대로 쓴다.
 /// "이 답이 왜 맞는지"는 맞고 틀리고와 무관하게 같은 사실(``Question/facts``)에서
 /// 나오기 때문에, 오답 해설의 "정답 비교" 부분을 만들던 바로 그 함수를 재활용한다.
 struct CorrectCommentary: Identifiable {
@@ -111,6 +112,47 @@ struct CorrectCommentary: Identifiable {
     let id: Int
 
     let correctAnswer: String
+    let commentary: String
+
+    /// 기다림이 끝났는가. (``IncorrectCommentary/isReady`` 와 같은 이유)
+    var isReady: Bool { commentary != CommentaryPlaceholder.waiting }
+}
+
+/// O/X 를 누른 뒤 띄우는 창의 내용. **맞혔을 때와 틀렸을 때를 한 타입이 맡습니다.**
+///
+/// 창에는 세 덩어리가 있습니다 —
+/// ① 「고르신 답」 + 누른 라벨 배지 (맞힘 녹색 / 틀림 분홍)
+/// ② ✅ **바르게 고친 문장** — 화면에 나왔던 문장이 틀렸으면 그 낱말에 줄을 긋고 정답을 이어 쓴다
+/// ③ 모델이 쓴 정답 해설
+///
+/// - Note: O/X 는 고른 답이 「맞아요」·「아니에요」라 그 자체로는 무엇을 판단했는지가
+///   안 보입니다. 9/11·9/14 에 어머니가 「내가 뭘 골랐지?」, 「왜 틀렸지?」 한 이유입니다.
+///   그래서 누른 라벨과 **정답이 든 문장**을 한 카드에 나란히 둡니다.
+///   틀린 낱말은 줄을 그어 한 번만 보이고, 크게 남는 것은 올바른 문장입니다 —
+///   노년층에게 틀린 문장을 되풀이하면 오히려 참으로 기억될 수 있기 때문입니다
+///   (Skurnik 외 2005, 11차 4-30).
+struct TrueFalseCommentary: Identifiable {
+
+    /// 이 창이 어느 문항 때문에 떴는지. (``IncorrectCommentary/id`` 와 같은 이유)
+    let id: Int
+
+    /// 어머니가 누른 라벨 — 「맞아요」 또는 「아니에요」.
+    let pickedLabel: String
+
+    let isCorrect: Bool
+
+    /// 화면에 나왔던 문장이 참이었나. 거짓이었으면 그 문장 속 낱말에 줄을 긋는다.
+    let statementWasTrue: Bool
+
+    /// 화면에 나왔던 문장 속 낱말. 거짓 문장일 때 줄을 그을 대상이다.
+    let shownCandidate: String
+
+    let correctAnswer: String
+
+    /// 바르게 고친 문장의 정답 앞·뒤 (``Question/correctedStatementParts()``).
+    let sentenceBefore: String
+    let sentenceAfter: String
+
     let commentary: String
 
     /// 기다림이 끝났는가. (``IncorrectCommentary/isReady`` 와 같은 이유)

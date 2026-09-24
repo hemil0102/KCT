@@ -16,6 +16,8 @@
 //  ├─ review               다시 볼 문제 표시 (= signature)
 //  ├─ mastered             완전히 익힘 표시 (주황)
 //  ├─ answerSheetAccent    두 해설 창의 정답 낱말 글자 (진한 녹색)
+//  ├─ reviewCorrect        결과 화면 「다시 풀어서 정답」 글자·아이콘 (짙은 노랑)
+//  ├─ reviewCorrectBackground  그 줄 배경 (옅은 노랑)
 //  ├─ answerSheetBadge     두 해설 창의 정답 낱말 배지 배경 (옅은 녹색)
 //  ├─ wrongAccent          고른 답 낱말 글자색 (짙은 분홍)
 //  ├─ wrongHeader          고른 답 낱말 배지의 배경 (옅은 분홍)
@@ -72,6 +74,15 @@ enum AppColor {
 
     /// 마스터(완전히 익힘) 표시
     static let mastered = Color(red: 0.80, green: 0.46, blue: 0.08)
+
+    /// 결과 화면의 「다시 풀어서 정답」 — 복습에서 맞힌 문제의 아이콘·글자색 (짙은 노랑).
+    ///
+    /// 밝은 노랑은 흰 바탕에서 글자가 안 읽혀서, 노란 계열 중 어두운 쪽을 글자에 쓰고
+    /// 밝은 노랑은 줄 배경(``reviewCorrectBackground``)에만 쓴다 (11차 4-37).
+    static let reviewCorrect = Color(red: 0.58, green: 0.42, blue: 0.0)
+
+    /// 「다시 풀어서 정답」 줄 배경 (옅은 노랑).
+    static let reviewCorrectBackground = Color(red: 1.0, green: 0.95, blue: 0.77)
 
     // MARK: 두 해설 창의 낱말 배지
 

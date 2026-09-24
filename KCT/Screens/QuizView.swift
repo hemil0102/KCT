@@ -87,7 +87,9 @@ struct QuizView: View {
                 ProgressView()
             }
         }
-        .onChange(of: session?.currentIndex) { _, _ in
+        // 지금 문제가 바뀌면 읽어 준다. 칸 번호가 아니라 **문항**을 지켜본다 — 복습에서는
+        // 칸 번호(currentIndex)가 그대로이고 복습 자리(reviewIndex)만 바뀌기 때문이다.
+        .onChange(of: session?.current?.id) { _, _ in
             readAloud(session?.current)
         }
         // `session?.feedback`(내용)과 별도의 `Bool`(열림 여부)로 나누면, 이번 화면에서
@@ -113,6 +115,16 @@ struct QuizView: View {
                 session?.dismissCorrectFeedback()
             }
         }
+        // 11차 4-30 — O/X 는 맞혔든 틀렸든 전용 창 하나를 쓴다. 한 문항에 세 값 중
+        // 하나만 채워지므로 시트끼리 부딪히지 않는다.
+        .sheet(item: Binding(
+            get: { session?.trueFalseFeedback },
+            set: { _ in }
+        )) { feedback in
+            TrueFalseSheet(feedback: feedback) {
+                session?.dismissTrueFalseFeedback()
+            }
+        }
         .background(Color.white)
         .task { prepareSession() }
         // 11차 후속 — "종합 연습"에서 들어온 화면이라 하단 탭바를 숨기고, 내비게이션
@@ -126,9 +138,21 @@ struct QuizView: View {
     @ViewBuilder
     private func screen(for session: QuizSession) -> some View {
         if session.isFinished {
-            // 결과를 보여주기 전 한 박자. 마지막 답을 누른 손이 그대로
-            // 결과 화면의 버튼을 누르는 것을 막는다.
-            if session.isWrappingUp {
+            // 11차 4-37 — 칸을 다 지나면 결과 전에 복습부터. 틀린 게 없으면 두 갈래 다 건너뛴다.
+            if session.isShowingReviewIntro {
+                ReviewIntroScreen(
+                    count: session.reviewItems.count,
+                    onStart: { session.startReview() },
+                    onClose: { dismiss() }
+                )
+            } else if session.isInReview {
+                // 복습 문제도 같은 화면이다 — current 가 복습 문항을 주고, 맨 위 띠만 바뀐다.
+                QuestionScreen(session: session, sessionMode: sessionMode, onClose: { dismiss() }) {
+                    readAloud(session.current)
+                }
+            } else if session.isWrappingUp {
+                // 결과를 보여주기 전 한 박자. 마지막 답을 누른 손이 그대로
+                // 결과 화면의 버튼을 누르는 것을 막는다.
                 GradingScreen()
             } else {
                 ResultScreen(

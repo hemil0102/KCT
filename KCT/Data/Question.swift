@@ -20,7 +20,8 @@
 //  ├─ init(from:)              손으로 적은 해독기 — 뒤에 더한 칸만 decodeIfPresent
 //  ├─ statement(with:)         진술문 만들기
 //  ├─ makeChoices(count:answerPool:)   선다형 보기 만들기
-//  └─ makeTrueFalse(answerPool:)       O/X 문항 만들기
+//  ├─ makeTrueFalse(answerPool:)       O/X 문항 만들기
+//  └─ correctedStatementParts()        O/X 해설의 「바르게 고친 문장」 앞뒤
 //
 //  이 파일 안의 형제 타입 (같이 쓰이고 같이 바뀐다 — 규칙 24)
 //  ├─ QuestionPayload          문제집 파일 한 벌 (version + questions)
@@ -146,7 +147,7 @@ struct QuestionPayload: Codable {
 struct QuestionFact: Codable, Hashable {
     /// 재료의 종류. 다섯 가지를 씁니다.
     ///
-    /// - `asks` — **무엇을 묻고 있는가.** 「국경일 이름을 묻고 있어요」. 답의 종류를 먼저 알려 준다
+    /// - ~~`asks`~~ — **더 쓰지 않는다**(11차 4-34). 질문 안내라 모델이 해설에 섞어 썼다
     /// - `wordplay` — **글자의 뜻.** 「광복은 빛을 되찾았다는 뜻이에요」. 가장 잘 남는 재료다
     /// - `event` — 그날 무슨 일이 있었나. 「만세를 부르며 독립을 외친 날이에요」
     /// - `date` — 양력·음력을 밝힌 날짜. 「양력 8월 15일이에요」
@@ -229,6 +230,22 @@ extension Question {
         statementFormat.replacingOccurrences(of: "{답}", with: candidate)
     }
 
+    /// O/X 해설에 쓸 **바르게 고친 문장**의 앞뒤. 가운데에는 정답이 들어간다.
+    ///
+    /// 틀 끝의 「{답}이다.」를 받침에 맞춰 「이에요 / 예요」로 바꾼다 — 어머니에게
+    /// 건네는 해설이라 문제 문장의 딱딱한 끝을 쓰지 않는다(고조선**이에요**, 태극기**예요**).
+    /// 틀이 그 모양이 아니면 원래 끝을 그대로 둔다.
+    func correctedStatementParts() -> (before: String, after: String) {
+        let parts = statementFormat.components(separatedBy: "{답}")
+        let before = parts.first ?? ""
+        let rawAfter = parts.count > 1 ? parts[1...].joined(separator: "{답}") : ""
+
+        guard rawAfter.hasPrefix("이다") else { return (before, rawAfter) }
+
+        let ending = displayAnswer.endsWithFinalConsonant ? "이에요" : "예요"
+        return (before, ending + rawAfter.dropFirst(2))
+    }
+
     /// 선다형 보기를 만듭니다. 정답 1개 + 오답 `count - 1` 개를 섞어 돌려줍니다.
     ///
     /// 오답을 다른 문제의 정답에서 뽑으므로 그럴듯하고, 문제집이 바뀌면 보기도 따라
@@ -252,5 +269,14 @@ extension Question {
             candidate = Set(answerPool).subtracting([displayAnswer]).randomElement() ?? displayAnswer
         }
         return (statement(with: candidate), candidate, candidate == displayAnswer)
+    }
+}
+
+private extension String {
+    /// 마지막 글자에 받침이 있는가. 한글 음절이 아니면 `false`.
+    var endsWithFinalConsonant: Bool {
+        guard let scalar = last?.unicodeScalars.first,
+              (0xAC00...0xD7A3).contains(scalar.value) else { return false }
+        return (scalar.value - 0xAC00) % 28 != 0
     }
 }

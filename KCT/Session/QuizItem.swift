@@ -16,7 +16,7 @@
 //  ├─ affectsProgress          격려용 슬롯이면 false — 진척에 반영하지 않는다
 //  ├─ focus                    질문이 묻는 대상 (형광펜용)
 //  ├─ displayText              화면에 크게 보여줄 본문
-//  ├─ highlightText            본문에서 색+굵기+따옴표로 강조할 부분 (O/X 의 판단 대상)
+//  ├─ highlightText            본문에서 색+굵기+낫표(「 」)로 강조할 부분 (O/X 의 판단 대상)
 //  ├─ markerText               형광펜으로 칠할 부분 (묻는 대상)
 //  ├─ actionGuide              "답을 골라보세요" 같은 한 줄 안내
 //  └─ make(...)                문제 + 방식 → 재료를 파생해 항목 완성 (출제 시 1회)
@@ -81,10 +81,10 @@ struct QuizItem: Identifiable {
         }
     }
 
-    /// 본문에서 **색 + 더 굵은 글자 + 큰따옴표**로 강조할 부분. (O/X 의 판단 대상인 답)
+    /// 본문에서 **색 + 더 굵은 글자 + 낫표(「 」)**로 강조할 부분. (O/X 의 판단 대상인 답)
     ///
     /// - Note: 9차까지는 밑줄이었습니다. 어려운 낱말의 점선 밑줄과 같은 자리에서 겹쳐
-    ///   보여, 세 시안 중 어머니가 고른 「색상 + 굵기」안으로 바꾸고 따옴표를 더했습니다.
+    ///   보여, 세 시안 중 어머니가 고른 「색상 + 굵기」안으로 바꾸고 따옴표를 더했습니다. 11차 4-32 에서 따옴표를 낫표로 바꿨습니다.
     ///   ``KoreanText`` 가 그 셋을 입힙니다.
     var highlightText: String? {
         switch payload {
@@ -105,6 +105,12 @@ struct QuizItem: Identifiable {
         case .trueFalse: nil
         default:         focus?.phrase
         }
+    }
+
+    /// O/X 문항인가. O/X 는 누르는 순간 채점되고 해설 창도 따로 쓴다.
+    var isTrueFalse: Bool {
+        if case .trueFalse = payload { return true }
+        return false
     }
 
     /// 사용자가 무엇을 해야 하는지 알려 주는 한 줄 안내.

@@ -128,7 +128,49 @@ struct QuestionScreen: View {
     /// 왼쪽 위 X 는 내비게이션 바 대신 이 줄 안에 두어 별도 공간을 쓰지 않는다.
     /// 다시 읽기(스피커)와 **같은 부품·같은 색**이라 한 쌍으로 보인다.
     /// 둘 다 누를 때 먼저 낱말 사전 시트를 닫는다 — "낱말이 아닌 다른 걸 하겠다"는 뜻이다.
+    @ViewBuilder
     private func header(for item: QuizItem) -> some View {
+        if session.isInReview {
+            reviewHeader
+        } else {
+            regularHeader
+        }
+    }
+
+    /// 복습 중의 머리 줄 (11차 4-37, 시안 A). 본 문제와 같은 자리에 같은 버튼을 두고,
+    /// 연보라 띠 위에 「복습 1 / 2」 알약과 **복습 문제 수만큼의** 진행 막대를 둔다.
+    /// 화면의 나머지는 본 문제와 똑같다 — 어머니가 새로 배울 것이 없게.
+    private var reviewHeader: some View {
+        HStack(spacing: 12) {
+            CircleIconButton(systemName: "xmark") {
+                dismissGlossaryIfNeeded()
+                onClose()
+            }
+
+            Text("복습 \(session.reviewIndex + 1) / \(session.reviewItems.count)")
+                .font(.system(size: 15, weight: .heavy))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 11)
+                .padding(.vertical, 5)
+                .background(AppColor.signature, in: Capsule())
+
+            SessionProgressBar(total: session.reviewItems.count,
+                               currentIndex: session.reviewIndex)
+
+            CircleIconButton(systemName: "speaker.wave.2.fill") {
+                dismissGlossaryIfNeeded()
+                onReadAloud()
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, Self.reviewBandPadding)
+        .background(AppColor.softBackground)
+        .padding(.horizontal, -24)
+    }
+
+    private var regularHeader: some View {
         HStack(spacing: 16) {
             CircleIconButton(systemName: "xmark") {
                 dismissGlossaryIfNeeded()
@@ -161,7 +203,10 @@ struct QuestionScreen: View {
                     hintBanner
                 }
 
-                nextButton
+                // O/X 는 누르는 순간 제출되므로 「다음」이 없다.
+                if !item.isTrueFalse {
+                    nextButton
+                }
             }
             // 위쪽만 8로 줄인다. 상태바 아래 안전 영역이 이미 떨어뜨려 주고 있어서
             // 24를 더 두면 X·진행 막대 줄이 공중에 뜬 것처럼 보이고, 그만큼 지문이
@@ -270,6 +315,21 @@ struct QuestionScreen: View {
     /// `minQuestionFontSize` 까지 내려가 버린다. 그걸 막는 바닥이다.
     private static let minQuestionAreaHeight: CGFloat = 150
 
+    /// O/X 에서 지문 **아래에** 더 들어가는 높이 — 지문과의 간격(24) + 안내 위 여백(8) +
+    /// 「이 말이 맞을까요?」 한 줄(약 28) + 간격(12) + 버튼(58).
+    ///
+    /// O/X 는 누르면 곧바로 해설 창이 화면 아래 절반을 덮는다. 그때 **누른 버튼의 색**
+    /// (녹색 ✓ / 붉은색 ✕)이 창 위로 보여야 어머니가 무엇을 골랐는지 안다(11차 4-30).
+    /// 그래서 O/X 만 지문 몫에서 이만큼을 더 뺀다 — 지문 + 버튼 줄이 위 절반 안에 든다.
+    private static let trueFalseBelowQuestion: CGFloat = 130
+
+    /// 복습 띠의 위아래 여백. 띠가 이만큼(×2) 두꺼워져 지문이 아래로 밀리므로,
+    /// 복습 중에는 지문 몫에서도 같은 만큼을 뺀다.
+    private static let reviewBandPadding: CGFloat = 10
+
+    /// O/X 는 위 뺄셈 때문에 지문 몫이 작아진다. 그래도 이만큼은 준다.
+    private static let minTrueFalseQuestionHeight: CGFloat = 110
+
     /// 지문이 화면 위 절반 **안에서 끝나도록** 잡는 글꼴을 고른다.
     ///
     /// 짧은 지문은 기본 크기(baseQuestionFontSize)로 재도 그 안에 들어오므로
@@ -286,12 +346,24 @@ struct QuestionScreen: View {
         let available = screenHeight * Self.questionHeightRatio
             - Self.questionTopInset
             - Self.questionBottomMargin
+            - (item.isTrueFalse ? Self.trueFalseBelowQuestion : 0)
+            - (session.isInReview ? Self.reviewBandPadding * 2 : 0)
+
+        let minHeight = item.isTrueFalse ? Self.minTrueFalseQuestionHeight : Self.minQuestionAreaHeight
+
+        // O/X 는 화면에서 판단 대상 낱말 양옆에 낫표(「 」)가 붙는다(KoreanText). 재는
+        // 글에도 같이 붙여야 그 두 글자 폭만큼 줄 수가 모자라게 재지 않는다.
+        var measured = item.displayText
+        if let highlight = item.highlightText, !highlight.isEmpty,
+           let range = measured.range(of: highlight) {
+            measured.replaceSubrange(range, with: "「\(highlight)」")
+        }
 
         return KoreanText.fittingFont(
-            for: item.displayText,
+            for: measured,
             baseFont: .systemFont(ofSize: Self.baseQuestionFontSize, weight: .bold),
             minFontSize: Self.minQuestionFontSize,
-            maxHeight: max(Self.minQuestionAreaHeight, available),
+            maxHeight: max(minHeight, available),
             width: width,
             lineSpacing: 8)
     }
@@ -395,9 +467,23 @@ struct QuestionScreen: View {
         }
     }
 
+    /// O/X 버튼. **누르는 순간 제출된다** — 「다음」이 없다.
+    ///
+    /// 판정이 나오면 누른 버튼이 녹색 ✓(맞음) 또는 붉은색 ✕(틀림)로 바뀌고, 곧이어
+    /// 해설 창이 올라온다(``QuizSession/trueFalseVerdict``). 한 번 누르면 다시 고를 수
+    /// 없다 — 이미 채점이 끝났기 때문이다.
     private func trueFalseButton(_ label: String) -> some View {
-        ChoiceButton(label: label, isSelected: session.userAnswer == label) {
+        let isSelected = session.userAnswer == label
+
+        return ChoiceButton(
+            label: label,
+            isSelected: isSelected,
+            verdict: isSelected ? session.trueFalseVerdict : nil
+        ) {
+            // 이미 하나를 눌렀으면(채점 중이거나 끝났으면) 더 받지 않는다.
+            guard !session.hasAnswer else { return }
             session.userAnswer = label
+            submitAnswer()
         }
     }
 
