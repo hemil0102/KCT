@@ -2,7 +2,7 @@
 //  QuizSession.swift
 //  KCT
 //
-//  역할 : 한 회차(7칸)의 상태를 들고, 시작·제출·채점을 결정한다
+//  역할 : 한 회차(8칸)의 상태를 들고, 시작·제출·채점을 결정한다
 //  요점 : 화면은 "무엇을 그릴까"만 묻고, "무엇이 맞나"는 전부 여기서 답한다
 //
 //  ── 구성 ──────────────────────────────────────────────
@@ -12,6 +12,8 @@
 //  ├─ matchingSet/matchingSlot 이번 회차의 연결 문제와 그것이 놓인 칸 번호
 //  ├─ slotCount                회차의 칸 수 = items.count + (연결 문제 있으면 1)
 //  ├─ isMatchingSlot           지금 칸이 연결 문제인가 (QuizView 가 화면을 고르는 기준)
+//  ├─ voiceSlot / placeVoiceItem()  7번째 칸을 음성 입력 문제로 — 가장 익숙한 문항을 데려와
+//  │                           직접입력(.typing)을 말로 받게 한다 (QuizItem.isVoice)
 //  ├─ completeMatchingSlot()   연결 문제를 다 맞혔다 → 다음 칸으로
 //  ├─ currentIndex             몇 번째 **칸**인가 (0부터). items 의 자리가 아니다
 //  ├─ userAnswer               지금 고르거나 입력한 답
@@ -45,9 +47,11 @@
 //  ├─ reviewResults            문항 id → 복습에서 맞혔나 (본 풀이 results 와 따로)
 //  ├─ startReview()            복습 시작 화면의 버튼 → 첫 복습 문제
 //  ├─ trueFalseFeedback        지금 띄워야 할 O/X 해설 창(TrueFalseCommentary). 맞힘·틀림 공용
-//  ├─ trueFalseVerdict         O/X 판정 — 누른 버튼을 녹색·붉은색으로 칠한다 (채점 전 nil)
+//  ├─ immediateVerdict         O/X·2지선다 판정 — 누른 버튼을 녹색·붉은색으로 칠한다 (채점 전 nil)
 //  ├─ isShowingCommentary      셋 중 하나라도 떠 있는가 (뒤 화면의 손가락을 막는 데 쓴다)
-//  ├─ presentCorrectFeedback() 정답 해설 창을 띄우고 CommentaryWriter.explain(_:length: .full) 로 채운다
+//  ├─ prefetchExplanation()    문제가 뜨는 즉시 정답 해설을 뒤에서 미리 만들기 시작한다
+//  ├─ explanation(for:)        미리 만들어 둔 정답 해설을 기다린다 (없으면 그때 시작)
+//  ├─ presentCorrectFeedback() 정답 해설 창을 띄우고 explanation(for:) 로 채운다
 //  ├─ presentTrueFalseFeedback() 0.6초 뒤 O/X 창을 띄운다. 바른 문장은 코드, 해설만 모델
 //  ├─ dismissTrueFalseFeedback() O/X 해설 창의 「다음 문제」
 //  ├─ dismissFeedback()        오답 해설 창의 「다음 문제」 — 창을 닫고 다음 문제로
@@ -139,6 +143,15 @@ final class QuizSession {
     private let commentaryWriter = CommentaryWriter()
     private let encouragementWriter = EncouragementWriter()
 
+    /// 문제가 뜨는 순간 미리 시작해 둔 정답 해설(`.full`). 채점 시점엔 이미 다 만들어져
+    /// 있거나 만들어지는 중이다 — 다시 시키지 않고 이 결과를 기다린다.
+    ///
+    /// 맞혔든 틀렸든 "이 답이 왜 맞는지"는 문제가 뜨는 순간 이미 정해진 사실이다.
+    /// 무엇을 고르는지와 무관하므로, 채점을 기다릴 이유가 없다 — 문제가 화면에 뜨자마자
+    /// (``start()``·``moveToNextQuestion()``) ``prefetchExplanation(for:)`` 로 만들기
+    /// 시작해 둔다. 키는 ``QuizItem/id``(= ``Question/id``)다.
+    private var prefetchedExplanations: [Int: Task<Writing, Never>] = [:]
+
     /// 이번 회차에 쓸 응원 문구. 회차를 시작할 때 뒤에서 만들어 채운다.
     ///
     /// 비어 있으면 ``EncouragementWriter/fallback`` 에서 뽑습니다 —
@@ -158,9 +171,15 @@ final class QuizSession {
     /// 연결 문제가 올 수 있는 칸 — 3·4·5번째(0부터 세면 2·3·4).
     ///
     /// 첫 칸과 마지막 칸은 ``SessionBuilder/shapeRound(_:progressByID:focusByID:)`` 가
-    /// 격려용 쉬운 2지선다로 쓰는 자리라 비켜 둔다. 6번째 칸은 음성 입력 문제
-    /// 자리로 비워 둘 예정인데 아직 그 유형이 없어서, 지금은 일반 문제가 온다.
+    /// 격려용 쉬운 2지선다로 쓰는 자리라 비켜 둔다. 7번째 칸은 음성 입력 문제
+    /// 자리(``voiceSlot``)라 역시 비켜 둔다.
     private static let matchingSlotCandidates = [2, 3, 4]
+
+    /// 음성 입력 문제가 오는 칸 — 8칸 중 7번째(0부터 세면 6).
+    ///
+    /// 마지막 칸(격려용 2지선다) 바로 앞이다. 가장 어려운 입력을 끝에서 두 번째에 두고,
+    /// 쉬운 문제로 회차를 닫는다.
+    private static let voiceSlot = 6
 
     // MARK: - 상태
 
@@ -295,18 +314,21 @@ final class QuizSession {
         firstTouchAt = nil
     }
 
-    /// 지금 O/X 문항의 판정. 누른 버튼을 녹색(맞음)·붉은색(틀림)으로 칠하는 데 쓴다.
+    /// 지금 문항의 판정. 누른 보기를 녹색(맞음)·붉은색(틀림)으로 칠하는 데 쓴다.
     /// 아직 채점 전이면 `nil`.
     ///
     /// O/X 는 **누르는 순간 채점**된다 — 버튼 색이 곧 결과라, 해설 창이 올라온 뒤에도
-    /// 창 위로 보이는 버튼에서 「내가 뭘 골랐는지」가 남는다(11차 4-30).
-    private(set) var trueFalseVerdict: Bool?
+    /// 창 위로 보이는 버튼에서 「내가 뭘 골랐는지」가 남는다(11차 4-30). 13차 후속부터
+    /// **2지선다도 같은 방식**이라(누르면 곧장 채점 → 해설 창) 이름을 O/X 전용에서
+    /// 일반화했다. 4지선다는 다른 흐름(오답은 조용히 소거, 정답을 찾아야 채점)이라
+    /// 이 값을 쓰지 않는다.
+    private(set) var immediateVerdict: Bool?
 
     init(
         catalog: QuestionCatalog,
         modelContext: ModelContext,
         matchingCatalog: MatchingSetCatalog? = nil,
-        size: Int = 7
+        size: Int = 8
     ) {
         self.catalog = catalog
         self.modelContext = modelContext
@@ -351,6 +373,35 @@ final class QuizSession {
     private func itemIndex(for slot: Int) -> Int {
         guard let matchingSlot, matchingSet != nil, slot > matchingSlot else { return slot }
         return slot - 1
+    }
+
+    /// 7번째 칸(``voiceSlot``)을 음성 입력 문제로 만든다. ``start()`` 가 부른다.
+    ///
+    /// ① 가운데 칸들(첫·마지막 격려 칸 제외) 중 **사다리가 가장 높이 올라간 문항**을
+    ///    음성 칸 자리로 데려온다 — 말로 답하는 것이 가장 어려운 입력이라, 가장 익숙한
+    ///    문항을 고른다. 처음 보는 낱말을 소리로 떠올리기는 어렵다.
+    /// ② 그 문항을 직접입력(`.typing`)으로 다시 만들고 `isVoice` 를 켠다.
+    /// ③ `affectsProgress: false` — 이 칸은 사다리 칸과 상관없이 늘 직접입력으로
+    ///    묻는다. 그래서 격려 칸처럼 사다리를 크게 움직이지 않고 살짝만 민다(nudgeLadder).
+    private func placeVoiceItem() {
+        let voiceIndex = itemIndex(for: Self.voiceSlot)
+
+        // 문제집이 작아 칸이 모자라면 음성 칸 없이 간다. 첫 칸·마지막 칸은 격려 칸이라 안 건드린다.
+        guard items.count >= 3, voiceIndex > 0, voiceIndex < items.count - 1 else { return }
+
+        let middle = 1..<(items.count - 1)
+        let mostFamiliar = middle.max { items[$0].mode < items[$1].mode } ?? voiceIndex
+        items.swapAt(mostFamiliar, voiceIndex)
+
+        let original = items[voiceIndex]
+        var voiceItem = QuizItem.make(
+            original.question,
+            mode: .typing,
+            answerPool: [],               // 직접입력은 보기가 없어 오답 후보가 필요 없다
+            affectsProgress: false,
+            focus: original.focus)
+        voiceItem.isVoice = true
+        items[voiceIndex] = voiceItem
     }
 
     /// 해설 창(오답·정답)이 떠 있는가.
@@ -410,8 +461,21 @@ final class QuizSession {
             ? nil
             : min(Self.matchingSlotCandidates.randomElement() ?? 2, items.count)
 
+        // 7번째 칸을 음성 입력 문제로 만든다. 연결 문제 칸이 정해진 **뒤에** 해야 한다 —
+        // 칸 번호 → items 자리 계산(itemIndex)이 연결 문제 칸에 따라 달라진다.
+        placeVoiceItem()
+
         clearAnswers()
         isWrappingUp = false
+
+        // 이전 회차에서 만들어 둔 것이 남아 있으면 새 회차와 문항 id 가 겹칠 수 있다
+        // (문제 id 는 문제집 전체에서 고유하지만, 안전하게 비우고 새로 시작한다).
+        prefetchedExplanations = [:]
+
+        // 첫 문제가 뜨는 순간부터 정답 해설을 미리 만들기 시작한다 — 채점을 기다리지 않는다.
+        if let first = current {
+            prefetchExplanation(for: first)
+        }
 
         // 어머니가 문제를 푸는 동안, 아직 분석하지 않은 문제를 뒤에서 채워 둔다.
         warmFocusCache()
@@ -475,7 +539,7 @@ final class QuizSession {
     private func moveToNextQuestion() {
         rawAnswer = ""
         needsAnswerHint = false
-        trueFalseVerdict = nil
+        immediateVerdict = nil
 
         // 복습 중이면 복습 안에서 다음으로. 다 풀면 결과 화면으로 간다.
         if isInReview {
@@ -487,6 +551,10 @@ final class QuizSession {
                 isInReview = false
                 uploadObservations()
                 wrapUp()
+            } else if let next = current {
+                // 복습 문항은 본 풀이에서 이미 다 만들어져 있다 — 있으면 그걸 그대로
+                // 쓰고, 없으면(안전망) 여기서 새로 시작해 둔다.
+                prefetchExplanation(for: next)
             }
             return
         }
@@ -495,6 +563,12 @@ final class QuizSession {
 
         shownAt = .now
         firstTouchAt = nil
+
+        // 다음 문제가 뜨는 순간부터 정답 해설을 미리 만들기 시작한다. 연결 문제 칸이면
+        // current 가 nil 이라 아무 일도 일어나지 않는다 — 그 다음 실제 문항 차례에서 시작된다.
+        if let next = current {
+            prefetchExplanation(for: next)
+        }
 
         if isFinished {
             // 틀린 문제가 있으면 결과 전에 복습부터. 회차에 나온 순서 그대로 다시 묻는다.
@@ -626,29 +700,55 @@ final class QuizSession {
         needsAnswerHint = true
     }
 
+    // MARK: - 정답 해설 미리 만들기
+
+    /// 문제가 뜨는 즉시 정답 해설(`.full`)을 뒤에서 만들기 시작한다.
+    ///
+    /// 이미 만들고 있거나 다 만들었으면 아무 일도 하지 않는다 — 한 문항에 두 번
+    /// 시키지 않는다. 연결 문제 칸(``QuizItem`` 이 없는 자리)에서는 부르지 않는다.
+    private func prefetchExplanation(for item: QuizItem) {
+        guard prefetchedExplanations[item.id] == nil else { return }
+
+        let writer = commentaryWriter
+        let question = item.question
+        prefetchedExplanations[item.id] = Task {
+            await writer.explain(question, length: .full)
+        }
+    }
+
+    /// 미리 만들어 둔 정답 해설을 기다린다.
+    ///
+    /// 정답이든 오답이든, O/X 든 선다든 — 이 문항의 "이 답이 왜 맞는지"는 모두 같은
+    /// 글이므로 같은 자리에서 가져다 쓴다. 아직 미리 시작해 두지 못했을 때만
+    /// (프리뷰·안전망) 지금 바로 시작해 기다린다.
+    private func explanation(for item: QuizItem) async -> Writing {
+        prefetchExplanation(for: item)
+        return await prefetchedExplanations[item.id]!.value
+    }
+
     /// 맞혔을 때 정답 해설 창을 띄운다.
     ///
-    /// 오답을 만났을 때 정답을 설명하던 바로 그 함수(``CommentaryWriter/explain(_:length:)``, `.full`)를
+    /// 오답을 만났을 때 정답을 설명하던 바로 그 재료(``explanation(for:)``, `.full`)를
     /// 그대로 쓴다 — "이 답이 왜 맞는지"는 이번에 맞혔든 틀렸든 같은 사실에서 나오는
-    /// 같은 문장이기 때문이다. 창을 먼저 띄우고(자리표시 문구), 글이 오면 갈아 끼우는
-    /// 흐름도 오답 해설과 같다 — 9차에서 겪은 "시트가 처음엔 안 채워진 채로 뜨는" 문제를
-    /// 여기서도 피하기 위해서다.
+    /// 같은 문장이기 때문이다. 이제는 채점 시점이 아니라 **문제가 뜬 순간부터** 이미
+    /// 만들어지고 있던 것을 기다리기만 한다.
+    ///
+    /// - Important: 최소 대기(``holdWaitingLine(shownAt:)``)를 **일부러 두지 않는다.**
+    ///   그 대기는 "자리표시 문구가 뜨자마자 바뀌어 깜빡이는" 것을 막으려던 것인데,
+    ///   ``CorrectAnswerSheet`` 는 접힌 채로 뜨고 「정답 해설 보기」를 눌러야 펼쳐지므로
+    ///   자리표시 문구 자체를 어머니가 볼 일이 없다 — 깜빡일 것이 없다. 여기서 대기를
+    ///   두면 오히려 미리 다 만들어 둔 해설(``prefetchExplanation(for:)``)이 있어도
+    ///   그 시간만큼 버튼이 계속 로딩으로 보이는, 정반대의 문제가 생긴다.
     private func presentCorrectFeedback(for item: QuizItem) async {
-        let shownAt = ContinuousClock.now
-
         correctFeedback = CorrectCommentary(
             id: item.id,
             correctAnswer: item.question.displayAnswer,
             commentary: CommentaryPlaceholder.waiting)
 
-        let written = await commentaryWriter.explain(item.question, length: .full)
+        let written = await explanation(for: item)
         saveFailures([written.failure])
 
         let text = written.text
-
-        // 글이 너무 빨리 오면 창이 뜨자마자 바뀌어 깜빡여 보인다. 오답 해설과 같은
-        // 최소 대기를 둔다.
-        await holdWaitingLine(shownAt: shownAt)
 
         // 실패해도 반드시 갱신한다 — 안 그러면 자리표시 문구가 오지 않는 것을
         // 계속 기다리며 반짝인다.
@@ -668,8 +768,8 @@ final class QuizSession {
     /// O/X 해설 창을 띄운다.
     ///
     /// 바른 문장은 **코드가** 만든다(``Question/correctedStatementParts()``) — 답이 하나로
-    /// 정해지는 일이라 모델에게 맡기지 않는다. 아래 해설만 모델(``CommentaryWriter/explain(_:length:)``, `.full`)이
-    /// 쓴다. 해설은 버튼 색을 보여 주는 박자 동안 **뒤에서 미리** 만들기 시작한다.
+    /// 정해지는 일이라 모델에게 맡기지 않는다. 아래 해설(``explanation(for:)``, `.full`)은
+    /// 이미 문제가 뜰 때부터 뒤에서 만들어지고 있던 것을 기다리기만 한다.
     private func presentTrueFalseFeedback(for item: QuizItem, answer: String, isCorrect: Bool) async {
         guard case .trueFalse(_, let candidate, let isTrue) = item.payload else { return }
 
@@ -688,7 +788,7 @@ final class QuizSession {
                 commentary: text)
         }
 
-        async let written = commentaryWriter.explain(item.question, length: .full)
+        async let written = explanation(for: item)
 
         try? await Task.sleep(for: Self.trueFalseColorBeat)
 
@@ -726,8 +826,11 @@ final class QuizSession {
             results[item.id] = mainResult
         }
 
-        // O/X 는 판정이 나오는 즉시 버튼 색으로 보여 준다.
-        if item.isTrueFalse { trueFalseVerdict = isCorrect }
+        // O/X · 2지선다는 판정이 나오는 즉시 버튼 색으로 보여 준다(13차 후속 —
+        // 2지선다도 O/X처럼 누르는 순간 채점되므로 같은 값을 쓴다). 4지선다는
+        // 다른 흐름(QuestionScreen 이 오답을 그 자리에서 소거)이라 여기 안 온다 —
+        // 오답을 눌러도 submitCurrent() 자체가 안 불린다.
+        if item.isTrueFalse || item.mode == .binaryChoice { immediateVerdict = isCorrect }
 
         applyProgress(for: item, isCorrect: isCorrect)
 
@@ -763,7 +866,7 @@ final class QuizSession {
                 commentary: CommentaryPlaceholder.waiting)
 
             // 둘을 나란히 부른다. 하나씩 기다리면 대기가 두 배가 된다.
-            async let commentary = commentaryWriter.explain(item.question, length: .full)
+            async let commentary = explanation(for: item)
             async let note = commentaryWriter.explain(chosenQuestion, length: .oneLine)
 
             let written = await commentary
@@ -835,7 +938,7 @@ final class QuizSession {
             answer,
             against: item.question.answer,
             shape: item.question.shape,
-            from: .typed) {
+            from: item.isVoice ? .voice : .typed) {
         case .correct(let basis):
             results[item.id] = GradingResult(isCorrect: true, reason: "", basis: basis.rawValue)
             return true
@@ -958,7 +1061,7 @@ final class QuizSession {
         feedback = nil
         correctFeedback = nil
         trueFalseFeedback = nil
-        trueFalseVerdict = nil
+        immediateVerdict = nil
         reviewItems = []
         reviewIndex = 0
         isShowingReviewIntro = false

@@ -251,7 +251,8 @@ struct MatchingQuestionScreen: View {
                         end: CGPoint(x: right.minX, y: right.midY)
                     )
                     .trim(from: 0, to: lineProgress[id] ?? 0)
-                    .stroke(AppColor.signature, style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
+                    // 맞힌 짝을 잇는 선은 카드 테두리와 같은 녹색(MatchBoard 참고).
+                    .stroke(AppColor.answerSheetAccent, style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
                 }
             }
         }

@@ -80,23 +80,29 @@ struct MatchCard: View {
         }
         .buttonStyle(.plain)
         .opacity(isMatched ? 0.92 : 1)
+        .animation(.easeOut(duration: 0.2), value: isMatched)
     }
 
+    // 맞힌 짝은 녹색이다 — 4지선다·O/X 에서 정답 버튼이 녹색 ✓ 로 바뀌는 것과
+    // 같은 색(AppColor.answerSheetAccent / answerSheetBadge)을 써서, "맞았다"를
+    // 앱 전체가 같은 색으로 말하게 한다. 선을 긋는 쪽(MatchingQuestionScreen)도
+    // 같은 answerSheetAccent 를 쓴다.
     private var background: Color {
         if isWrong { return .white }
-        if isSelected || isMatched { return AppColor.softBackground }
+        if isMatched { return AppColor.answerSheetBadge }
+        if isSelected { return AppColor.softBackground }
         return .white
     }
 
     private var borderColor: Color {
         if isWrong { return wrongColor }
+        if isMatched { return AppColor.answerSheetAccent }
         if isSelected { return AppColor.signature }
-        if isMatched { return AppColor.signature }
         return Color.black.opacity(0.35)
     }
 
     private var borderWidth: CGFloat {
-        isSelected ? 3 : 1.5
+        (isSelected || isMatched) ? 3 : 1.5
     }
 }
 

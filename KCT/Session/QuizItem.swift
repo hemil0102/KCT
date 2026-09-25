@@ -15,6 +15,7 @@
 //  ├─ question / mode / payload
 //  ├─ affectsProgress          격려용 슬롯이면 false — 진척에 반영하지 않는다
 //  ├─ focus                    질문이 묻는 대상 (형광펜용)
+//  ├─ isVoice                  직접입력을 **말로** 받는 칸인가 (회차의 7번째 칸, QuizSession 이 켠다)
 //  ├─ displayText              화면에 크게 보여줄 본문
 //  ├─ highlightText            본문에서 색+굵기+낫표(「 」)로 강조할 부분 (O/X 의 판단 대상)
 //  ├─ markerText               형광펜으로 칠할 부분 (묻는 대상)
@@ -71,6 +72,14 @@ struct QuizItem: Identifiable {
     /// 질문이 묻는 대상. 형광펜 강조에 쓰인다.
     let focus: QuestionFocus?
 
+    /// 직접입력(`.freeText`)을 키보드 대신 **말로** 받는가.
+    ///
+    /// 묻는 방식(``AskingMode``)은 그대로 `.typing` 이다 — 음성은 직접입력 칸의
+    /// **다른 입력 수단**이지 새 사다리 칸이 아니기 때문이다(AskingMode 의 주석 참고).
+    /// ``QuizSession`` 이 회차의 7번째 칸에만 켠다. 켜지면 ``QuestionScreen`` 은
+    /// 키보드 칸 대신 ``VoiceAnswerPanel`` 을 그리고, 채점은 ``AnswerSource/voice`` 로 한다.
+    var isVoice = false
+
     /// 화면에 크게 보여줄 본문.
     ///
     /// O/X 는 의문문 대신 진술문을 보여줘야 "맞다/아니다" 로 판단하는 흐름이 자연스럽습니다.
@@ -120,7 +129,7 @@ struct QuizItem: Identifiable {
         switch payload {
         case .choices:   "답을 골라보세요"
         case .trueFalse: "이 말이 맞을까요?"
-        case .freeText:  "답을 키보드로 입력하세요"
+        case .freeText:  isVoice ? "마이크를 누르고 답을 말씀하세요" : "답을 키보드로 입력하세요"
         }
     }
     

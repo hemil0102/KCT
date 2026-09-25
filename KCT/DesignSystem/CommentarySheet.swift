@@ -92,9 +92,14 @@ enum CommentaryMetrics {
 struct CommentarySheetTitle: View {
     let text: String
 
+    /// 제목 글자 크기. 기본은 ``CommentaryMetrics/titleSize``(21) — FeedbackSheet ·
+    /// TrueFalseSheet 는 그대로 쓴다. ``CorrectAnswerSheet``만 28로 인자를 덮어쓴다
+    /// (12차 후속) — 그 창의 정답 낱말·해설도 같이 커졌으니 제목만 작으면 비대칭으로 보인다.
+    var size: CGFloat = CommentaryMetrics.titleSize
+
     var body: some View {
         Text(text)
-            .font(.system(size: CommentaryMetrics.titleSize, weight: .bold))
+            .font(.system(size: size, weight: .bold))
             .foregroundStyle(.white.opacity(0.96))
     }
 }
@@ -106,10 +111,18 @@ struct CommentarySheetTitle: View {
 /// 배경이 **완전한 흰색**입니다. 한때 `Color.white.opacity(0.92)`로 8% 투명했는데,
 /// 뒤 보라가 비쳐 배지와 글이 흐릿해 보인다는 피드백을 받아 불투명으로 바꿨습니다.
 struct CommentaryCard<Content: View>: View {
+    /// 카드 안 줄 사이 간격. 기본은 11 — 대부분의 카드(``TrueFalseSheet``,
+    /// ``CorrectAnswerSheet``)가 그대로 쓴다.
+    ///
+    /// ``FeedbackSheet``만 오답 줄과 정답 줄 사이를 15로 살짝 더 띄운다 —
+    /// "오답과 정답 사이의 간격을 살짝 넓혀 달라"는 요청을 반영한 값이라,
+    /// 여기서 전체 기본값을 올리지 않고 그 창만 인자로 덮어쓴다.
+    var spacing: CGFloat = 11
+
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: spacing) {
             content
         }
         .padding(.horizontal, 15)
@@ -122,31 +135,64 @@ struct CommentaryCard<Content: View>: View {
     }
 }
 
-/// 이모지 + 낱말 배지 + 그 아래 설명 한 덩어리.
+/// 줄머리 아이콘 + 낱말 배지 + 그 아래 설명 한 덩어리.
 ///
-/// 이모지와 배지는 한 줄에 나란히, **설명은 그 아래 왼쪽 끝부터** 시작합니다.
+/// 아이콘과 배지는 한 줄에 나란히, **설명은 그 아래 왼쪽 끝부터** 시작합니다.
 ///
-/// 예전에는 이모지가 한 칸을 차지하고 배지와 설명이 같이 오른쪽 칸에 들어가서,
-/// 설명 글이 이모지 폭(20 + 사이 10 = 30pt)만큼 들여쓰였습니다. 설명이 서너 줄이라
+/// 예전에는 아이콘이 한 칸을 차지하고 배지와 설명이 같이 오른쪽 칸에 들어가서,
+/// 설명 글이 아이콘 폭(20 + 사이 10 = 30pt)만큼 들여쓰였습니다. 설명이 서너 줄이라
 /// 그 들여쓰기가 줄마다 쌓여 카드가 좁아 보였고, 양쪽 정렬로 오른쪽 끝을 맞춘
 /// 뒤로는 왼쪽만 들어가 있어 더 눈에 띄었습니다.
 struct CommentaryRow<Content: View>: View {
-    /// 줄머리 이모지. 맞았는지 틀렸는지는 창 색이 아니라 **이 배지**가 알려 준다.
+    /// 줄머리 아이콘. 맞았는지 틀렸는지는 창 색이 아니라 **이 배지**가 알려 준다.
+    ///
+    /// - ``markColor`` 가 `nil` 이면 이모지 글자로(`Text`) 그린다 (예: "✅").
+    /// - ``markColor`` 를 주면 SF Symbol 이름으로 보고 그 색으로 칠한 아이콘으로
+    ///   그린다(예: "xmark.app.fill") — ``CorrectAnswerSheet`` 의 체크 아이콘과
+    ///   같은 언어(12차 후속, 오답 창에도 반영).
     let mark: String
 
+    /// `nil` 이 아니면 ``mark`` 를 SF Symbol 로 그리고 이 색을 입힌다.
+    var markColor: Color? = nil
+
+    /// 아이콘 크기. 기본은 ``CommentaryMetrics/markSize``(20).
+    var markSize: CGFloat = CommentaryMetrics.markSize
+
     let word: String
-    let badgeBackground: Color
+
+    /// 낱말 배지의 배경. `nil` 이면 배지 없이 **배경 없는 굵은 글자**로 그린다
+    /// (``CorrectAnswerSheet`` 의 정답 낱말과 같은 언어, 13차 후속).
+    var badgeBackground: Color? = nil
+
     let badgeText: Color
+
+    /// 낱말 글자 크기. 기본은 ``CommentaryMetrics/noteSize``(21).
+    var wordSize: CGFloat = CommentaryMetrics.noteSize
+
+    /// 낱말 글자 굵기. 배지가 있을 때(`black`)와 배경 없이 홀로 설 때(`heavy`)가
+    /// 실기기에서 다르게 느껴져 호출부가 고를 수 있게 뒀다.
+    var wordWeight: Font.Weight = .black
 
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        // 배지 줄과 설명 사이 간격. 3 → 6 — "정답과 해설 사이의 간격을 조금
+        // 넓혀 달라"는 요청을 반영했다(11차 후속). 배지·아이콘이 한 줄에
+        // 나란한 것과, 설명이 시작되는 것이 지금보다 또렷이 갈라져 보인다.
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 10) {
-                Text(mark)
-                    .font(.system(size: CommentaryMetrics.markSize))
+                Group {
+                    if let markColor {
+                        Image(systemName: mark)
+                            .foregroundStyle(markColor)
+                    } else {
+                        Text(mark)
+                    }
+                }
+                .font(.system(size: markSize))
 
-                WordBadge(word: word, background: badgeBackground, foreground: badgeText)
+                WordBadge(word: word, background: badgeBackground, foreground: badgeText,
+                          size: wordSize, weight: wordWeight)
             }
 
             content
@@ -155,30 +201,42 @@ struct CommentaryRow<Content: View>: View {
     }
 }
 
-/// 낱말 하나를 감싸는 배지.
+/// 낱말 하나를 감싸는 배지 — 또는, 배경을 주지 않으면 **배경 없는 굵은 글자.**
 ///
 /// 낱말이 아무리 길어도(예: "고구려, 백제, 신라") **배지 폭이 늘어날 뿐 줄 구조가
 /// 안 깨집니다.** 말줄임표로 자르는 안을 채택하지 않은 이유 — 정답을 자르면
 /// 오답과 구분이 안 되는 경우가 생깁니다.
 struct WordBadge: View {
     let word: String
-    let background: Color
+
+    /// `nil` 이면 배경·여백 없이 낱말 글자만 그린다(13차 후속 — ``CorrectAnswerSheet``
+    /// 의 정답 낱말과 같은 모양을 다른 창에서도 쓸 수 있게 열었다).
+    var background: Color? = nil
+
     let foreground: Color
 
     /// 글자 크기. 기본은 해설 본문과 같은 크기다.
     var size: CGFloat = CommentaryMetrics.noteSize
 
+    /// 글자 굵기. 배지가 있을 때는 `.black`이 배경과 어울리고, 배경 없이 홀로
+    /// 설 때는 `.heavy`가 실기기에서 더 또렷했다.
+    var weight: Font.Weight = .black
+
     var body: some View {
         Text(word)
-            .font(.system(size: size, weight: .black))
+            .font(.system(size: size, weight: weight))
             .foregroundStyle(foreground)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 9)
-            .padding(.top, 1)
-            .padding(.bottom, 3)
-            .background(background,
-                        in: RoundedRectangle(cornerRadius: CommentaryMetrics.badgeCornerRadius,
-                                             style: .continuous))
+            .padding(.horizontal, background == nil ? 0 : 9)
+            .padding(.top, background == nil ? 0 : 1)
+            .padding(.bottom, background == nil ? 0 : 3)
+            .background {
+                if let background {
+                    RoundedRectangle(cornerRadius: CommentaryMetrics.badgeCornerRadius,
+                                     style: .continuous)
+                        .fill(background)
+                }
+            }
     }
 }
 
@@ -293,7 +351,8 @@ extension View {
 #Preview("카드 한 장") {
     CommentaryCard {
         CommentaryRow(
-            mark: "❌",
+            mark: "xmark.app.fill",
+            markColor: AppColor.wrongAccent,
             word: "개천절",
             badgeBackground: AppColor.wrongHeader,
             badgeText: AppColor.wrongAccent

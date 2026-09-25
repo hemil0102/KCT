@@ -9,6 +9,9 @@
 //  AnswerMatcher
 //  ├─ Outcome            correct · wrong · needsModel
 //  ├─ check(_:against:shape:from:)   판정 입구
+//  │                     말로 한 답(.voice)은 셋이 다르다 — ① 한 글자 차이를 오타로
+//  │                     끊지 않는다 ② 정답이 말 속에 통째로 있으면 맞다(containsAnswer)
+//  │                     ③ 목록이 안 맞아도 오답으로 끊지 않고 모델에게 넘긴다
 //  ├─ candidates(_:)     "/" 로 나눈 표기들 — 아무거나 맞다
 //  ├─ items(_:)          목록을 집합으로 — 순서를 안 따진다
 //  ├─ tidy(_:)           글자와 숫자만 남긴다
@@ -55,9 +58,10 @@ struct AnswerMatcher {
             let expected = items(correctAnswer)
             if items(answer) == expected { return .correct(.exactMatch) }
             // 공백 없이 붙여 썼을 수도 있다 — 항목들을 이어 붙여도 답과 같아지는지 본다.
+            // 말로 한 목록은 「신라요」처럼 끝에 말이 붙어 항목이 안 맞을 수 있다 — 모델에게 넘긴다.
             return matchesConcatenated(answer, expected: expected)
                 ? .correct(.exactMatch)
-                : .wrong(.listMismatch)
+                : (source == .voice ? .needsModel : .wrong(.listMismatch))
 
         case .openList:
             // "등" 으로 끝나는 목록. 보기 중 셋 이상만 대면 된다.
@@ -65,7 +69,7 @@ struct AnswerMatcher {
             if items(answer).intersection(expected).count >= 3 { return .correct(.exactMatch) }
             return matchesConcatenated(answer, expected: expected)
                 ? .correct(.exactMatch)
-                : .wrong(.listMismatch)
+                : (source == .voice ? .needsModel : .wrong(.listMismatch))
             
         case .word:
             break
@@ -76,8 +80,19 @@ struct AnswerMatcher {
         if candidates(correctAnswer).contains(given) { return .correct(.exactMatch) }
 
         // 길이가 같은데 한 글자만 다르면 오타다. 모델은 「고죠선」을 여섯 번 통과시켰다.
-        for expected in candidates(correctAnswer) where expected.count == given.count {
-            if zip(given, expected).filter({ $0 != $1 }).count == 1 { return .wrong(.typo) }
+        // 말로 한 답의 한 글자 차이는 오타가 아니라 인식기가 잘못 적은 것일 수 있다
+        // (AnswerSource 참고) — 그래서 오답으로 끊지 않고 아래로 흘려보낸다.
+        if source == .typed {
+            for expected in candidates(correctAnswer) where expected.count == given.count {
+                if zip(given, expected).filter({ $0 != $1 }).count == 1 { return .wrong(.typo) }
+            }
+        }
+
+        // 말로 하면 「이순신 장군이요」처럼 정답 앞뒤에 말이 붙는다. 정답(두 글자 이상)이
+        // 말 속에 통째로 들어 있으면 맞다. 한 글자 정답은 우연히 걸리기 쉬워 모델에게 둔다.
+        if source == .voice,
+           candidates(correctAnswer).contains(where: { $0.count >= 2 && given.contains($0) }) {
+            return .correct(.containsAnswer)
         }
 
         if source == .voice,

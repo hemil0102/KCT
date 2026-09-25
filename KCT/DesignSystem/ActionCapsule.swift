@@ -60,15 +60,28 @@ struct SecondaryActionButton: View {
 
     var minHeight: CGFloat = CommentaryMetrics.buttonHeight
 
+    /// 기다리는 중이면 글자 대신 도는 인디케이터를 보여준다 — 알약의 자리·크기는
+    /// 그대로 지킨다. ``CorrectAnswerSheet``의 「정답 해설 보기」가 쓴다(13차
+    /// 후속) — 눌렀을 때 시트가 바로 커지지 않고, 해설이 준비되는 동안 이
+    /// 버튼이 로딩 중임을 보여준다.
+    var isLoading: Bool = false
+
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 21, weight: .bold))
-                .foregroundStyle(AppColor.signature)
-                .frame(maxWidth: .infinity, minHeight: minHeight)
-                .background(Color.white, in: Capsule())
+            Group {
+                if isLoading {
+                    ProgressView()
+                        .tint(AppColor.signature)
+                } else {
+                    Text(title)
+                        .font(.system(size: 21, weight: .bold))
+                        .foregroundStyle(AppColor.signature)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: minHeight)
+            .background(Color.white, in: Capsule())
         }
         .buttonStyle(.plain)
     }

@@ -112,6 +112,8 @@ enum MatchBasis: String {
     case exactMatch
     /// 발음이 같다 — 음성 입력에서만
     case phoneticMatch
+    /// 말 속에 정답이 통째로 들어 있다 — 음성 입력에서만 (「이순신 장군이요」)
+    case containsAnswer
     /// 한 글자만 다르다 — 오타
     case typo
     /// 목록의 항목이 맞지 않는다

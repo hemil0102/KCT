@@ -12,15 +12,25 @@
 //  ├─ questionFont(for:screenWidth:screenHeight:)  지문 글꼴 크기 — 길면 절반 안에
 //  │                            들어오게 줄인다 (KoreanText.fittingFont(...) 위임)
 //  ├─ questionArea(for:)        지문(KoreanText) + 행동 안내 한 줄 + 입력 영역
-//  ├─ inputArea(for:)           모드에 따라 보기 · O/X · 직접입력 중 하나
-//  ├─ hintBanner                답 없이 다음을 눌렀을 때의 안내
-//  ├─ nextButton                다음 / 제출
+//  ├─ inputArea(for:)           모드에 따라 보기 · O/X · 직접입력 · 음성 입력 중 하나
+//  ├─ voiceHints(for:)          음성 입력 칸이 인식기에 미리 알려 줄 정답 표기들
+//  ├─ binaryChoiceButton(_:)    2지선다 한 칸. O/X 처럼 누르면 즉시 채점(13차 후속)
+//  ├─ multipleChoiceButton(_:correct:)  4지선다 한 칸. 오답은 소거, 정답만 채점
+//  ├─ eliminateChoice(_:)       4지선다 오답 소거 — 흔들고 흐리게
+//  ├─ shake(_:)                 흔들림 세 박자 (MatchingQuestionScreen 과 같은 박자)
+//  ├─ hintBanner                답 없이 다음을 눌렀을 때의 안내 (이제 직접입력만 해당)
+//  ├─ nextButton                직접입력 전용 "다음 / 제출"
 //  └─ showAnswerHint()          안내 표시 + 진동 (진동은 화면의 몫)
 //
 //  ── 흐름 ──────────────────────────────────────────────
-//  session.current 를 받아 그린다
-//    → 사용자가 보기 탭 → session.userAnswer 에 대입 (안내는 session 이 스스로 거둔다)
-//    → "다음" 탭
+//  session.current 를 받아 그린다. **13차 후속부터 방식마다 흐름이 다르다:**
+//    → O/X · 2지선다 : 탭하는 순간 곧장 채점·제출된다. 「다음」이 아예 없다
+//        (immediateVerdict 로 버튼이 녹색/붉은색이 되고, 곧이어 해설 창)
+//    → 4지선다 : 오답을 탭하면 그 보기만 흔들리다 흐려져 소거된다(해설 창 없음).
+//        정답을 탭한 순간에만 채점·제출된다 — 「다음」이 없다
+//    → 음성 입력(item.isVoice, 회차의 7번째 칸) : 마이크 탭 → 말한 글자가 답 칸에 찍힘
+//        → 말이 끝나면(1.5초 조용) 곧바로 제출된다 — 「다음」이 없다 (VoiceAnswerPanel)
+//    → 직접입력 : 예전 그대로 — 입력 후 "다음/제출" 탭
 //        ├─ 답이 있으면  → session.submitCurrent()
 //        └─ 답이 없으면  → session.requestAnswerHint() + 진동
 //    → 다시 읽기(스피커 아이콘) 탭 → onReadAloud() 로 위(QuizView)에 부탁한다
@@ -102,7 +112,21 @@ struct QuestionScreen: View {
     /// - Note: 답이 비어 있어 안내만 띄울 때는 **내리지 않는다.** 그때는 바로
     ///   이어서 입력해야 하므로 키보드가 남아 있는 편이 맞다.
     @FocusState private var isAnswerFieldFocused: Bool
-    
+
+    /// 4지선다에서 오답으로 확인돼 소거된 보기들. 다음 문제로 넘어가면 비운다.
+    ///
+    /// 정답을 맞힐 때까지 오답을 하나씩 지워 나가는 방식(13차 후속)이라, "이미
+    /// 지운 보기"를 이 화면이 직접 기억해야 한다 — QuizSession 은 최종 제출 하나만
+    /// 알면 되므로 이 상태를 몰라도 된다.
+    @State private var eliminatedChoices: Set<String> = []
+
+    /// 방금 오답을 눌러 붉게 표시할 보기. 흔들리는 한 박자 동안만 값이 있다가
+    /// ``eliminatedChoices`` 로 자리를 넘긴다.
+    @State private var wrongFlashChoice: String?
+
+    /// 흔들림에 쓰는 가로 오프셋. 키는 보기 글자. (``shake(_:)`` 참고)
+    @State private var choiceShakeOffsetX: [String: CGFloat] = [:]
+
     /// 회차의 상태. `TextField` 에 묶기 위해 `@Bindable` 로 받는다.
     @Bindable var session: QuizSession
 
@@ -203,8 +227,10 @@ struct QuestionScreen: View {
                     hintBanner
                 }
 
-                // O/X 는 누르는 순간 제출되므로 「다음」이 없다.
-                if !item.isTrueFalse {
+                // O/X · 2지선다는 누르는 순간 제출되고, 4지선다는 정답을 누르는
+                // 순간 제출된다(13차 후속) — 직접입력만 「다음/제출」이 필요하다.
+                // 음성 입력은 말이 끝나면 저절로 제출되므로 「다음」도 없다.
+                if case .freeText = item.payload, !item.isVoice {
                     nextButton
                 }
             }
@@ -226,6 +252,14 @@ struct QuestionScreen: View {
             // 답을 고르는 것도 "낱말이 아닌 다른 걸 하겠다"는 신호라 시트를 닫는다.
             .onChange(of: session.userAnswer) { _, _ in
                 dismissGlossaryIfNeeded()
+            }
+            // 4지선다의 소거 상태는 이 화면(QuestionScreen)이 직접 들고 있어서
+            // (QuizSession 은 최종 제출만 안다) 문제가 바뀔 때 직접 비워야 한다 —
+            // 안 비우면 다음 문제의 보기가 이미 흐려진 채로 나온다.
+            .onChange(of: item.id) { _, _ in
+                eliminatedChoices = []
+                wrongFlashChoice = nil
+                choiceShakeOffsetX = [:]
             }
             // 해설 창이 떠 있는 동안은 뒤 화면을 아예 못 누르게 막는다.
             //
@@ -443,14 +477,21 @@ struct QuestionScreen: View {
     }
 
     /// 묻는 방식에 따라 입력 수단을 고른다.
+    ///
+    /// 2지선다·4지선다는 같은 ``ModePayload/choices(options:correct:)`` 재료를
+    /// 쓰지만(``AskingMode/binaryChoice``·``AskingMode/multipleChoice``), 13차
+    /// 후속부터 **보기가 몇 개인지가 아니라 방식(item.mode)이 상호작용을 가른다** —
+    /// 2지선다는 O/X 와 같은 즉시 채점, 4지선다는 소거형이다.
     @ViewBuilder
     private func inputArea(for item: QuizItem) -> some View {
         switch item.payload {
-        case .choices(let options, _):
+        case .choices(let options, let correct):
             VStack(spacing: 16) {
                 ForEach(options, id: \.self) { option in
-                    ChoiceButton(label: option, isSelected: session.userAnswer == option) {
-                        session.userAnswer = option
+                    if item.mode == .binaryChoice {
+                        binaryChoiceButton(option)
+                    } else {
+                        multipleChoiceButton(option, correct: correct)
                     }
                 }
             }
@@ -463,14 +504,36 @@ struct QuestionScreen: View {
             }
 
         case .freeText:
-            freeTextField
+            if item.isVoice {
+                // 키보드 대신 마이크. 말한 글자가 답 칸에 찍히고, 말이 끝나면 곧바로 제출된다.
+                // .id(item.id) — 문제가 바뀌면 듣기 부품(SpeechListener)을 새로 만든다.
+                VoiceAnswerPanel(
+                    answer: session.userAnswer,
+                    hints: voiceHints(for: item),
+                    isLocked: session.isGrading || session.isShowingCommentary,
+                    onTranscript: { session.userAnswer = $0 },
+                    onFinished: { _ in submitAnswer() }
+                )
+                .id(item.id)
+            } else {
+                freeTextField
+            }
         }
+    }
+
+    /// 인식기에 미리 알려 줄 정답 표기들. 「삼일절/3.1절」「고구려, 백제, 신라」처럼
+    /// 빗금·쉼표로 나뉜 것을 낱낱으로 쪼갠다.
+    private func voiceHints(for item: QuizItem) -> [String] {
+        item.question.answer
+            .split { $0 == "/" || $0 == "," }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
 
     /// O/X 버튼. **누르는 순간 제출된다** — 「다음」이 없다.
     ///
     /// 판정이 나오면 누른 버튼이 녹색 ✓(맞음) 또는 붉은색 ✕(틀림)로 바뀌고, 곧이어
-    /// 해설 창이 올라온다(``QuizSession/trueFalseVerdict``). 한 번 누르면 다시 고를 수
+    /// 해설 창이 올라온다(``QuizSession/immediateVerdict``). 한 번 누르면 다시 고를 수
     /// 없다 — 이미 채점이 끝났기 때문이다.
     private func trueFalseButton(_ label: String) -> some View {
         let isSelected = session.userAnswer == label
@@ -478,12 +541,101 @@ struct QuestionScreen: View {
         return ChoiceButton(
             label: label,
             isSelected: isSelected,
-            verdict: isSelected ? session.trueFalseVerdict : nil
+            verdict: isSelected ? session.immediateVerdict : nil
         ) {
             // 이미 하나를 눌렀으면(채점 중이거나 끝났으면) 더 받지 않는다.
             guard !session.hasAnswer else { return }
             session.userAnswer = label
             submitAnswer()
+        }
+    }
+
+    /// 2지선다 버튼. O/X 와 **똑같이 누르는 순간 채점되고 해설 창이 뜬다**(13차
+    /// 후속 — 예전엔 다른 선다형처럼 「다음」을 눌러야 채점됐다).
+    ///
+    /// 판정이 나오면 누른 버튼이 녹색 ✓ / 붉은색 ✕ 로 바뀐다(``QuizSession/immediateVerdict``).
+    /// 한 번 누르면 다시 고를 수 없다.
+    private func binaryChoiceButton(_ option: String) -> some View {
+        let isSelected = session.userAnswer == option
+
+        return ChoiceButton(
+            label: option,
+            isSelected: isSelected,
+            verdict: isSelected ? session.immediateVerdict : nil
+        ) {
+            guard !session.hasAnswer else { return }
+            session.userAnswer = option
+            submitAnswer()
+        }
+    }
+
+    /// 4지선다 버튼. **오답을 눌러도 해설 창이 뜨지 않는다** — 그 자리에서 붉게
+    /// 흔들린 뒤 흐려지며 소거되어 다시 고를 수 없다. 정답을 고르는 순간에만
+    /// 채점·제출되어, O/X·2지선다와 같은 흐름(정답 해설 모달)으로 이어진다(13차 후속).
+    ///
+    /// 오답마다 모달을 띄우지 않는 이유 — 이 앱은 "틀린 문장을 다시 보여주면
+    /// 오히려 참으로 기억될 수 있다"(Skurnik 외 2005, 11차 4-30)는 원칙을 지켜
+    /// 왔다. 후보가 넷인 4지선다에서 오답마다 해설을 띄우면 그 원칙과 부딪힌다 —
+    /// 그래서 오답은 설명 없이 조용히 지우고, 끝내 찾아낸 정답의 해설 하나만 보여준다.
+    ///
+    /// - Note: 이 소거는 ``QuizSession`` 을 거치지 않는다. 오답을 눌러도
+    ///   ``submitAnswer()`` 를 부르지 않으므로 채점·진척(사다리)에 전혀 반영되지
+    ///   않는다 — 이 문항이 실제로 채점되는 순간은 항상 정답을 고른 순간이라,
+    ///   4지선다는 결과적으로 항상 "정답"으로만 채점된다.
+    private func multipleChoiceButton(_ option: String, correct: String) -> some View {
+        let isEliminated = eliminatedChoices.contains(option)
+        // 4지선다는 정답을 고른 순간에만 제출되므로, 골라진 보기는 곧 정답이다.
+        // 예전엔 isSelected 를 늘 false 로 넘겨서 정답을 골라도 녹색이 안 됐다.
+        let isPicked = session.userAnswer == option
+
+        return ChoiceButton(
+            label: option,
+            isSelected: isPicked,
+            verdict: isPicked ? true : nil,
+            isWrongFlash: wrongFlashChoice == option,
+            isEliminated: isEliminated
+        ) {
+            guard !session.hasAnswer, !isEliminated else { return }
+
+            if option == correct {
+                session.userAnswer = option
+                submitAnswer()
+            } else {
+                eliminateChoice(option)
+            }
+        }
+        .offset(x: choiceShakeOffsetX[option] ?? 0)
+    }
+
+    /// 4지선다에서 오답 보기 하나를 흔들고(``shake(_:)``) 소거 상태로 넘긴다.
+    private func eliminateChoice(_ option: String) {
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        wrongFlashChoice = option
+        shake { choiceShakeOffsetX[option] = $0 }
+        let itemID = session.current?.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+            // 그 사이 다른 오답을 눌렀으면 그 붉은 표시를 지우지 않는다.
+            if wrongFlashChoice == option { wrongFlashChoice = nil }
+            // 그 사이 다음 문제로 넘어갔으면 새 문제의 보기를 지우지 않는다.
+            guard session.current?.id == itemID else { return }
+            withAnimation(.easeOut(duration: 0.25)) {
+                eliminatedChoices.insert(option)
+            }
+        }
+    }
+
+    /// 흔들림 세 박자. ``MatchingQuestionScreen``의 같은 이름 함수와 같은 박자다
+    /// (CSS 의 `25% -6px · 75% +6px` 을 그대로 옮긴 것) — 두 화면이 서로를 몰라도
+    /// 되게 각자 두되, 흔들림의 "느낌"만은 앱 전체에서 하나로 맞춘다.
+    ///
+    /// - Parameter apply: 오프셋 값을 받아 제 자리에 넣어 주는 클로저.
+    private func shake(_ apply: @escaping (CGFloat) -> Void) {
+        withAnimation(.easeInOut(duration: 0.08)) { apply(-6) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            withAnimation(.easeInOut(duration: 0.16)) { apply(6) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            withAnimation(.easeInOut(duration: 0.08)) { apply(0) }
         }
     }
 
