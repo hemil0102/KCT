@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>탐정 호랑이 스토리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+:root{
+  --ink:#2b1a10;
+  --ink-soft:#5b4636;
+  --tiger:#e69650;
+  --paper:#fffaf1;
+  --line:#3d2314;
+  --teal:#1b6b8a;
+  --teal-soft:#dff0f2;
+  --gold:#d19a1e;
+  --gold-soft:#fff0cd;
+  --moss:#2e3b33;
+  --capH:220px;
+  --freeH:600px;
+  --font-display:'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --font-body:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:#dff1f7;color:var(--ink);font-family:var(--font-body);overflow-x:hidden}
+button{font-family:inherit}
+
+/* ---------- 장(chapter)과 고정 무대 ---------- */
+.chapter{position:relative}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
+.bg{position:absolute;inset:0}
+.scene{position:absolute;left:0;right:0;top:0;bottom:var(--capH)}
+.prop{position:absolute;opacity:0;transform:translateY(24px) scale(.92);transition:opacity .7s ease,transform .8s cubic-bezier(.2,.9,.3,1.2);pointer-events:none}
+.prop.on{opacity:1;transform:none}
+
+/* 장별 배경 */
+.bg-intro{background:linear-gradient(#cfe9f5 0%,#eaf6f2 55%,#fdeed4 100%)}
+.bg-myth{background:linear-gradient(#182123 0%,#2b3a34 60%,#3b4a3b 100%)}
+.bg-king{background:linear-gradient(#ffd9a0 0%,#ffe9c4 55%,#fff3dc 100%)}
+.bg-compare{background:linear-gradient(#fff4df,#fffaf1)}
+.bg svg{position:absolute;inset:0;width:100%;height:100%}
+
+/* ---------- 호랑이 배우: 한 장짜리 그림을 WebGL 메시로 휘게 해서 움직인다(조각 이음새 없음) ---------- */
+#actor{position:fixed;left:0;bottom:0;z-index:5;pointer-events:none;
+  transform-origin:50% 100%;transition:transform 1s cubic-bezier(.25,.8,.25,1),width 1s cubic-bezier(.25,.8,.25,1)}
+.tframe{position:relative;width:100%;aspect-ratio:388/496}
+.tframe canvas,.tframe svg,.tframe img{position:absolute;left:-10.309%;top:-8.065%;width:120.619%;height:116.129%;display:block}
+.tframe img{left:0;top:0;width:100%;height:100%}
+#tigerArmImg{display:none!important}
+.tframe img[hidden]{display:none}
+.tframe img.fallback{transform-origin:50% 100%;animation:breathe 2.6s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.015)}}
+#actor.happy .jump{animation:hop .62s ease-out 3}
+@keyframes hop{0%{transform:translateY(0) scale(1,1)}20%{transform:translateY(0) scale(1.06,.92)}55%{transform:translateY(-8%) scale(.97,1.04)}100%{transform:translateY(0) scale(1,1)}}
+/* 다른 캐릭터 눈 깜빡임 */
+.cblink{transform-box:fill-box;transform-origin:50% 55%;animation:cblink 5.2s infinite}
+.prop:nth-child(2n) .cblink{animation-delay:-2.1s}
+@keyframes cblink{0%,93%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
+
+/* ---------- 그림 소품 ---------- */
+.float{animation:floaty 3.2s ease-in-out infinite}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.sway{animation:sway 3s ease-in-out infinite alternate;transform-origin:50% 100%}
+@keyframes sway{from{transform:rotate(-2deg)}to{transform:rotate(2deg)}}
+.spark{transform-box:fill-box;transform-origin:center;animation:twinkle 1.4s ease-in-out infinite}
+@keyframes twinkle{0%,100%{transform:scale(.6) rotate(0);opacity:.5}50%{transform:scale(1.15) rotate(30deg);opacity:1}}
+.chew{transform-box:fill-box;transform-origin:50% 100%;animation:chew .5s ease-in-out infinite alternate}
+@keyframes chew{from{transform:scaleY(1)}to{transform:scaleY(.93)}}
+.wave-flag{transform-box:fill-box;transform-origin:0 50%;animation:flag 1.6s ease-in-out infinite alternate}
+@keyframes flag{from{transform:skewY(-4deg) scaleX(.97)}to{transform:skewY(4deg) scaleX(1.03)}}
+.drop-in{animation:dropin 1.6s ease-in infinite}
+@keyframes dropin{0%{transform:translateY(-70px);opacity:0}30%{opacity:1}70%{transform:translateY(0);opacity:1}100%{transform:translateY(0);opacity:1}}
+
+.pill{position:absolute;padding:.5em 1.1em;border-radius:999px;background:#fff;border:3px solid var(--line);
+  font-family:var(--font-display);font-size:clamp(20px,5.2vw,32px);color:var(--ink);box-shadow:0 4px 0 rgba(61,35,20,.25)}
+.pill.t{background:var(--teal-soft);border-color:var(--teal)}
+.pill.g{background:var(--gold-soft);border-color:var(--gold)}
+.tag{position:absolute;left:50%;transform:translateX(-50%) translateY(16px);padding:.45em 1em;border-radius:14px;border:3px solid var(--line);
+  font-family:var(--font-display);font-size:clamp(18px,4.8vw,30px);white-space:nowrap;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.prop.on.tag{transform:translateX(-50%)}
+.tag.t{background:var(--teal-soft);border-color:var(--teal);color:#0f4a61}
+.tag.g{background:var(--gold-soft);border-color:var(--gold);color:#6b4a00}
+
+/* ---------- 고정 UI ---------- */
+.hud{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;pointer-events:none}
+.pills{display:flex;gap:6px;pointer-events:auto}
+.pills i{width:34px;height:8px;border-radius:99px;background:rgba(43,26,16,.22);transition:background .3s,width .3s}
+.pills i.done{background:rgba(43,26,16,.55)}
+.pills i.cur{background:var(--teal);width:52px}
+.soundbtn{pointer-events:auto;min-height:48px;padding:0 18px;border-radius:999px;border:3px solid var(--teal);background:#fff;color:var(--teal);
+  font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;cursor:pointer}
+.soundbtn[aria-pressed="true"]{background:var(--teal);color:#fff}
+.soundbtn svg{width:22px;height:22px}
+
+#ui{position:fixed;left:0;right:0;bottom:0;z-index:10;pointer-events:none;padding:0 12px calc(12px + env(safe-area-inset-bottom));display:flex;justify-content:center}
+#caption{pointer-events:auto;width:min(760px,100%);background:var(--paper);border:3px solid var(--line);border-radius:26px;
+  box-shadow:0 8px 0 rgba(61,35,20,.28);padding:16px 18px 14px}
+#capText{margin:0 0 12px;font-size:clamp(22px,5.6vw,32px);line-height:1.5;font-weight:500;min-height:3em;word-break:keep-all;transition:opacity .25s}
+#capText b{color:var(--teal);font-weight:700}
+#capText.fade{opacity:0}
+#capText small{display:block;font-size:.72em;color:var(--ink-soft);margin-top:.2em}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.btn{min-height:56px;padding:0 22px;border-radius:16px;border:3px solid var(--line);font-size:clamp(19px,4.6vw,24px);font-weight:700;cursor:pointer;
+  background:#fff;color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 0 rgba(61,35,20,.3)}
+.btn{white-space:nowrap}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(61,35,20,.3)}
+.btn.primary{background:var(--teal);border-color:#0f4a61;color:#fff}
+.btn:focus-visible,.soundbtn:focus-visible,.opt:focus-visible{outline:4px solid #f0b429;outline-offset:3px}
+#nextBtn{visibility:hidden;opacity:0;transform:translateY(8px);transition:opacity .4s,transform .4s}
+#nextBtn.show{visibility:visible;opacity:1;transform:none;animation:nudge 1.4s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}
+.hint{font-size:clamp(16px,4vw,19px);color:var(--ink-soft);display:none;align-items:center;gap:6px}
+.hint.show{display:flex}
+.hint svg{width:22px;height:22px;animation:bob 1.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+
+/* 카드와 퀴즈 패널 */
+#panel{position:fixed;left:0;right:0;top:72px;bottom:calc(var(--capH) + var(--tigerH,120px) + 6px);z-index:9;display:flex;justify-content:center;align-items:center;
+  padding:0 14px;pointer-events:none;opacity:0;transform:translateY(16px);transition:opacity .5s,transform .5s}
+#panel.on{opacity:1;transform:none}
+#panel .inner{width:min(760px,100%);display:grid;gap:14px;pointer-events:none}
+#panel.on .inner{pointer-events:auto}
+.cards{grid-template-columns:1fr 1fr}
+.card,.opt{position:relative;border-radius:22px;border:4px solid;text-align:center;cursor:pointer;background:#fff;color:var(--ink);font-family:inherit}
+.card{padding:14px 10px 16px;transition:transform .2s}
+.card:active{transform:scale(.98)}
+.card.t,.opt.t{border-color:var(--teal);background:var(--teal-soft)}
+.card.g,.opt.g{border-color:var(--gold);background:var(--gold-soft)}
+.card .ic{height:clamp(56px,14vh,96px);display:flex;align-items:center;justify-content:center}
+.card h3{margin:6px 0 4px;font-family:var(--font-display);font-weight:400;font-size:clamp(24px,6vw,36px)}
+.card p{margin:0;font-size:clamp(17px,4.4vw,24px);line-height:1.4;word-break:keep-all}
+.card.hl{animation:pulse .9s ease-in-out 2}
+@keyframes pulse{50%{transform:scale(1.05)}}
+.quiz{grid-template-columns:1fr 1fr}
+.quiz .q{grid-column:1/-1;text-align:center;font-family:var(--font-display);font-size:clamp(24px,6.4vw,38px);line-height:1.35;word-break:keep-all;
+  background:#fff;border:3px solid var(--line);border-radius:20px;padding:12px 14px;box-shadow:0 4px 0 rgba(61,35,20,.25)}
+.opt{min-height:clamp(84px,15vh,130px);font-family:var(--font-display);font-size:clamp(24px,6.4vw,38px);padding:8px}
+.opt.dim{opacity:.4;filter:grayscale(.6)}
+.opt.right{animation:pulse .8s ease-in-out infinite;box-shadow:0 0 0 6px rgba(27,107,138,.25)}
+.opt.g.right{box-shadow:0 0 0 6px rgba(209,154,30,.35)}
+.qstep{grid-column:1/-1;text-align:center;font-size:18px;color:var(--ink-soft)}
+
+.confetti{position:fixed;top:-20px;width:12px;height:16px;z-index:15;pointer-events:none;border-radius:3px;animation:fall 2.2s ease-in forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg);opacity:.9}}
+.toast{position:fixed;left:50%;top:76px;transform:translateX(-50%) translateY(-10px);z-index:30;background:#2b1a10;color:#fff;padding:12px 18px;border-radius:14px;
+  font-size:17px;max-width:min(92vw,520px);text-align:center;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%)}
+@media (max-width:420px){.cards,.quiz{gap:10px}.card p{font-size:16px}}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+</style>
+</head>
+<body>
+
+<!-- 상단: 진행 표시와 소리 버튼 -->
+<div class="hud">
+  <div class="pills" id="pills" aria-label="진행 상황"></div>
+  <button class="soundbtn" id="soundBtn" aria-pressed="false" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path id="wave1" d="M16.5 8.5a5 5 0 010 7"/><path id="wave2" d="M19 6a8.5 8.5 0 010 12"/></svg>
+    <span id="soundLabel">소리 켜기</span>
+  </button>
+</div>
+
+<main id="story">
+  <!-- ===================== 0장: 인사 ===================== -->
+  <section class="chapter" data-id="intro" data-beats="2">
+    <div class="stage">
+      <div class="bg bg-intro">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <circle cx="82" cy="18" r="9" fill="#ffe08a"/>
+          <g fill="#fff" opacity=".9"><ellipse cx="20" cy="22" rx="10" ry="4"/><ellipse cx="27" cy="19" rx="7" ry="4"/><ellipse cx="60" cy="34" rx="9" ry="3.5"/><ellipse cx="66" cy="31" rx="6" ry="3.5"/></g>
+          <path d="M0 78 Q25 62 50 76 T100 70 V100 H0Z" fill="#bfe0a8"/>
+          <path d="M0 88 Q30 74 60 86 T100 82 V100 H0Z" fill="#a6d18e"/>
+        </svg>
+      </div>
+      <div class="scene">
+        <div class="pill t prop" data-b="1" style="left:6%;top:18%"><span class="float" style="display:inline-block">단군 신화 ?</span></div>
+        <div class="pill g prop" data-b="1" style="right:6%;top:32%"><span class="float" style="display:inline-block;animation-delay:-1.4s">단군왕검 ?</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 1장: 단군 신화 ===================== -->
+  <section class="chapter" data-id="myth" data-beats="3">
+    <div class="stage">
+      <div class="bg bg-myth">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <g fill="#f6e9b4"><circle cx="12" cy="10" r=".6"/><circle cx="30" cy="20" r=".5"/><circle cx="55" cy="8" r=".7"/><circle cx="78" cy="16" r=".5"/><circle cx="90" cy="6" r=".6"/><circle cx="68" cy="26" r=".4"/></g>
+          <circle cx="84" cy="14" r="6" fill="#f6e9b4"/><circle cx="87" cy="12.5" r="5.4" fill="#182123"/>
+          <path d="M-5 100 V62 Q10 40 34 44 Q52 30 72 46 Q96 44 105 64 V100Z" fill="#4b3a2b"/>
+          <path d="M14 100 V70 Q14 52 44 50 Q80 50 84 72 V100Z" fill="#2a2018"/>
+          <path d="M-5 100 V90 Q40 84 105 92 V100Z" fill="#5a4634"/>
+        </svg>
+      </div>
+      <div class="scene">
+        <!-- 곰 -->
+        <div class="prop" data-b="0 1" style="right:6%;bottom:3%;width:min(52vw,calc(var(--freeH)*.5*.9));">
+          <div class="sway chew">__BEAR__</div>
+        </div>
+        <!-- 쑥 -->
+        <div class="prop" data-b="1" style="left:8%;top:calc(64px + 16%);width:min(16vw,80px)"><div class="drop-in">__MUGWORT__</div></div>
+        <!-- 마늘 -->
+        <div class="prop" data-b="1" style="left:30%;top:calc(64px + 12%);width:min(13vw,66px)"><div class="drop-in" style="animation-delay:.5s">__GARLIC__</div></div>
+        <!-- 웅녀 -->
+        <div class="prop" data-b="2" style="right:6%;bottom:3%;width:min(46vw,calc(var(--freeH)*.5*.62));"><div class="sway">__WOMAN__</div></div>
+        <svg class="prop" data-b="2" viewBox="0 0 100 100" style="right:2%;bottom:14%;width:min(58vw,330px);height:auto" aria-hidden="true">
+          <g fill="#ffe08a"><path class="spark" d="M20 20l3 8 8 3-8 3-3 8-3-8-8-3 8-3z"/><path class="spark" style="animation-delay:.4s" d="M80 14l2.4 6 6 2.4-6 2.4-2.4 6-2.4-6-6-2.4 6-2.4z"/><path class="spark" style="animation-delay:.8s" d="M86 62l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path class="spark" style="animation-delay:1.1s" d="M8 62l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></g>
+        </svg>
+        <div class="tag t prop" data-b="2" style="top:calc(64px + 1%)">단군 신화 = 옛날이야기</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 2장: 단군왕검 ===================== -->
+  <section class="chapter" data-id="king" data-beats="4">
+    <div class="stage">
+      <div class="bg bg-king">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <circle cx="72" cy="58" r="20" fill="#ffc46b" opacity=".65"/><circle cx="72" cy="58" r="13" fill="#ffb347"/>
+          <path d="M0 76 Q30 62 55 74 T100 68 V100 H0Z" fill="#e8c98a"/>
+          <path d="M0 88 Q34 76 64 86 T100 82 V100 H0Z" fill="#d6b06a"/>
+        </svg>
+      </div>
+      <div class="scene">
+        <!-- 웅녀와 아기 -->
+        <div class="prop" data-b="0" style="left:34%;bottom:3%;width:min(38vw,calc(var(--freeH)*.5*.5))"><div class="sway">__WOMAN__</div></div>
+        <div class="prop" data-b="0" style="left:min(58%,calc(34% + 200px));bottom:3%;width:min(18vw,90px)"><div class="float">__BABY__</div></div>
+        <!-- 임금 -->
+        <div class="prop" data-b="1 2 3" style="left:40%;bottom:3%;width:min(40vw,calc(var(--freeH)*.5*.62))"><div class="sway">__KING__</div></div>
+        <!-- 깃발 -->
+        <div class="prop" data-b="2 3" style="right:1%;bottom:3%;width:min(26vw,150px)">__BANNER__</div>
+        <!-- 王 배지 -->
+        <div class="prop" data-b="3" style="right:7%;top:calc(64px + 16%);width:min(22vw,96px)">__WANG__</div>
+        <div class="tag g prop" data-b="2 3" style="top:calc(64px + 1%)">단군왕검 = 나라를 세운 임금</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 3장: 나란히 보기와 퀴즈 ===================== -->
+  <section class="chapter" data-id="compare" data-beats="2">
+    <div class="stage">
+      <div class="bg bg-compare"></div>
+      <div class="scene"></div>
+    </div>
+  </section>
+</main>
+
+<!-- 호랑이(맨 위에 떠 있는 배우): 레이어 4개를 각각 움직인다 -->
+<div id="actor" aria-hidden="true"><div class="jump"><div class="tframe">
+  <canvas id="tigerCanvas"></canvas>
+  <img id="tigerImg" src="__TIGER__" alt="" hidden><img id="tigerArmImg" src="__TIGERARM__" alt="" hidden>
+  <svg id="tigerFx" viewBox="-40 -40 468 576" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="feather" x="-10%" y="-20%" width="120%" height="140%"><feGaussianBlur stdDeviation="1.1"/></filter>
+      <mask id="eyeL" maskUnits="userSpaceOnUse" x="90" y="140" width="110" height="70"><path d="M111 170 Q111 165 117 165 L173 165 Q178.5 165 178.5 170.5 Q177 188 158 194.5 Q144 197.5 130 194.5 Q112 188 111 170Z" fill="#fff" filter="url(#feather)"/></mask>
+      <mask id="eyeR" maskUnits="userSpaceOnUse" x="180" y="140" width="110" height="70"><path d="M199 169 Q199 164 205 164 L260 164 Q265.5 164 265.5 169.5 Q264 188 246 194.5 Q232 197.5 218 194.5 Q200 188 199 169Z" fill="#fff" filter="url(#feather)"/></mask>
+      <clipPath id="lens"><circle cx="52" cy="310" r="27"/></clipPath>
+      <clipPath id="mouthClip"><path id="mouthShapeClip" d=""/></clipPath>
+    </defs>
+    <g id="fxBody"><g id="fxHead">
+      <g mask="url(#eyeL)"><g id="lidL"><rect x="105" y="130" width="78" height="34" fill="#e69652"/><path class="lidline" d="M113 158 Q144 165 176 157" fill="none" stroke="#2b140b" stroke-width="4.2" stroke-linecap="round"/></g></g>
+      <g mask="url(#eyeR)"><g id="lidR"><rect x="194" y="129" width="77" height="34" fill="#e69652"/><path class="lidline" d="M201 157 Q232 165 264 156" fill="none" stroke="#2b140b" stroke-width="4.2" stroke-linecap="round"/></g></g>
+      <g id="happyCover" style="opacity:0" fill="#e69652" filter="url(#feather)"><ellipse cx="119" cy="191" rx="9" ry="7.5"/><ellipse cx="255.5" cy="191" rx="8" ry="7.5"/></g>
+      <g id="happyEyes" style="opacity:0" fill="none" stroke="#2b140b" stroke-width="4.8" stroke-linecap="round"><path d="M121 186 Q144.5 170 168 186"/><path d="M209 186 Q232 170 255 186"/></g>
+      <g id="mouth" style="display:none">
+        <rect x="168" y="237.5" width="54" height="30" rx="11" fill="#fae7d1"/>
+        <path id="mouthShape" d="" fill="#4a1d14"/>
+        <g clip-path="url(#mouthClip)"><ellipse id="tongue" cx="196" cy="262" rx="15" ry="7" fill="#e8757a"/></g>
+        <path id="mouthLine" d="" fill="none" stroke="#2b140b" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+      </g>
+    </g></g>
+    <g id="fxArm"><g clip-path="url(#lens)"><rect id="glint" x="-10" y="270" width="16" height="84" fill="#fff" opacity=".75" transform="skewX(-18)"/></g></g>
+  </svg>
+</div></div></div>
+
+<!-- 아래쪽 고정 UI: 자막·다시듣기·다음 장 버튼 -->
+<div id="panel" aria-live="polite"><div class="inner" id="panelInner"></div></div>
+<div id="ui">
+  <div id="caption">
+    <p id="capText"></p>
+    <div class="row">
+      <button class="btn" id="replayBtn" type="button">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 010 7"/></svg>
+        다시 듣기
+      </button>
+      <span class="hint" id="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6"/></svg>화면을 아래로 밀어 보세요</span>
+      <button class="btn primary" id="nextBtn" type="button">다음 장 ▶</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* =====================================================================
+   설정: 앱·Supabase 연결 지점
+   - supabaseUrl / supabaseAnonKey 를 채우면 아래 이벤트가 Supabase 테이블로 저장된다.
+     create table story_events (
+       id bigint generated always as identity primary key,
+       session_id text, story_id text, chapter text, beat int,
+       event text, payload jsonb, created_at timestamptz default now());
+   - iOS 앱의 WKWebView 로 열면 window.webkit.messageHandlers.kct 로 결과를 앱에 넘긴다.
+   ===================================================================== */
+const CONFIG = { storyId:'dangun_v0', supabaseUrl:'', supabaseAnonKey:'', table:'story_events' };
+
+/* ---------- 이야기 대본: 자막(cap)과 읽어 줄 말(say), 호랑이 위치/동작 ---------- */
+const STORY = {
+ "intro": [
+  {
+   "id": "intro_0",
+   "cap": "어흥! 저는 <b>탐정 호랑이</b>예요. 오늘도 사건 해결하러 왔지요.",
+   "say": "어흥! 저는 탐정 호랑이예요. 오늘도 사건 해결하러 왔지요.",
+   "tiger": {
+    "x": 50,
+    "b": 0.03,
+    "s": 1.05,
+    "pose": "wave"
+   },
+   "hint": true
+  },
+  {
+   "id": "intro_1",
+   "cap": "오늘의 사건은 <b>단군 신화</b>와 <b>단군왕검</b>! 이름이 비슷해서 다들 헷갈린대요.",
+   "say": "오늘의 사건은 단군 신화와 단군왕검! 이름이 비슷해서 다들 헷갈린대요.",
+   "tiger": {
+    "x": 50,
+    "b": 0.03,
+    "s": 0.92,
+    "pose": "think"
+   }
+  }
+ ],
+ "myth": [
+  {
+   "id": "myth_0",
+   "cap": "아주 먼 옛날, 곰 한 마리가 <b>사람이 되고 싶었어요.</b>",
+   "say": "아주 먼 옛날, 곰 한 마리가 사람이 되고 싶었어요.",
+   "tiger": {
+    "x": 22,
+    "b": 0.02,
+    "s": 0.6,
+    "pose": "idle"
+   }
+  },
+  {
+   "id": "myth_1",
+   "cap": "곰은 동굴에서 <b>쑥과 마늘</b>만 먹으며 백 일을 참았어요.<small>같이 들어간 제 조상님 호랑이는… 못 참고 뛰쳐나왔대요. 흠흠.</small>",
+   "say": "곰은 동굴에서 쑥과 마늘만 먹으며 백 일을 참았어요. 같이 들어간 제 조상님 호랑이는, 못 참고 뛰쳐나왔대요. 흠흠.",
+   "tiger": {
+    "x": 22,
+    "b": 0.02,
+    "s": 0.6,
+    "pose": "oops"
+   }
+  },
+  {
+   "id": "myth_2",
+   "cap": "곰은 끝까지 참아서 사람이 되었어요. 이 <b>옛날이야기</b>가 바로 <b>단군 신화</b>예요.",
+   "say": "곰은 끝까지 참아서 사람이 되었어요. 이 옛날이야기가 바로 단군 신화예요.",
+   "tiger": {
+    "x": 22,
+    "b": 0.02,
+    "s": 0.6,
+    "pose": "think"
+   }
+  }
+ ],
+ "king": [
+  {
+   "id": "king_0",
+   "cap": "사람이 된 <b>웅녀</b>는 <b>아들</b>을 낳았어요.",
+   "say": "사람이 된 웅녀는 아들을 낳았어요.",
+   "tiger": {
+    "x": 17,
+    "b": 0.02,
+    "s": 0.55,
+    "pose": "idle"
+   }
+  },
+  {
+   "id": "king_1",
+   "cap": "그 아들이 자라서 <b>임금</b>이 되었어요.",
+   "say": "그 아들이 자라서 임금이 되었어요.",
+   "tiger": {
+    "x": 17,
+    "b": 0.02,
+    "s": 0.55,
+    "pose": "idle"
+   }
+  },
+  {
+   "id": "king_2",
+   "cap": "나라를 세운 이 <b>임금</b>의 이름이 <b>단군왕검</b>이에요. 나라 이름은 <b>고조선</b>!",
+   "say": "나라를 세운 이 임금의 이름이 단군왕검이에요. 나라 이름은 고조선!",
+   "tiger": {
+    "x": 17,
+    "b": 0.02,
+    "s": 0.55,
+    "pose": "think"
+   }
+  },
+  {
+   "id": "king_3",
+   "cap": "단서 발견! 왕검에는 임금 <b>‘왕’</b>이 들어 있어요. 그래서 <b>왕검은 임금</b>이에요.",
+   "say": "단서 발견! 왕검에는 임금 왕이 들어 있어요. 그래서 왕검은 임금이에요.",
+   "tiger": {
+    "x": 17,
+    "b": 0.02,
+    "s": 0.55,
+    "pose": "happy"
+   }
+  }
+ ],
+ "compare": [
+  {
+   "id": "compare_0",
+   "cap": "사건 정리! <b>신화는 이야기</b>, <b>왕검은 임금</b>이에요.<small>카드를 눌러 보세요.</small>",
+   "say": "사건 정리! 신화는 이야기, 왕검은 임금이에요.",
+   "tiger": {
+    "x": 17,
+    "b": 0.02,
+    "s": 0.42,
+    "pose": "think"
+   },
+   "panel": "cards"
+  },
+  {
+   "id": "compare_1",
+   "cap": "자, 이제 탐정 시험! <b>틀려도 괜찮아요.</b>",
+   "say": "자, 이제 탐정 시험! 틀려도 괜찮아요.",
+   "tiger": {
+    "x": 17,
+    "b": 0.02,
+    "s": 0.42,
+    "pose": "idle"
+   },
+   "panel": "quiz"
+  }
+ ]
+};
+const LINES = {"card_t": "단군 신화는 곰이 사람이 된 옛날이야기예요.", "card_g": "단군왕검은 나라를 세운 임금이에요.", "ask": "어느 쪽일까요? 눌러 보세요.", "wrong": "아깝네요, 괜찮아요! 반짝이는 쪽을 눌러 보세요.", "q1_ok": "딩동댕! 곰이 사람이 된 이야기는 단군 신화예요.", "q1_no": "그렇죠, 옛날이야기는 단군 신화예요.", "q2_ok": "딩동댕! 나라를 세운 임금은 단군왕검이에요.", "q2_no": "그렇죠, 나라를 세운 임금은 단군왕검이에요.", "end": "사건 해결! 오늘 찾은 두 이름, 꼭 기억해 주세요."};
+
+/* ---------- 유틸 ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const stripTags = h => h.replace(/<[^>]+>/g,'');
+let SID = 'anon';
+try { SID = sessionStorage.getItem('kct_sid') || ('s'+Math.random().toString(36).slice(2,10)); sessionStorage.setItem('kct_sid', SID); } catch(e){ SID = 's'+Math.random().toString(36).slice(2,10); }
+const LOG = [];
+function notifyApp(type, payload){
+  try { window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.kct && window.webkit.messageHandlers.kct.postMessage({type, payload}); } catch(e){}
+}
+function track(event, payload={}){
+  const row = {session_id:SID, story_id:CONFIG.storyId, chapter:cur.id, beat:cur.beat, event, payload, created_at:new Date().toISOString()};
+  LOG.push(row);
+  try { console.debug('[story]', event, payload); } catch(e){}
+  if (CONFIG.supabaseUrl && CONFIG.supabaseAnonKey){
+    fetch(CONFIG.supabaseUrl + '/rest/v1/' + CONFIG.table, {method:'POST', keepalive:true,
+      headers:{'Content-Type':'application/json', apikey:CONFIG.supabaseAnonKey, Authorization:'Bearer '+CONFIG.supabaseAnonKey, Prefer:'return=minimal'},
+      body: JSON.stringify(row)}).catch(()=>{});
+  }
+}
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),3800); }
+
+/* ---------- 음성: 기기에 있는 한국어 목소리 또는 녹음 파일(audio)을 쓴다 ---------- */
+const VOICE_DIR='voice/', VOICE_EXT='.m4a';
+const Voice = {
+  on:false, voice:null, supported:('speechSynthesis' in window), audio:null,
+  pick(){
+    if(!this.supported) return;
+    const vs = speechSynthesis.getVoices().filter(v=>/^ko/i.test(v.lang));
+    if(!vs.length){ this.voice=null; return; }
+    const pref = ['InJoon','Minsu','Jian','Hyunsu','Yuna','Sora','Google 한국의','Heami','SunHi','Korean'];   // 남성 목소리를 먼저 찾는다
+    this.voice = pref.map(n=>vs.find(v=>v.name.includes(n))).find(Boolean) || vs[0];
+  },
+  stop(){ try{ this.supported && speechSynthesis.cancel(); }catch(e){} if(this.audio){ this.audio.pause(); this.audio=null; } setTalk(false); },
+  files:null,   // voice/ 폴더에 녹음 파일이 있는지 (시작할 때 한 번 확인)
+  probe(){ const a=new Audio(); a.preload='auto'; a.oncanplaythrough=()=>{this.files=true;}; a.onerror=()=>{this.files=false;}; a.src=VOICE_DIR+'intro_0'+VOICE_EXT; a.load(); },
+  speak(text, id){
+    this.stop();
+    if(!text) return;
+    const audioSrc = (id && this.files) ? VOICE_DIR+id+VOICE_EXT : null;
+    if(audioSrc){                       // 녹음 파일이 있으면 그것을 우선 사용 (예: Supabase Storage 의 mp3)
+      const a = new Audio(audioSrc); this.audio=a;
+      a.onplay=()=>setTalk(true); a.onended=()=>setTalk(false);
+      a.onerror=()=>{ this.audio=null; this.speakTTS(text); };
+      a.play().catch(()=>this.speakTTS(text)); return;
+    }
+    this.speakTTS(text);
+  },
+  speakTTS(text){
+    if(!this.supported){ toast('이 브라우저는 음성 읽기를 지원하지 않아요. 자막으로 봐 주세요.'); return; }
+    if(!this.voice) this.pick();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang='ko-KR'; if(this.voice) u.voice=this.voice; u.rate=.9; u.pitch=.9;
+    u.onstart=()=>setTalk(true); u.onend=()=>setTalk(false); u.onerror=()=>setTalk(false);
+    try{ speechSynthesis.speak(u); }catch(e){}
+    if(!this.voice && !Voice._warned){ Voice._warned=true; toast('한국어 음성을 찾지 못했어요. 기기 설정에서 한국어 음성을 추가하면 들려요.'); }
+  }
+};
+if(Voice.supported){ Voice.pick(); speechSynthesis.onvoiceschanged=()=>Voice.pick(); }
+Voice.probe();
+
+const actor = $('#actor');
+function setTalk(on){ Tiger.talk = on; }
+
+/* ---------- 호랑이 엔진 ----------
+   그림 한 장을 6px 격자 메시로 덮고, 머리·팔·꼬리 뼈대 가중치(부드럽게 번지는 값)로 꼭짓점을 돌린다.
+   조각을 잘라 붙이지 않으므로 경계가 늘어나기만 하고 틈이 생기지 않는다. 눈꺼풀·입·렌즈 반짝임은 같은 변형을 따르는 SVG. */
+const MESH = __MESH__;
+const Tiger = {
+  pose:'idle', talk:false, ok:false, t0:performance.now(), last:0,
+  v:{h:0,a:0,tl:0}, blink:0, nextBlink:performance.now()+2500, blinkT:0,
+  reduce: matchMedia('(prefers-reduced-motion: reduce)').matches,
+  init(){
+    const cv=$('#tigerCanvas'), img=$('#tigerImg');
+    const gl = cv.getContext('webgl',{premultipliedAlpha:true,alpha:true,antialias:true});
+    const go = ()=>{ try{ this.setup(gl,cv,img); this.ok=true; }catch(e){ this.fallback(); } requestAnimationFrame(t=>this.frame(t)); };
+    if(!gl){ this.fallback(); requestAnimationFrame(t=>this.frame(t)); return; }
+    const arm=$('#tigerArmImg'); let left=2; const one=()=>{ if(--left===0) go(); };
+    [img,arm].forEach(im=> im.complete ? one() : im.addEventListener('load', one, {once:true}));
+  },
+  fallback(){ const img=$('#tigerImg'); img.hidden=false; img.classList.add('fallback'); $('#tigerCanvas').style.display='none';
+    const a=$('#tigerArmImg'); a.hidden=false; a.style.cssText='display:block!important;left:0;top:'+(262/496*100)+'%;width:'+(150/388*100)+'%;height:'+(144/496*100)+'%'; },
+  setup(gl,cv,img){
+    const vs=`attribute vec2 aP;attribute vec3 aW;uniform vec3 uA;uniform float uB,uRigid;uniform vec4 uBox;varying vec2 vU;
+      vec2 rot(vec2 p,vec2 c,float a){float s=sin(a),k=cos(a);vec2 d=p-c;return c+vec2(k*d.x-s*d.y,s*d.x+k*d.y);}
+      void main(){vec2 p=aP;vec2 q=p;
+        if(uRigid>.5){ q=rot(p,vec2(134.,284.),uA.y); }
+        else{ q+=(rot(p,vec2(190.,270.),uA.x)-p)*aW.x; q+=rot(p,vec2(262.,392.),uA.z*aW.z)-p; }
+        q.y=496.-(496.-q.y)*(1.+uB); q.x=194.+(q.x-194.)*(1.-uB*.5);
+        vU=(p-uBox.xy)/uBox.zw;
+        gl_Position=vec4((q.x+40.)/468.*2.-1.,1.-(q.y+40.)/576.*2.,0.,1.);}`;
+    const fs=`precision mediump float;varying vec2 vU;uniform sampler2D uT;void main(){gl_FragColor=texture2D(uT,vU);}`;
+    const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(o);return o;};
+    const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);
+    if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw 'link';
+    gl.useProgram(pr);
+    const lP=gl.getAttribLocation(pr,'aP'), lW=gl.getAttribLocation(pr,'aW');
+    const grid=(xs,ys,wfn)=>{
+      const nx=xs.length, ny=ys.length, pos=new Float32Array(nx*ny*2), wt=new Float32Array(nx*ny*3);
+      for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const k=j*nx+i;pos[k*2]=xs[i];pos[k*2+1]=ys[j];wfn(k,wt);}
+      const idx=new Uint16Array((nx-1)*(ny-1)*6);let n=0;
+      for(let j=0;j<ny-1;j++)for(let i=0;i<nx-1;i++){const a=j*nx+i,b=a+1,c=a+nx,d=c+1;idx.set([a,b,c,b,d,c],n);n+=6;}
+      const mk=(d,t)=>{const o=gl.createBuffer();gl.bindBuffer(t,o);gl.bufferData(t,d,gl.STATIC_DRAW);return o;};
+      return {p:mk(pos,gl.ARRAY_BUFFER), w:mk(wt,gl.ARRAY_BUFFER), i:mk(idx,gl.ELEMENT_ARRAY_BUFFER), n};
+    };
+    const wb=atob(MESH.w);
+    this.bodyG=grid(MESH.xs,MESH.ys,(k,wt)=>{for(let c=0;c<3;c++)wt[k*3+c]=wb.charCodeAt(k*3+c)/255;});
+    const A=MESH.arm; this.armG=grid(A.xs,A.ys,()=>{}); this.armBox=[A.x0,A.y0,A.x1-A.x0,A.y1-A.y0];
+    const tex=(im)=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,im);
+      [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE));
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);return t;};
+    this.bodyT=tex(img); this.armT=tex($('#tigerArmImg'));
+    gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+    this.gl=gl;this.cv=cv;this.lP=lP;this.lW=lW;
+    this.uA=gl.getUniformLocation(pr,'uA');this.uB=gl.getUniformLocation(pr,'uB');this.uR=gl.getUniformLocation(pr,'uRigid');this.uBox=gl.getUniformLocation(pr,'uBox');
+  },
+  draw(G,T,rigid,box){
+    const gl=this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER,G.p);gl.enableVertexAttribArray(this.lP);gl.vertexAttribPointer(this.lP,2,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,G.w);gl.enableVertexAttribArray(this.lW);gl.vertexAttribPointer(this.lW,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,G.i);gl.bindTexture(gl.TEXTURE_2D,T);
+    gl.uniform1f(this.uR,rigid);gl.uniform4f(this.uBox,box[0],box[1],box[2],box[3]);
+    gl.drawElements(gl.TRIANGLES,G.n,gl.UNSIGNED_SHORT,0);
+  },
+  drawMouth(m){
+    // 원래 입(웃는 선+혀)을 얼굴색으로 덮고, 같은 윗입술 선에서 아래로 벌어지는 입을 새로 그린다
+    const g=$('#mouth');
+    if(m<.12){ g.style.display='none'; return; }
+    g.style.display='';
+    const low = 250 + 15*m, w = 1 + .05*m;
+    const L=[170,247], Rr=[218,245];
+    const top=`M${L[0]} ${L[1]} Q182 240 194 240.5 Q207 240 ${Rr[0]} ${Rr[1]}`;
+    const bottom=`Q${196} ${low+ (low-246)*.55} ${L[0]} ${L[1]}Z`;
+    const d=top+' '+bottom;
+    $('#mouthShape').setAttribute('d',d); $('#mouthShapeClip').setAttribute('d',d);
+    $('#mouthLine').setAttribute('d',d+' M160 240 L170 247 M218 245 Q224 240 228 233');
+    $('#tongue').setAttribute('cy', low-1-2*m); $('#tongue').setAttribute('ry', 3+4*m); $('#tongue').setAttribute('rx', 10+4*m);
+  },
+  target(t){
+    const s=Math.sin, P=this.pose;
+    let h=1.6*s(t*.9), a=2*s(t*1.3), tl=8*s(t*2.3);
+    if(P==='wave'){ a=7+7*s(t*6.5); h=2.5*s(t*1.4); tl=10*s(t*3); }
+    else if(P==='think'){ a=12+1.2*s(t*2); h=5+.6*s(t); tl=5*s(t*1.4); }
+    else if(P==='happy'){ a=4+4*s(t*9); h=3*s(t*4); tl=14*s(t*5.5); }
+    else if(P==='oops'){ a=-2+.6*s(t); h=-6+.5*s(t*1.2); tl=-5+3*s(t*1.1); }
+    if(this.reduce){ h*=.2; a=P==='think'?a:a*.2; tl*=.2; }
+    return {h,a,tl};
+  },
+  frame(now){
+    requestAnimationFrame(t=>this.frame(t));
+    if(document.hidden) return;
+    const t=(now-this.t0)/1000, dt=Math.min(.05,(now-(this.last||now))/1000); this.last=now;
+    const T=this.target(t), k=1-Math.exp(-dt*7);
+    for(const key in T) this.v[key]+= (T[key]-this.v[key])*k;
+    const br = this.reduce?0:.012*Math.sin(t*2.4);
+    // 눈 깜빡임
+    if(now>this.nextBlink){ this.blinkT=now; this.nextBlink=now+2400+Math.random()*3400; }
+    const bt=(now-this.blinkT)/170; let blink = bt<1 ? 1-Math.abs(bt*2-1) : 0;
+    if(this.pose==='happy') blink=1;
+    this.blink += (blink-this.blink)*(this.pose==='happy'?k:1);
+    // 입
+    let m=0; if(this.talk) m=.25+.75*Math.abs(Math.sin(t*10)*Math.sin(t*6.1+1)); else if(this.pose==='happy') m=.7;
+    this.m = (this.m||0) + (m-(this.m||0))*Math.min(1,dt*18); m=this.m;
+    const R=Math.PI/180;
+    if(this.ok){
+      const gl=this.gl, cv=this.cv, dpr=Math.min(2,devicePixelRatio||1);
+      const W=Math.round(cv.clientWidth*dpr), H=Math.round(cv.clientHeight*dpr);
+      if(W&&H&&(cv.width!==W||cv.height!==H)){ cv.width=W; cv.height=H; }
+      gl.viewport(0,0,cv.width,cv.height); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform3f(this.uA,this.v.h*R,this.v.a*R,this.v.tl*R); gl.uniform1f(this.uB,br);
+      this.draw(this.bodyG,this.bodyT,0,[0,0,388,496]);
+      this.draw(this.armG,this.armT,1,this.armBox);
+    }
+    $('#fxBody').setAttribute('transform',`matrix(${1-br/2} 0 0 ${1+br} ${97*br} ${-496*br})`);
+    $('#fxHead').setAttribute('transform',`rotate(${this.v.h} 190 270)`);
+    $('#fxArm').setAttribute('transform',`rotate(${this.v.a} 134 284)`);
+    $('#lidL').setAttribute('transform',`translate(0 ${this.blink*31})`);
+    $('#lidR').setAttribute('transform',`translate(0 ${this.blink*32})`);
+    $('#happyEyes').style.opacity = $('#happyCover').style.opacity = this.pose==='happy' ? Math.min(1,this.blink) : 0;
+    $$('.lidline').forEach(el=>el.style.opacity = this.pose==='happy' ? 0 : 1);
+    this.drawMouth(m);
+    const gx = ((t%4)/4); $('#glint').setAttribute('x', gx<.55? -10 : -10 + (gx-.55)/.45*150);
+  }
+};
+if(!Tiger.ok && !$('#tigerFx')) {}
+
+/* ---------- 호랑이 배치·동작 ---------- */
+let freeH=600, capH=220;
+function layout(){
+  capH = $('#caption').offsetHeight + 12 + (parseFloat(getComputedStyle($('#ui')).paddingBottom)||0);
+  freeH = Math.max(280, innerHeight - capH);
+  const r=document.documentElement.style;
+  r.setProperty('--capH', capH+'px'); r.setProperty('--freeH', freeH+'px');
+  placeTiger(cur.tiger||{x:50,b:.03,s:1,pose:'idle'});
+}
+function placeTiger(t){
+  cur.tiger=t;
+  const h = freeH*.52*t.s, w = h*388/496;
+  actor.style.width = w+'px';
+  const left = clamp(innerWidth*t.x/100 - w/2, -w*.15, innerWidth - w*.85);
+  const bottom = capH + freeH*t.b;
+  actor.style.left = '0px'; actor.style.bottom = bottom+'px';
+  actor.style.transform = 'translateX('+left+'px)';
+  document.documentElement.style.setProperty('--tigerH', (h*.86)+'px');
+  ['wave','think','happy','oops'].forEach(p=>actor.classList.remove(p));
+  if(t.pose && t.pose!=='idle') actor.classList.add(t.pose);
+  Tiger.pose = t.pose || 'idle';
+}
+
+
+/* ---------- 장·단계 관리 ---------- */
+const chapters = $$('.chapter');
+const cur = {ch:-1, id:'intro', beat:-1, tiger:null};
+const quiz = {i:0, res:[], done:false, answered:false};
+
+// 장 높이: 단계 하나당 화면 70% 만큼 스크롤
+chapters.forEach(c=>{ const n=+c.dataset.beats; c.style.height = (100 + n*70)+'vh'; });
+$('#pills').innerHTML = chapters.map(()=>'<i></i>').join('');
+
+function setBeat(ci, bi, opts={}){
+  const chapter = chapters[ci], id = chapter.dataset.id, beat = STORY[id][bi];
+  const changedCh = ci!==cur.ch;
+  cur.ch=ci; cur.id=id; cur.beat=bi;
+  // 소품 켜기/끄기
+  chapter.querySelectorAll('.prop').forEach(p=>{
+    const list=(p.dataset.b||'').split(' ');
+    p.classList.toggle('on', list.includes(String(bi)));
+  });
+  // 자막
+  const cap=$('#capText'); cap.classList.add('fade');
+  setTimeout(()=>{ cap.innerHTML = beat.cap; cap.classList.remove('fade'); layoutSoon(); }, 180);
+  cur.say = beat.say; cur.audio = beat.id;
+  // 호랑이
+  placeTiger(beat.tiger);
+  // 패널(카드/퀴즈)
+  renderPanel(beat.panel);
+  // 진행 표시
+  $$('#pills i').forEach((el,i)=>{ el.className = i<ci?'done':(i===ci?'cur':''); });
+  // 버튼
+  const last = bi===STORY[id].length-1 && ci<chapters.length-1;
+  $('#nextBtn').classList.toggle('show', last);
+  $('#hint').classList.toggle('show', !!beat.hint);
+  // 소리
+  clearTimeout(setBeat._t);
+  Voice.stop();
+  if(Voice.on && !(beat.panel==='quiz')) setBeat._t=setTimeout(()=>Voice.speak(beat.say, beat.id), changedCh?600:450);
+  track('view_beat', {say:beat.say});
+}
+function layoutSoon(){ requestAnimationFrame(()=>{ const old=capH; layout(); }); }
+
+let ticking=false;
+function onScroll(){ if(ticking) return; ticking=true; requestAnimationFrame(()=>{ ticking=false; update(); }); }
+function update(){
+  const vh=innerHeight; let ci=0;
+  chapters.forEach((c,i)=>{ const r=c.getBoundingClientRect(); if(r.top <= vh*.5) ci=i; });
+  const c=chapters[ci], r=c.getBoundingClientRect(), n=+c.dataset.beats;
+  const span=Math.max(1, r.height - vh);
+  const p=clamp(-r.top/span, 0, 1);
+  const bi=Math.min(n-1, Math.floor(p*n + 1e-6));
+  if(ci!==cur.ch || bi!==cur.beat) setBeat(ci,bi);
+}
+addEventListener('scroll', onScroll, {passive:true});
+addEventListener('resize', ()=>{ layout(); update(); });
+
+$('#nextBtn').addEventListener('click', ()=>{
+  const next=chapters[cur.ch+1]; if(!next) return;
+  track('next_chapter', {to:next.dataset.id});
+  scrollTo({top: next.offsetTop + 2, behavior:'smooth'});
+});
+$('#replayBtn').addEventListener('click', ()=>{
+  Voice.speak(cur.say, cur.audio); track('replay');
+});
+$('#soundBtn').addEventListener('click', ()=>{
+  Voice.on=!Voice.on;
+  const b=$('#soundBtn'); b.setAttribute('aria-pressed', String(Voice.on));
+  $('#soundLabel').textContent = Voice.on?'소리 끄기':'소리 켜기';
+  track('sound_toggle', {on:Voice.on});
+  if(Voice.on){ Voice.speak(cur.say, cur.audio); } else { Voice.stop(); }
+});
+
+/* ---------- 카드와 퀴즈 ---------- */
+const OPT = {t:{label:'단군 신화', say:LINES.card_t, id:'card_t'}, g:{label:'단군왕검', say:LINES.card_g, id:'card_g'}};
+const QUIZ = [
+  {q:'곰이 사람이 된 <br><b style="color:var(--teal)">옛날이야기</b>는?', ans:'t', ok:LINES.q1_ok, no:LINES.q1_no, okId:'q1_ok', noId:'q1_no'},
+  {q:'고조선을 세운 <br><b style="color:#8a6100">임금</b>은 누구일까요?', ans:'g', ok:LINES.q2_ok, no:LINES.q2_no, okId:'q2_ok', noId:'q2_no'}
+];
+function cardIcon(kind){
+  if(kind==='t') return '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><rect x="8" y="12" width="48" height="40" rx="5" fill="#fff" stroke="#3d2314" stroke-width="3"/><path d="M32 12v40" stroke="#3d2314" stroke-width="3"/><circle cx="20" cy="30" r="7" fill="#b98253" stroke="#3d2314" stroke-width="2.5"/><circle cx="17" cy="24" r="3" fill="#b98253" stroke="#3d2314" stroke-width="2"/><circle cx="23" cy="24" r="3" fill="#b98253" stroke="#3d2314" stroke-width="2"/><path d="M38 24h12M38 32h12M38 40h9" stroke="#8a7a6a" stroke-width="2.5" stroke-linecap="round"/></svg>';
+  return '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="#f0b429" stroke="#3d2314" stroke-width="3"/><text x="32" y="45" text-anchor="middle" font-size="36" font-weight="700" fill="#3d2314" font-family="\'Noto Serif KR\',serif">王</text></svg>';
+}
+function renderPanel(kind){
+  const panel=$('#panel'), inner=$('#panelInner');
+  if(!kind){ panel.classList.remove('on'); return; }
+  if(kind==='cards'){
+    inner.className='inner cards';
+    inner.innerHTML =
+      '<button class="card t" data-k="t" type="button"><div class="ic">'+cardIcon('t')+'</div><h3>단군 신화</h3><p>곰이 사람이 된<br><b>옛날이야기</b></p></button>'+
+      '<button class="card g" data-k="g" type="button"><div class="ic">'+cardIcon('g')+'</div><h3>단군왕검</h3><p>나라를 세운<br><b>임금</b></p></button>';
+    inner.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{
+      const k=c.dataset.k; c.classList.remove('hl'); void c.offsetWidth; c.classList.add('hl');
+      Voice.speak(OPT[k].say, OPT[k].id);   // 카드를 직접 누르면 소리 설정과 상관없이 들려준다
+      track('card_tap', {card:k});
+    }));
+  } else if(kind==='quiz'){
+    if(quiz.done){ showQuizEnd(); } else { showQuestion(); }
+  }
+  panel.classList.add('on');
+}
+function showQuestion(){
+  const inner=$('#panelInner'), Q=QUIZ[quiz.i];
+  inner.className='inner quiz'; quiz.answered=false; quiz.first=null;
+  inner.innerHTML =
+    '<div class="qstep">문제 '+(quiz.i+1)+' / '+QUIZ.length+'</div>'+
+    '<div class="q">'+Q.q+'</div>'+
+    '<button class="opt t" data-k="t" type="button">단군 신화</button>'+
+    '<button class="opt g" data-k="g" type="button">단군왕검</button>';
+  inner.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>answer(b.dataset.k)));
+  $('#capText').innerHTML='어느 쪽일까요? <b>눌러 보세요.</b>';
+  cur.say=LINES.ask; cur.audio='ask';
+}
+function answer(k){
+  const Q=QUIZ[quiz.i], inner=$('#panelInner');
+  if(quiz.first===null){ quiz.first=k; quiz.res[quiz.i]={q:quiz.i+1, chosen:k, correct:k===Q.ans}; track('answer', quiz.res[quiz.i]); }
+  if(k===Q.ans){
+    inner.querySelectorAll('.opt').forEach(b=>{ b.classList.remove('right'); if(b.dataset.k!==Q.ans) b.classList.add('dim'); });
+    setFeedback(quiz.first===Q.ans ? Q.ok : Q.no, quiz.first===Q.ans ? 'happy':'idle', quiz.first===Q.ans ? Q.okId : Q.noId);
+    if(quiz.first===Q.ans) confetti();
+    setTimeout(()=>{ quiz.i++; if(quiz.i>=QUIZ.length){ quiz.done=true; showQuizEnd(); } else { showQuestion(); placeTiger({x:17,b:.02,s:.42,pose:'idle'}); } }, 3600);
+  } else {
+    // 틀려도 감점 없이: 고른 쪽은 흐리게, 정답을 반짝이게 하고 정답을 누르도록 안내
+    inner.querySelectorAll('.opt').forEach(b=>{ if(b.dataset.k===k) b.classList.add('dim'); if(b.dataset.k===Q.ans) b.classList.add('right'); });
+    setFeedback(LINES.wrong, 'oops', 'wrong');
+  }
+}
+function setFeedback(text, pose, id){
+  $('#capText').innerHTML = text.replace(/(단군 신화|단군왕검)/g,'<b>$1</b>');
+  cur.say = stripTags(text); cur.audio = id;
+  placeTiger(Object.assign({}, cur.tiger, {pose}));
+  Voice.speak(cur.say, id);                       // 문제 풀이 피드백은 소리 설정과 상관없이 짧게 읽어 준다
+}
+function showQuizEnd(){
+  const inner=$('#panelInner'); const okN=quiz.res.filter(r=>r.correct).length;
+  inner.className='inner cards';
+  inner.innerHTML =
+    '<div class="q" style="grid-column:1/-1;text-align:center;font-family:var(--font-display);font-size:clamp(24px,6vw,36px);line-height:1.4;background:#fff;border:3px solid var(--line);border-radius:20px;padding:16px">'+
+    '이야기는 <b style="color:var(--teal)">단군 신화</b><br>임금은 <b style="color:#8a6100">단군왕검</b></div>'+
+    '<button class="btn" id="againBtn" type="button" style="grid-column:1/2;padding:0 10px">처음부터 다시</button>'+
+    '<button class="btn primary" id="appBtn" type="button" style="grid-column:2/3;padding:0 10px">앱으로 돌아가기</button>';
+  $('#againBtn').addEventListener('click',()=>{ quiz.i=0; quiz.res=[]; quiz.done=false; track('restart'); scrollTo({top:0,behavior:'smooth'}); });
+  $('#appBtn').addEventListener('click',()=>{ track('complete',{correct_first_try:okN,total:QUIZ.length}); notifyApp('storyDone',{story:CONFIG.storyId, correct_first_try:okN, total:QUIZ.length}); toast('앱과 연결하면 여기서 문제 화면으로 돌아가요.'); });
+  setFeedback(LINES.end, 'happy', 'end');
+  $('#panel').classList.add('on');
+  track('quiz_done',{correct_first_try:okN,total:QUIZ.length});
+}
+function confetti(){
+  const colors=['#e69650','#1b6b8a','#f0b429','#d9534f','#5aa05a'];
+  for(let i=0;i<36;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    c.style.left=Math.random()*100+'vw'; c.style.background=colors[i%colors.length];
+    c.style.animationDelay=(Math.random()*.5)+'s'; c.style.animationDuration=(1.8+Math.random()*1.2)+'s';
+    document.body.appendChild(c); setTimeout(()=>c.remove(),3600);
+  }
+}
+
+/* ---------- 시작 ---------- */
+Tiger.init();
+layout(); update();
+if(cur.beat<0) setBeat(0,0);
+document.addEventListener('keydown',e=>{ if(e.key==='ArrowDown'||e.key===' ') return; });
+</script>
+</body>
+</html>
