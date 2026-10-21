@@ -102,7 +102,7 @@ enum AppColor {
     ///
     /// - Note: 정답을 파랑이 아니라 **녹색**으로 두는 편이 뜻에 맞고, 오답 창에서도
     ///   「고르신 답(분홍) ↔ 정답(녹색)」이 더 또렷하다. 한때 쓰던 하늘색 두 값은
-    ///   2026-09-23 리팩토링에서 지웠다 (`Refactoring.md` 1단계).
+    ///   2026-09-23 리팩토링에서 지웠다 (`History/Refactoring.md` 1단계).
     static let answerSheetBadge = Color(red: 0.82, green: 0.94, blue: 0.83)
 
     // MARK: 글자와 강조

@@ -99,7 +99,7 @@ final class QuestionCatalog {
     /// ❓answerPool이 뭐하는거지?
     ///    → **선다형의 「오답 보기」를 뽑아 오는 통.** 문항마다 오답을 손으로 적어 두는
     ///      대신 「다른 문제들의 정답」을 모아 두고 거기서 뽑는다. 그래서 오답이 그럴듯하고,
-    ///      문제집을 갈아끼우면 보기도 저절로 따라 바뀐다. (Q&A.md 참고)
+    ///      문제집을 갈아끼우면 보기도 저절로 따라 바뀐다. (History/Q&A.md 참고)
     private static func makeAnswerPool(from questions: [Question]) -> [String] {
         Array(Set(questions.map(\.displayAnswer)))
     }

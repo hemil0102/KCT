@@ -194,4 +194,4 @@ _최종 갱신: 2026-08-18_
 - `SessionProgressBar.swift` — 문제 수만큼 나눈 진행 막대 (숫자 없음)
 
 > 지금 어디까지 왔는지와 다음 할 일은 [PROGRESS.md](PROGRESS.md) 에 있다.
-> 용어의 뜻은 [GUIDE.md](GUIDE.md), 막혔던 것은 [Q&A.md](Q&A.md).
+> 용어의 뜻은 [GUIDE.md](GUIDE.md), 막혔던 것은 [Q&A.md](History/Q&A.md).

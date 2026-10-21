@@ -91,7 +91,7 @@ VoiceOver 에는 `accessibilityAddTraits(.isSelected)` 가 필요하고,
 
 ### 4. `ContentFile.saveDownloaded(_:)` 의 서명 고치기
 
-[Q&A.md](Q&A.md) 에 적은 문제입니다. 받은 JSON 을 `Payload → Data` 로 **다시 인코딩**하므로
+[Q&A.md](History/Q&A.md) 에 적은 문제입니다. 받은 JSON 을 `Payload → Data` 로 **다시 인코딩**하므로
 `Payload` 에 없는 키가 조용히 사라집니다. 서버 갱신을 실제로 붙이기 **전에** 고쳐야 합니다.
 
 | 셋 | |

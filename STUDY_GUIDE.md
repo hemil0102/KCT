@@ -15,7 +15,7 @@
 | 왜 이렇게 설계했나, 다음에 뭘 만들 건가 | [LEARNING_PLAN.md](LEARNING_PLAN.md) |
 | 지금 어디까지 왔나 | [PROGRESS.md](PROGRESS.md) |
 | 이 낱말이 무슨 뜻인가 | [GUIDE.md](GUIDE.md) |
-| 막혔던 것과 그 해결 | [Q&A.md](Q&A.md) |
+| 막혔던 것과 그 해결 | [Q&A.md](History/Q&A.md) |
 
 ---
 

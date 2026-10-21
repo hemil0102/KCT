@@ -45,7 +45,7 @@
 > Important: 2026-09-23 리팩토링에서 이 방향을 한 군데 되살렸습니다 — 낱말 예문을
 > 만드는 코드가 `Data/GlossaryComposer.swift` 에 있으면서 `Grading` 의 ``Writing`` 을
 > 쓰고 있었습니다. ``GlossaryExampleWriter`` 로 옮겨 `Data` 는 다시 아무것도 모릅니다.
-> 무엇이 어떻게 바뀌었는지는 저장소 루트의 `Refactoring.md` 에 있습니다.
+> 무엇이 어떻게 바뀌었는지는 저장소 루트의 `History/Refactoring.md` 에 있습니다.
 
 ### 같은 모습은 같은 코드로
 

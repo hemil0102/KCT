@@ -101,7 +101,7 @@ struct ContentFile<Payload: Codable> {
     ///
     /// - Note: **아직 부르는 곳이 없습니다.** 서버 갱신을 붙일 자리(씸)로 남겨 둔 것입니다.
     // ❓ 여기서 encode를 하는 이유가 뭐지? 그냥 받은 것이 json이면 다시 이렇게 할 이유가 있나?
-    //    → Q&A.md 「ContentFile 은 왜 받은 JSON 을 다시 encode 하나」 참고
+    //    → History/Q&A.md 「ContentFile 은 왜 받은 JSON 을 다시 encode 하나」 참고
     func saveDownloaded(_ payload: Payload) throws {
         guard let url = downloadedURL else { return }
         try JSONEncoder().encode(payload).write(to: url, options: .atomic)

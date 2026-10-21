@@ -108,7 +108,7 @@ struct Question: Identifiable, Codable, Hashable {
     /// 그 셋만 `decodeIfPresent` 로 받습니다.
     ///
     /// - Note: JSON 에 남아 있는 `tags` 키는 **읽지 않습니다.** 넣어 두기만 하고 읽는
-    ///   곳이 없어 2026-09-23 리팩토링에서 프로퍼티를 지웠습니다 (`Refactoring.md` 1단계).
+    ///   곳이 없어 2026-09-23 리팩토링에서 프로퍼티를 지웠습니다 (`History/Refactoring.md` 1단계).
     ///   `Codable` 은 모르는 키를 조용히 넘기므로 데이터 파일은 그대로 둡니다.
     init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
@@ -192,7 +192,7 @@ struct GlossaryEntry: Codable, Hashable {
     /// - Note: JSON 키는 여전히 `examples` 입니다(아래 ``CodingKeys``). 담긴 것이
     ///   예문이 아니라 낱말이라 이름이 거짓말을 하고 있어서 2026-09-23 리팩토링에서
     ///   Swift 이름만 고쳤습니다 — `questions.json` 은 한 글자도 안 바꿉니다
-    ///   (`Refactoring.md` 9단계).
+    ///   (`History/Refactoring.md` 9단계).
     var relatedWords: [String] = []
 
     /// 사람이 미리 써 둔 참고 예문. "기리다"처럼 Foundation Models 가 활용형을
