@@ -127,6 +127,9 @@ struct QuizView: View {
         }
         .background(Color.white)
         .task { prepareSession() }
+        // 화면을 떠나면 아무도 결과를 안 볼 작업(미리 만드는 해설·응원 문구·하이라이트 분석)을 멈춘다.
+        // 시트(해설 창)는 이 화면을 가리지 않아 onDisappear 를 부르지 않는다. (2차 리팩토링)
+        .onDisappear { session?.leave() }
         // 11차 후속 — "종합 연습"에서 들어온 화면이라 하단 탭바를 숨기고, 내비게이션
         // 바도 통째로 숨긴다. X·진행 막대·다시 읽기는 QuestionScreen 이 화면 맨 위에
         // 한 줄로 직접 그린다 — 내비게이션 바 자리를 따로 쓰지 않는다.
@@ -216,5 +219,5 @@ struct QuizView: View {
     QuizView()
         .environment(QuestionCatalog.loaded())
         .environment(MatchingSetCatalog.loaded())
-        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
+        .modelContainer(ModelStore.preview)
 }

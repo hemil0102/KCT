@@ -17,7 +17,7 @@
 //  ├─ binaryChoiceButton(_:)    2지선다 한 칸. O/X 처럼 누르면 즉시 채점(13차 후속)
 //  ├─ multipleChoiceButton(_:correct:)  4지선다 한 칸. 오답은 소거, 정답만 채점
 //  ├─ eliminateChoice(_:)       4지선다 오답 소거 — 흔들고 흐리게
-//  ├─ shake(_:)                 흔들림 세 박자 (MatchingQuestionScreen 과 같은 박자)
+//  ├─ (흔들림 세 박자)           Beat.shake — DesignSystem/MotionBeats.swift (MatchingQuestionScreen 과 같은 코드)
 //  ├─ hintBanner                답 없이 다음을 눌렀을 때의 안내 (이제 직접입력만 해당)
 //  ├─ nextButton                직접입력 전용 "다음 / 제출"
 //  └─ showAnswerHint()          안내 표시 + 진동 (진동은 화면의 몫)
@@ -124,7 +124,7 @@ struct QuestionScreen: View {
     /// ``eliminatedChoices`` 로 자리를 넘긴다.
     @State private var wrongFlashChoice: String?
 
-    /// 흔들림에 쓰는 가로 오프셋. 키는 보기 글자. (``shake(_:)`` 참고)
+    /// 흔들림에 쓰는 가로 오프셋. 키는 보기 글자. (``Beat/shake(_:)`` 참고)
     @State private var choiceShakeOffsetX: [String: CGFloat] = [:]
 
     /// 회차의 상태. `TextField` 에 묶기 위해 `@Bindable` 로 받는다.
@@ -298,7 +298,8 @@ struct QuestionScreen: View {
     private func dismissGlossaryFromBackgroundTap() {
         guard glossarySelection != nil else { return }
         let tokenAtTap = glossaryOpenToken
-        DispatchQueue.main.async {
+        // 「한 틱 뒤」 — 메인 액터에 작업을 하나 줄 세우면, 지금 들어온 탭 처리가 다 끝난 뒤에 돈다.
+        Task { @MainActor in
             guard glossaryOpenToken == tokenAtTap else { return }
             dismissGlossaryIfNeeded()
         }
@@ -607,35 +608,20 @@ struct QuestionScreen: View {
         .offset(x: choiceShakeOffsetX[option] ?? 0)
     }
 
-    /// 4지선다에서 오답 보기 하나를 흔들고(``shake(_:)``) 소거 상태로 넘긴다.
+    /// 4지선다에서 오답 보기 하나를 흔들고(``Beat/shake(_:)``) 소거 상태로 넘긴다.
     private func eliminateChoice(_ option: String) {
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
         wrongFlashChoice = option
-        shake { choiceShakeOffsetX[option] = $0 }
+        Beat.shake { choiceShakeOffsetX[option] = $0 }
         let itemID = session.current?.id
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+        Beat.after(.milliseconds(320)) {
             // 그 사이 다른 오답을 눌렀으면 그 붉은 표시를 지우지 않는다.
             if wrongFlashChoice == option { wrongFlashChoice = nil }
             // 그 사이 다음 문제로 넘어갔으면 새 문제의 보기를 지우지 않는다.
             guard session.current?.id == itemID else { return }
             withAnimation(.easeOut(duration: 0.25)) {
-                eliminatedChoices.insert(option)
+                _ = eliminatedChoices.insert(option)
             }
-        }
-    }
-
-    /// 흔들림 세 박자. ``MatchingQuestionScreen``의 같은 이름 함수와 같은 박자다
-    /// (CSS 의 `25% -6px · 75% +6px` 을 그대로 옮긴 것) — 두 화면이 서로를 몰라도
-    /// 되게 각자 두되, 흔들림의 "느낌"만은 앱 전체에서 하나로 맞춘다.
-    ///
-    /// - Parameter apply: 오프셋 값을 받아 제 자리에 넣어 주는 클로저.
-    private func shake(_ apply: @escaping (CGFloat) -> Void) {
-        withAnimation(.easeInOut(duration: 0.08)) { apply(-6) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            withAnimation(.easeInOut(duration: 0.16)) { apply(6) }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
-            withAnimation(.easeInOut(duration: 0.08)) { apply(0) }
         }
     }
 

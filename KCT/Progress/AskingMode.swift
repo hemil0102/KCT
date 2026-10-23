@@ -37,7 +37,10 @@ import Foundation
 ///
 /// - Important: 이것은 문제의 고유 난이도(축 A, ``Question/difficulty``)가 아닌 축 B이며,
 ///   두 축을 섞으면 설계가 무너집니다.
-enum AskingMode: Int, CaseIterable, Codable, Comparable {
+///
+/// - Note: `nonisolated` — 값만 있는 열거형이라 어느 액터에도 묶일 이유가 없다. Swift 6 모드에서
+///   ``QuestionProgress``(@Model, 액터에 안 묶임)가 ``mastery`` 를 읽을 수 있게 한다.
+nonisolated enum AskingMode: Int, CaseIterable, Codable, Comparable {
     /// 2지선다 — 모든 문제의 출발점
     case binaryChoice   = 0
     /// O/X — 진술문이 맞는지 판단

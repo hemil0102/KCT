@@ -102,5 +102,5 @@ struct MyHistoryView: View {
 #Preview {
     MyHistoryView()
         .environment(QuestionCatalog.loaded())
-        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self], inMemory: true)
+        .modelContainer(ModelStore.preview)
 }

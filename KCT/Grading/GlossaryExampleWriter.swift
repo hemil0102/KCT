@@ -47,6 +47,7 @@
 //  Created by harryho on 9/15/26.
 //
 
+import OSLog   // Log.* (진단 기록) — MemberImportVisibility 라 쓰는 파일마다 가져온다
 import Foundation
 import FoundationModels
 
@@ -170,10 +171,10 @@ private func saveFeedbackAttachment(
 
     do {
         try data.write(to: url)
-        print("📎 Feedback Assistant 첨부 저장:", url.path)
-        print("   가드레일 상세:", debugDescription)
+        Log.model.notice("Feedback Assistant 첨부 저장: \(url.path, privacy: .public)")
+        Log.model.notice("가드레일 상세: \(debugDescription, privacy: .public)")
     } catch {
-        print("❌ Feedback 첨부 저장 실패:", error)
+        Log.model.error("Feedback 첨부 저장 실패: \(String(describing: error), privacy: .public)")
     }
 }
 #endif

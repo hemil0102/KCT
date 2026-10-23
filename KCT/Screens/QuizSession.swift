@@ -19,15 +19,15 @@
 //  ├─ userAnswer               지금 고르거나 입력한 답
 //  │                           └ 값이 들어오면 안내를 스스로 거둔다 (setter 안에서)
 //  ├─ results                  채점 결과 (문제 id → 결과)
-//  ├─ isGrading                채점 중인가
+//  ├─ isGrading                채점 중인가 (화면용 — 직접입력의 「채점 중」 표시)
+//  ├─ hasSubmittedCurrent      이 문항의 답을 이미 냈나 — 이중 제출 문지기 (2차 리팩토링)
 //  ├─ encouragements           이번 회차의 응원 문구 (뒤에서 만들어 둔다)
 //  ├─ isWrappingUp             회차를 마무리하는 3초인가
 //  ├─ needsAnswerHint          "답을 고르세요" 안내를 띄울까
-//  ├─ sessionID                이번 회차를 묶는 번호 (관찰 기록용)
-//  ├─ shownAt / firstTouchAt   지금 문제가 뜬 시각 / 처음 답에 손댄 시각
-//  ├─ timingByID               채점 전까지 잠깐 들고 있는 시간 (문제 id → ObsTiming)
-//  ├─ wasFirstEverByID         처음 보는 문항이었나 — start() 에서 미리 읽어 둔다
+//  ├─ obs                      관찰 기록 재료 (ObsSessionLog — 회차 번호·뜬 시각·첫 손댐·잰 시간·처음 보는 문항)
+//  │                           └ wasFirstEverByID 는 start() 에서 채점 전에 미리 읽어 둔다
 //  ├─ start()                  회차 구성 — 진척 확보 → 출제 계획 → 초기화 → 캐시 워밍
+//  ├─ leave()                  화면을 떠날 때 — 아무도 안 볼 작업(해설 미리 만들기·응원·분석·3초 박자)만 멈춘다
 //  ├─ submitCurrent()          답 기록 → 다음 문제. 마지막이면 채점 시작
 //  ├─ eraseAllProgress()       학습 기록 전체 삭제 후 새 회차
 //  ├─ gradeCurrent()           한 문제를 채점하고 진척에 반영
@@ -37,19 +37,20 @@
 //  ├─ saveFailures()           모델이 실패한 기록을 저장소에 넣고 바로 저장한다 (QuestionScreen 도 부른다)
 //  ├─ uploadFailuresNow()      회차 경계를 안 기다리고 실패 기록을 바로 올려 본다 (QuestionScreen 도 부른다)
 //  ├─ wrapUp()                 회차 끝의 3초 박자
-//  ├─ recordTiming()           지금 문항에서 잰 시간을 채점 때까지 보관
-//  ├─ saveObsRecord()          정오답이 정해진 뒤 ObsRecord 한 줄을 남긴다
-//  ├─ feedback                 지금 띄워야 할 오답 해설 창(IncorrectCommentary). nil 이면 창이 없다
-//  ├─ correctFeedback          지금 띄워야 할 정답 해설 창(CorrectCommentary). nil 이면 창이 없다
-//  ├─ reviewItems / reviewIndex  복습할 문항(본 풀이에서 틀린 것) / 지금 자리 (11차 4-37)
-//  ├─ isShowingReviewIntro     복습 시작 화면을 띄울 차례인가
-//  ├─ isInReview               복습 중인가 — current 가 복습 문항을 준다
-//  ├─ reviewResults            문항 id → 복습에서 맞혔나 (본 풀이 results 와 따로)
+//  ├─ saveObsRecord()          정오답이 정해진 뒤 obs 가 만든 ObsRecord 한 줄을 저장소에 넣는다
+//  ├─ presented                지금 떠 있는 해설 창 (PresentedCommentary — 셋 중 하나만, nil 이면 없음)
+//  │  ├─ feedback              └ 오답 해설 창 내용 (presented 에서 꺼내 읽기만)
+//  │  ├─ correctFeedback       └ 정답 해설 창 내용
+//  │  └─ trueFalseFeedback     └ O/X 해설 창 내용 (맞힘·틀림 공용)
+//  ├─ review                   복습 한 바퀴 (ReviewRound, 11차 4-37). 화면은 아래 이름으로 읽는다
+//  │  ├─ reviewItems / reviewIndex  복습할 문항(본 풀이에서 틀린 것) / 지금 자리
+//  │  ├─ isShowingReviewIntro  복습 시작 화면을 띄울 차례인가
+//  │  ├─ isInReview            복습 중인가 — current 가 복습 문항을 준다
+//  │  └─ reviewOutcome(for:)   문항 id → 복습에서 맞혔나 (본 풀이 results 와 따로)
 //  ├─ startReview()            복습 시작 화면의 버튼 → 첫 복습 문제
-//  ├─ trueFalseFeedback        지금 띄워야 할 O/X 해설 창(TrueFalseCommentary). 맞힘·틀림 공용
 //  ├─ immediateVerdict         O/X·2지선다 판정 — 누른 버튼을 녹색·붉은색으로 칠한다 (채점 전 nil)
 //  ├─ isShowingCommentary      셋 중 하나라도 떠 있는가 (뒤 화면의 손가락을 막는 데 쓴다)
-//  ├─ prefetchExplanation()    문제가 뜨는 즉시 정답 해설을 뒤에서 미리 만들기 시작한다
+//  ├─ explanations             정답 해설 미리 만들기 (ExplanationPrefetcher) — 문제가 뜨는 즉시 시작
 //  ├─ explanation(for:)        미리 만들어 둔 정답 해설을 기다린다 (없으면 그때 시작)
 //  ├─ presentCorrectFeedback() 정답 해설 창을 띄우고 explanation(for:) 로 채운다
 //  ├─ presentTrueFalseFeedback() 0.6초 뒤 O/X 창을 띄운다. 바른 문장은 코드, 해설만 모델
@@ -68,8 +69,10 @@
 //  └─ uploadObservations()     안 올라간 기록을 뒤에서 밀어 올린다 (기다리지 않는다)
 //
 //  ⚠️ 해설 창에 **들어갈 내용**(IncorrectCommentary · CorrectCommentary ·
-//     CommentaryPlaceholder)은 이 파일에 없다 — Grading/Commentary.swift 로 옮겼다.
+//     CommentaryPlaceholder · PresentedCommentary)은 이 파일에 없다 — Grading/Commentary.swift 로 옮겼다.
 //     창을 그리는 화면이 회차 전체를 아는 타입을 거치지 않게 하려는 것이다.
+//  ⚠️ 2차 리팩토링(2026-10-23)에서 덩어리 셋을 제 파일로 뺐다 — 복습(Session/ReviewRound.swift),
+//     관찰 기록 재료(Observation/ObsSessionLog.swift), 해설 미리 만들기(Grading/ExplanationPrefetcher.swift).
 //
 //  ── 연결 문제가 낀 회차 ────────────────────────────────
 //  연결 문제(MatchingSet)는 Question 이 아니라서 items 에 못 담는다. 그래서
@@ -108,10 +111,12 @@
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : QuizView 와 그 아래 화면들 (QuestionScreen · ResultScreen)
 //  기대는 것    : QuestionCatalog(문제), SessionBuilder(출제 계획),
-//                RuleGrader·AnswerMatcher·AnswerChecker(채점), QuestionProgress(진척), FocusStore(하이라이트)
+//                RuleGrader·AnswerMatcher·AnswerChecker(채점), QuestionProgress(진척), FocusStore(하이라이트),
+//                ReviewRound(복습) · ObsSessionLog(관찰 기록 재료) · ExplanationPrefetcher(해설 미리 만들기)
 //  건드리지 않는 것 : 낭독과 화면 그리기 — 소리는 QuizView 가, 모양은 각 Screen 이 맡는다
 //
 
+import OSLog   // Log.* (진단 기록) — MemberImportVisibility 라 쓰는 파일마다 가져온다
 import Foundation
 import Observation
 import SwiftData
@@ -143,14 +148,17 @@ final class QuizSession {
     private let commentaryWriter = CommentaryWriter()
     private let encouragementWriter = EncouragementWriter()
 
-    /// 문제가 뜨는 순간 미리 시작해 둔 정답 해설(`.full`). 채점 시점엔 이미 다 만들어져
-    /// 있거나 만들어지는 중이다 — 다시 시키지 않고 이 결과를 기다린다.
+    /// 문제가 뜨는 순간 정답 해설(`.full`)을 미리 만들기 시작해 두는 곳.
     ///
-    /// 맞혔든 틀렸든 "이 답이 왜 맞는지"는 문제가 뜨는 순간 이미 정해진 사실이다.
-    /// 무엇을 고르는지와 무관하므로, 채점을 기다릴 이유가 없다 — 문제가 화면에 뜨자마자
-    /// (``start()``·``moveToNextQuestion()``) ``prefetchExplanation(for:)`` 로 만들기
-    /// 시작해 둔다. 키는 ``QuizItem/id``(= ``Question/id``)다.
-    private var prefetchedExplanations: [Int: Task<Writing, Never>] = [:]
+    /// 맞혔든 틀렸든 "이 답이 왜 맞는지"는 문제가 뜨는 순간 이미 정해진 사실이라 채점을 기다릴 이유가 없다 —
+    /// 문제가 화면에 뜨자마자(``start()``·``moveToNextQuestion()``) 시작해 둔다. (2차 리팩토링에서 제 파일로)
+    private let explanations: ExplanationPrefetcher
+
+    /// 이번 회차의 응원 문구를 만드는 작업. 새 회차·나가기에서 멈춘다.
+    private var encouragementTask: Task<Void, Never>?
+
+    /// 회차 끝 3초 박자 작업. 새 회차·나가기에서 멈춘다.
+    private var wrapUpTask: Task<Void, Never>?
 
     /// 이번 회차에 쓸 응원 문구. 회차를 시작할 때 뒤에서 만들어 채운다.
     ///
@@ -192,8 +200,15 @@ final class QuizSession {
     /// 채점 결과 (문제 id → 결과).
     private(set) var results: [Int: GradingResult] = [:]
 
-    /// 채점이 진행 중인지.
+    /// 채점이 진행 중인지. **화면용** — 직접입력에서 「채점 중」 표시를 띄우는 데만 쓴다.
     private(set) var isGrading = false
+
+    /// 이 문항의 답을 이미 냈는가. **이중 제출을 막는 문지기.**
+    ///
+    /// ``isGrading`` 은 직접입력에서만, 그것도 채점 `Task` 가 실제로 돈 뒤에야 켜져서
+    /// 선다·O/X·2지선다를 빠르게 두 번 누르면 같은 문항이 두 번 채점될 틈이 있었다(2차 리팩토링에서 찾음).
+    /// 이 깃발은 `Task` 를 만들기 **전에** 모든 방식에서 켜지고, 다음 문항으로 넘어갈 때(``moveToNextQuestion()``) 꺼진다.
+    private var hasSubmittedCurrent = false
 
     /// 회차를 마무리하는 한 박자. 결과 화면 앞에서 3초 동안 켜진다.
     private(set) var isWrappingUp = false
@@ -211,7 +226,7 @@ final class QuizSession {
             rawAnswer = newValue
             if !newValue.trimmingCharacters(in: .whitespaces).isEmpty {
                 needsAnswerHint = false
-                if firstTouchAt == nil { firstTouchAt = .now }
+                obs.touch()
             }
         }
     }
@@ -226,57 +241,33 @@ final class QuizSession {
 
     // MARK: - 관찰 기록용 상태
 
-    /// 한 문항에서 잰 시간.
-    ///
-    /// ``ObsRecord`` 를 그 자리에서 만들지 못하는 이유가 있습니다 — **정오답은
-    /// 채점이 끝나야 정해지는데, 시간은 「다음」을 누른 순간에 이미 지나갑니다.**
-    /// 그 사이를 이 값이 메웁니다.
-    private struct ObsTiming {
-        let askedAt: Date
-        let secToFirstTouch: Double?
-        let secToSubmit: Double
-    }
-    
-    /// 이번 회차를 묶는 번호. ``start()`` 마다 새로 만든다.
-    ///
-    /// 이것 하나로 나중에 「이번 회차 평균 대기」와 「회차에 걸린 총 시간」을 셉니다.
-    private var sessionID = UUID()
+    /// 이번 회차의 관찰 기록 재료 — 회차 번호 · 문제가 뜬 시각 · 첫 손댐 · 잰 시간 · 처음 보는 문항이었나.
+    /// (2차 리팩토링에서 ``ObsSessionLog`` 로 묶었다. 저장과 업로드는 여기 남아 있다)
+    private var obs = ObsSessionLog()
 
-    /// 지금 문제가 화면에 뜬 시각.
-    ///
-    /// 화면이 알려 주지 않고 **여기서 스스로 찍습니다.** ``start()`` 직후와
-    /// ``submitCurrent()`` 로 다음 문제로 넘어간 직후가 그 순간입니다.
-    /// 화면에 `onAppear` 를 심으면 화면이 판단을 하게 되어 규칙이 흩어집니다.
-    private var shownAt: Date?
-
-    /// 지금 문제에서 **처음** 답에 손댄 시각. 답을 바꿔도 처음 것만 남는다.
-    private var firstTouchAt: Date?
-
-    /// 문제 id → 이번 회차에 잰 시간. 채점이 끝나면 ``ObsRecord`` 로 옮긴다.
-    private var timingByID: [Int: ObsTiming] = [:]
-
-    /// 문제 id → **이번이 처음 보는 문항이었나.**
-    ///
-    /// - Important: 채점 뒤에 읽으면 **전부 `false`** 가 됩니다.
-    ///   ``QuestionProgress/countAttempt(correct:now:)`` 가
-    ///   ``QuestionProgress/isIntroduced`` 를 켜 버리기 때문입니다.
-    ///   그래서 ``start()`` 에서, 아직 아무것도 일어나지 않았을 때 미리 읽어 둡니다.
-    private var wasFirstEverByID: [Int: Bool] = [:]
-    
-    /// 지금 띄워야 할 창. `nil` 이면 **창이 없다.**
+    /// 지금 떠 있는 해설 창. `nil` 이면 **창이 없다.**
     ///
     /// 별도의 `Bool` 을 두지 않은 이유 — **값이 있으면 떠 있는 것**입니다.
-    /// ``ObsRecord/uploadedAt`` 이 `nil` 이면 「아직 안 올라감」인 것과 같은 방식입니다.
+    /// 예전에는 창마다 옵셔널이 하나씩(셋) 있어서 「한 번에 하나만」을 **호출 순서**가 지켰습니다.
+    /// 열거형 하나로 두면 둘이 동시에 뜬 상태를 **만들 수가 없습니다.** (2차 리팩토링)
     ///
-    /// `private(set)` 인 이유 — 화면은 **읽어서 그리기만** 하고, 넣고 비우는 것은
-    /// ``QuizSession`` 만 합니다.
-    private(set) var feedback: IncorrectCommentary?
+    /// `private(set)` 인 이유 — 화면은 **읽어서 그리기만** 하고, 넣고 비우는 것은 ``QuizSession`` 만 합니다.
+    private(set) var presented: PresentedCommentary?
 
-    /// 지금 띄워야 할 **정답 해설** 창. `nil` 이면 창이 없다. (``feedback`` 과 같은 이유)
-    private(set) var correctFeedback: CorrectCommentary?
+    /// 지금 띄워야 할 **오답 해설** 창의 내용. ``QuizView`` 의 `.sheet(item:)` 이 읽는다.
+    var feedback: IncorrectCommentary? {
+        if case .incorrect(let content) = presented { content } else { nil }
+    }
 
-    /// 지금 띄워야 할 **O/X 해설** 창. 맞혔든 틀렸든 O/X 는 이 창 하나를 쓴다. (``feedback`` 과 같은 이유)
-    private(set) var trueFalseFeedback: TrueFalseCommentary?
+    /// 지금 띄워야 할 **정답 해설** 창의 내용.
+    var correctFeedback: CorrectCommentary? {
+        if case .correct(let content) = presented { content } else { nil }
+    }
+
+    /// 지금 띄워야 할 **O/X 해설** 창의 내용. 맞혔든 틀렸든 O/X 는 이 창 하나를 쓴다.
+    var trueFalseFeedback: TrueFalseCommentary? {
+        if case .trueFalse(let content) = presented { content } else { nil }
+    }
 
     // MARK: - 복습 (11차 4-37)
     //
@@ -284,34 +275,29 @@ final class QuizSession {
     // 흐름: 마지막 칸 → 복습 시작 화면(isShowingReviewIntro) → 복습 문제들(isInReview)
     //       → 3초 박자(isWrappingUp) → 결과 화면. 틀린 게 없으면 복습 없이 곧바로 결과로 간다.
 
-    /// 복습할 문항 — 이번 회차 본 풀이에서 틀린 것들. 순서는 회차에 나온 순서 그대로.
-    private(set) var reviewItems: [QuizItem] = []
+    /// 복습 한 바퀴의 상태 (2차 리팩토링에서 ``ReviewRound`` 로 묶었다). 화면은 아래 이름들로 읽는다.
+    private(set) var review = ReviewRound()
 
-    /// 지금 복습 중인 자리 (``reviewItems`` 안의 번호).
-    private(set) var reviewIndex = 0
+    /// 복습할 문항 — 이번 회차 본 풀이에서 틀린 것들.
+    var reviewItems: [QuizItem] { review.items }
+
+    /// 지금 복습 중인 자리.
+    var reviewIndex: Int { review.index }
 
     /// 복습 시작 화면을 띄울 차례인가.
-    private(set) var isShowingReviewIntro = false
+    var isShowingReviewIntro: Bool { review.isShowingIntro }
 
     /// 복습 문제를 푸는 중인가. 이 동안 ``current`` 는 복습 문항을 돌려준다.
-    private(set) var isInReview = false
-
-    /// 문항 id → 복습에서 맞혔나. **본 풀이 결과(``results``)는 건드리지 않고** 따로 둔다 —
-    /// 결과 화면이 「정답 / 다시 풀어서 정답 / 틀렸어요」를 가르려면 둘 다 필요하다.
-    private(set) var reviewResults: [Int: Bool] = [:]
+    var isInReview: Bool { review.isActive }
 
     /// 복습에서 맞혔는지. 복습하지 않은 문항이면 `nil`.
-    func reviewOutcome(for questionID: Int) -> Bool? { reviewResults[questionID] }
+    func reviewOutcome(for questionID: Int) -> Bool? { review.outcomes[questionID] }
 
     /// 복습 시작 화면의 버튼. 첫 복습 문제로 들어간다.
     func startReview() {
-        guard isShowingReviewIntro, !reviewItems.isEmpty else { return }
-        isShowingReviewIntro = false
-        isInReview = true
-        reviewIndex = 0
+        guard review.begin() else { return }
         rawAnswer = ""
-        shownAt = .now
-        firstTouchAt = nil
+        obs.markShown()
     }
 
     /// 지금 문항의 판정. 누른 보기를 녹색(맞음)·붉은색(틀림)으로 칠하는 데 쓴다.
@@ -334,6 +320,7 @@ final class QuizSession {
         self.modelContext = modelContext
         self.matchingCatalog = matchingCatalog
         self.size = size
+        self.explanations = ExplanationPrefetcher(writer: commentaryWriter)
     }
 
     // MARK: - 화면이 물어보는 것
@@ -357,7 +344,7 @@ final class QuizSession {
     var current: QuizItem? {
         // 복습 중이면 복습 문항을 준다. 화면(QuestionScreen)은 복습인지 몰라도 같은 식으로 그린다.
         if isInReview {
-            return reviewItems.indices.contains(reviewIndex) ? reviewItems[reviewIndex] : nil
+            return review.current
         }
 
         guard !isMatchingSlot else { return nil }
@@ -412,9 +399,7 @@ final class QuizSession {
     /// 그러면 창이 덮지 않은 위쪽의 보기 버튼이 **그대로 눌린다.** 이미 채점이
     /// 끝난 뒤라 그때 답을 바꿔도 결과는 안 바뀌지만, 눌리는데 아무 일도 안
     /// 일어나면 고장으로 보인다.
-    var isShowingCommentary: Bool {
-        feedback != nil || correctFeedback != nil || trueFalseFeedback != nil
-    }
+    var isShowingCommentary: Bool { presented != nil }
 
     /// 답을 고르거나 입력했는지.
     var hasAnswer: Bool {
@@ -440,7 +425,7 @@ final class QuizSession {
         let progressByID = ensureProgressExists()
 
         // 채점이 isIntroduced 를 켜기 전에 "처음 보는 문항" 을 미리 읽어 둔다.
-        wasFirstEverByID = progressByID.mapValues { !$0.isIntroduced }
+        obs.wasFirstEverByID = progressByID.mapValues { !$0.isIntroduced }
 
         // 이번 회차에 연결 문제를 넣을지 먼저 정한다. 넣으면 일반 문제를 한 칸
         // 덜 뽑아야 회차 길이(size)가 그대로 유지된다.
@@ -466,15 +451,15 @@ final class QuizSession {
         placeVoiceItem()
 
         clearAnswers()
+        wrapUpTask?.cancel()
         isWrappingUp = false
 
-        // 이전 회차에서 만들어 둔 것이 남아 있으면 새 회차와 문항 id 가 겹칠 수 있다
-        // (문제 id 는 문제집 전체에서 고유하지만, 안전하게 비우고 새로 시작한다).
-        prefetchedExplanations = [:]
+        // 이전 회차에서 만들던 해설이 남아 있으면 멈추고 비운다 — 아무도 그 결과를 기다리지 않는다.
+        explanations.cancelAll()
 
         // 첫 문제가 뜨는 순간부터 정답 해설을 미리 만들기 시작한다 — 채점을 기다리지 않는다.
         if let first = current {
-            prefetchExplanation(for: first)
+            explanations.start(for: first.question)
         }
 
         // 어머니가 문제를 푸는 동안, 아직 분석하지 않은 문제를 뒤에서 채워 둔다.
@@ -486,10 +471,22 @@ final class QuizSession {
         // 어머니가 첫 문제를 읽는 동안 이번 회차의 응원 문구를 만들어 둔다.
         // 늦게 와도 상관없다 — 그 전에 틀리면 앱에 박힌 것을 쓴다.
         encouragements = []
-        Task { encouragements = await encouragementWriter.write() }
+        encouragementTask?.cancel()
+        encouragementTask = Task { encouragements = await encouragementWriter.write() }
 
         // 지난번에 못 올린 기록이 있으면 여기서 따라잡는다.
         uploadObservations()
+    }
+
+    /// 회차 화면을 떠날 때 부른다(``QuizView`` 의 `onDisappear`). **아무도 결과를 안 볼 작업만** 멈춘다.
+    ///
+    /// - Important: 채점(`gradeCurrent`)은 멈추지 **않는다.** 채점 도중 멈추면 모델 판정이 실패로 끝나
+    ///   맞힌 답이 오답으로 사다리에 적힐 수 있다. 관찰 기록 업로드도 끝까지 간다 — 그게 맞는 일이다.
+    func leave() {
+        explanations.cancelAll()
+        encouragementTask?.cancel()
+        focusWarmingTask?.cancel()
+        wrapUpTask?.cancel()
     }
 
     /// 학습 기록을 모두 지우고 처음부터 다시 시작한다.
@@ -508,7 +505,7 @@ final class QuizSession {
     /// 현재 답을 기록하고 다음 문제로 넘어간다. 마지막 문제였다면 채점을 시작한다.
     func submitCurrent() {
         guard let item = current else { return }
-        guard !isGrading else { return }
+        guard !isGrading, !hasSubmittedCurrent else { return }
         
         let trimmed = rawAnswer.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
@@ -520,9 +517,11 @@ final class QuizSession {
 
         // 시간을 여기서 잰다 — 화면이 바뀌기 전이 마지막 기회다.
         if !isInReview {
-            recordTiming(for: item)
+            obs.recordTiming(for: item.id)
         }
 
+        // 깃발은 Task 를 만들기 **전에** — Task 가 실제로 돌기까지 한 틱이 비는데, 그 사이 두 번째 탭을 막는다.
+        hasSubmittedCurrent = true
         Task { await gradeCurrent(item, answer: trimmed) }
     }
     
@@ -534,48 +533,43 @@ final class QuizSession {
     /// 한때 이 다섯 줄이 ``submitCurrent()`` 안에 있었습니다. 그러면 제출과 동시에
     /// 다음 문제로 넘어가 버려서 **창이 낄 자리가 없습니다.**
     ///
-    /// - Important: ``shownAt`` 을 ``currentIndex`` **뒤에** 찍습니다.
+    /// - Important: 뜬 시각(``ObsSessionLog/markShown()``)을 ``currentIndex`` **뒤에** 찍습니다.
     ///   그래야 「다음 문제가 뜬 시각」이 됩니다.
     private func moveToNextQuestion() {
         rawAnswer = ""
         needsAnswerHint = false
         immediateVerdict = nil
+        hasSubmittedCurrent = false
 
         // 복습 중이면 복습 안에서 다음으로. 다 풀면 결과 화면으로 간다.
         if isInReview {
-            reviewIndex += 1
-            shownAt = .now
-            firstTouchAt = nil
+            obs.markShown()
 
-            if reviewIndex >= reviewItems.count {
-                isInReview = false
+            if !review.advance() {
                 uploadObservations()
                 wrapUp()
             } else if let next = current {
                 // 복습 문항은 본 풀이에서 이미 다 만들어져 있다 — 있으면 그걸 그대로
                 // 쓰고, 없으면(안전망) 여기서 새로 시작해 둔다.
-                prefetchExplanation(for: next)
+                explanations.start(for: next.question)
             }
             return
         }
 
         currentIndex += 1
 
-        shownAt = .now
-        firstTouchAt = nil
+        obs.markShown()
 
         // 다음 문제가 뜨는 순간부터 정답 해설을 미리 만들기 시작한다. 연결 문제 칸이면
         // current 가 nil 이라 아무 일도 일어나지 않는다 — 그 다음 실제 문항 차례에서 시작된다.
         if let next = current {
-            prefetchExplanation(for: next)
+            explanations.start(for: next.question)
         }
 
         if isFinished {
             // 틀린 문제가 있으면 결과 전에 복습부터. 회차에 나온 순서 그대로 다시 묻는다.
             let missed = items.filter { results[$0.id]?.isCorrect == false }
-            if !missed.isEmpty {
-                reviewItems = missed
-                isShowingReviewIntro = true
+            if review.offer(missed) {
                 return
             }
 
@@ -654,15 +648,18 @@ final class QuizSession {
     private func wrapUp() {
         isWrappingUp = true
 
-        Task { @MainActor in
+        wrapUpTask?.cancel()
+        wrapUpTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
+            // 새 회차가 이 박자를 멈췄으면 손대지 않는다 — start() 가 이미 false 로 두었다.
+            guard !Task.isCancelled else { return }
             isWrappingUp = false
         }
     }
     
     func dismissFeedback() {
         guard feedback != nil else { return }
-        feedback = nil
+        presented = nil
         moveToNextQuestion()
     }
 
@@ -681,14 +678,14 @@ final class QuizSession {
     /// O/X 해설 창의 「다음 문제」. (``dismissFeedback()`` 과 같은 이유)
     func dismissTrueFalseFeedback() {
         guard trueFalseFeedback != nil else { return }
-        trueFalseFeedback = nil
+        presented = nil
         moveToNextQuestion()
     }
 
     /// 정답 해설 창의 「다음 문제」. (``dismissFeedback()`` 과 같은 이유)
     func dismissCorrectFeedback() {
         guard correctFeedback != nil else { return }
-        correctFeedback = nil
+        presented = nil
         moveToNextQuestion()
     }
 
@@ -700,30 +697,13 @@ final class QuizSession {
         needsAnswerHint = true
     }
 
-    // MARK: - 정답 해설 미리 만들기
+    // MARK: - 정답 해설
 
-    /// 문제가 뜨는 즉시 정답 해설(`.full`)을 뒤에서 만들기 시작한다.
+    /// 미리 만들어 둔 정답 해설을 기다린다. (``ExplanationPrefetcher`` 가 들고 있다)
     ///
-    /// 이미 만들고 있거나 다 만들었으면 아무 일도 하지 않는다 — 한 문항에 두 번
-    /// 시키지 않는다. 연결 문제 칸(``QuizItem`` 이 없는 자리)에서는 부르지 않는다.
-    private func prefetchExplanation(for item: QuizItem) {
-        guard prefetchedExplanations[item.id] == nil else { return }
-
-        let writer = commentaryWriter
-        let question = item.question
-        prefetchedExplanations[item.id] = Task {
-            await writer.explain(question, length: .full)
-        }
-    }
-
-    /// 미리 만들어 둔 정답 해설을 기다린다.
-    ///
-    /// 정답이든 오답이든, O/X 든 선다든 — 이 문항의 "이 답이 왜 맞는지"는 모두 같은
-    /// 글이므로 같은 자리에서 가져다 쓴다. 아직 미리 시작해 두지 못했을 때만
-    /// (프리뷰·안전망) 지금 바로 시작해 기다린다.
+    /// 정답이든 오답이든, O/X 든 선다든 — 이 문항의 "이 답이 왜 맞는지"는 모두 같은 글이므로 같은 자리에서 가져다 쓴다.
     private func explanation(for item: QuizItem) async -> Writing {
-        prefetchExplanation(for: item)
-        return await prefetchedExplanations[item.id]!.value
+        await explanations.explanation(for: item.question)
     }
 
     /// 맞혔을 때 정답 해설 창을 띄운다.
@@ -737,13 +717,13 @@ final class QuizSession {
     ///   그 대기는 "자리표시 문구가 뜨자마자 바뀌어 깜빡이는" 것을 막으려던 것인데,
     ///   ``CorrectAnswerSheet`` 는 접힌 채로 뜨고 「정답 해설 보기」를 눌러야 펼쳐지므로
     ///   자리표시 문구 자체를 어머니가 볼 일이 없다 — 깜빡일 것이 없다. 여기서 대기를
-    ///   두면 오히려 미리 다 만들어 둔 해설(``prefetchExplanation(for:)``)이 있어도
+    ///   두면 오히려 미리 다 만들어 둔 해설(``ExplanationPrefetcher``)이 있어도
     ///   그 시간만큼 버튼이 계속 로딩으로 보이는, 정반대의 문제가 생긴다.
     private func presentCorrectFeedback(for item: QuizItem) async {
-        correctFeedback = CorrectCommentary(
+        presented = .correct(CorrectCommentary(
             id: item.id,
             correctAnswer: item.question.displayAnswer,
-            commentary: CommentaryPlaceholder.waiting)
+            commentary: CommentaryPlaceholder.waiting))
 
         let written = await explanation(for: item)
         saveFailures([written.failure])
@@ -753,10 +733,10 @@ final class QuizSession {
         // 실패해도 반드시 갱신한다 — 안 그러면 자리표시 문구가 오지 않는 것을
         // 계속 기다리며 반짝인다.
         if correctFeedback != nil {
-            correctFeedback = CorrectCommentary(
+            presented = .correct(CorrectCommentary(
                 id: item.id,
                 correctAnswer: item.question.displayAnswer,
-                commentary: text ?? CommentaryPlaceholder.failed)
+                commentary: text ?? CommentaryPlaceholder.failed))
         }
 
         saveObsRecord(for: item, isCorrect: true, explanation: text)
@@ -792,7 +772,7 @@ final class QuizSession {
 
         try? await Task.sleep(for: Self.trueFalseColorBeat)
 
-        trueFalseFeedback = content(CommentaryPlaceholder.waiting)
+        presented = .trueFalse(content(CommentaryPlaceholder.waiting))
         let shownAt = ContinuousClock.now
 
         let result = await written
@@ -803,7 +783,7 @@ final class QuizSession {
 
         // 실패해도 반드시 갱신한다 — 안 그러면 자리표시 문구가 계속 반짝인다.
         if trueFalseFeedback != nil {
-            trueFalseFeedback = content(result.text ?? CommentaryPlaceholder.failed)
+            presented = .trueFalse(content(result.text ?? CommentaryPlaceholder.failed))
         }
 
         saveObsRecord(for: item, isCorrect: isCorrect, explanation: result.text)
@@ -815,14 +795,14 @@ final class QuizSession {
         if item.mode == .typing { isGrading = true }
 
         // 복습 풀이는 본 풀이 결과를 덮어쓰지 않는다 — judge 가 results 에 적으므로
-        // 미리 들고 있다가 되돌리고, 복습 결과는 reviewResults 에 따로 적는다.
+        // 미리 들고 있다가 되돌리고, 복습 결과는 review(ReviewRound) 에 따로 적는다.
         let mainResult = isInReview ? results[item.id] : nil
 
         let isCorrect = await judge(item, answer: answer)
         isGrading = false
 
         if isInReview {
-            reviewResults[item.id] = isCorrect
+            review.record(item.id, correct: isCorrect)
             results[item.id] = mainResult
         }
 
@@ -855,7 +835,7 @@ final class QuizSession {
             let waitingLine = nextEncouragement()
             let shownAt = ContinuousClock.now
 
-            feedback = IncorrectCommentary(
+            presented = .incorrect(IncorrectCommentary(
                 id: item.id,
                 selectedAnswer: answer,
                 // 설명할 재료가 아예 없으면 기다릴 것도 없다. 바로 다음 걸음을 알려 준다.
@@ -863,7 +843,7 @@ final class QuizSession {
                 waitingLine: waitingLine,
                 expectsNote: chosenQuestion != nil,
                 correctAnswer: item.question.displayAnswer,
-                commentary: CommentaryPlaceholder.waiting)
+                commentary: CommentaryPlaceholder.waiting))
 
             // 둘을 나란히 부른다. 하나씩 기다리면 대기가 두 배가 된다.
             async let commentary = explanation(for: item)
@@ -888,7 +868,7 @@ final class QuizSession {
                 let note = noteText
                     ?? (chosenQuestion != nil ? CommentaryPlaceholder.noteFailed : nil)
 
-                feedback = IncorrectCommentary(
+                presented = .incorrect(IncorrectCommentary(
                     id: item.id,
                     selectedAnswer: answer,
                     selectedNote: note,
@@ -896,7 +876,7 @@ final class QuizSession {
                     // 더 기다릴 것이 없다. 맥동을 멈춘다.
                     expectsNote: false,
                     correctAnswer: item.question.displayAnswer,
-                    commentary: text ?? CommentaryPlaceholder.failed)
+                    commentary: text ?? CommentaryPlaceholder.failed))
             }
             
             saveObsRecord(for: item, isCorrect: isCorrect, explanation: text)
@@ -965,7 +945,7 @@ final class QuizSession {
             return check.isCorrect
         } catch {
             // 시한이 지난 것과 실패한 것을 같게 다룬다. 화면에는 조용히 오답.
-            print("❌ 채점 실패:", error)
+            Log.grading.error("채점 실패 q\(item.id): \(String(describing: error), privacy: .public)")
             results[item.id] = GradingResult(isCorrect: false, reason: "", basis: nil)
             return false
         }
@@ -992,49 +972,23 @@ final class QuizSession {
 
     // MARK: - 관찰 기록
 
-    /// 지금 문항에서 잰 시간을 채점 때까지 들고 있는다.
+    /// 이 문항에서 일어난 일을 ``ObsRecord`` 한 줄로 저장소에 넣는다. 줄을 만드는 일은 ``ObsSessionLog/record(for:isCorrect:chosen:reason:explanation:basis:)``.
     ///
-    /// ``shownAt`` 이 `nil` 이면 지금을 기준으로 삼습니다 — 0초로 적으면
-    /// "0초 만에 풀었다" 는 거짓말이 되고, 기록을 통째로 버리면 그 문항이 사라집니다.
-    private func recordTiming(for item: QuizItem) {
-        let asked = shownAt ?? .now
-        let now = Date.now
-        
-        timingByID[item.id] = ObsTiming(
-            askedAt: asked,
-            secToFirstTouch: firstTouchAt.map { $0.timeIntervalSince(asked) },
-            secToSubmit: now.timeIntervalSince(asked))
-    }
- 
-    /// 이 문항에서 일어난 일을 ``ObsRecord`` 한 줄로 남긴다.
-    ///
-    /// - Important: **정오답이 정해진 뒤에만** 부를 수 있습니다.
-    ///   시간을 못 잰 문항(``timingByID`` 에 없는 경우)은 **조용히 건너뜁니다** —
-    ///   추측한 값으로 채우면 나중에 그 줄이 참인지 알 수 없게 됩니다.
+    /// - Important: **정오답이 정해진 뒤에만** 부를 수 있습니다. 시간을 못 잰 문항은 **조용히 건너뜁니다.**
     private func saveObsRecord(for item: QuizItem, isCorrect: Bool, explanation: String?) {
         // 복습 풀이는 남기지 않는다 — obs_record 에는 「복습이었나」를 가를 칸이 아직 없어,
         // 섞이면 본 풀이 통계(정답률·시간)가 흐려진다. 칸을 만든 뒤 남기기로 한다.
         guard !isInReview else { return }
-        guard let timing = timingByID[item.id] else { return }
-        
-        modelContext.insert(
-            ObsRecord(
-                sessionID: sessionID,
-                askedAt: timing.askedAt,
-                questionID: item.id,
-                secToFirstTouch: timing.secToFirstTouch,
-                secToSubmit: timing.secToSubmit,
-                isCorrect: isCorrect,
-                modeRaw: item.mode.rawValue,
-                wasFirstEver: wasFirstEverByID[item.id] ?? false,
-                affectsProgress: item.affectsProgress,
-                chosen: submittedAnswers[item.id],
-                reason: reasonForLog(item.id),
-                explanation: explanation,
-                basis: results[item.id]?.basis,
-                explanationSource: explanation == nil ? nil : "device"
-            )
-        )
+        guard let record = obs.record(
+            for: item,
+            isCorrect: isCorrect,
+            chosen: submittedAnswers[item.id],
+            reason: reasonForLog(item.id),
+            explanation: explanation,
+            basis: results[item.id]?.basis
+        ) else { return }
+
+        modelContext.insert(record)
     }
 
     /// 안 올라간 관찰 기록을 뒤에서 밀어 올린다.
@@ -1042,12 +996,12 @@ final class QuizSession {
     /// **기다리지 않습니다.** 네트워크가 느려도 화면은 그대로 돌아갑니다 —
     /// 어머니는 업로드가 있는 줄도 모르는 채로 다음 문제를 봅니다.
     private func uploadObservations() {
-            Task {
-                let uploader = ObsUploader(modelContext: modelContext)
-                await uploader.uploadPending()
-                await uploader.uploadPendingFailures()
-            }
+        Task {
+            let uploader = ObsUploader(modelContext: modelContext)
+            await uploader.uploadPending()
+            await uploader.uploadPendingFailures()
         }
+    }
 
     // MARK: - 뒷정리
 
@@ -1058,21 +1012,13 @@ final class QuizSession {
         needsAnswerHint = false
         submittedAnswers = [:]
         results = [:]
-        feedback = nil
-        correctFeedback = nil
-        trueFalseFeedback = nil
+        presented = nil
         immediateVerdict = nil
-        reviewItems = []
-        reviewIndex = 0
-        isShowingReviewIntro = false
-        isInReview = false
-        reviewResults = [:]
+        hasSubmittedCurrent = false
+        review = ReviewRound()
 
         // 관찰 기록도 회차 단위로 새로 시작한다.
-        sessionID = UUID()
-        shownAt = .now
-        firstTouchAt = nil
-        timingByID = [:]
+        obs.startNewSession()
     }
 
     /// 백그라운드로 묻는 대상을 분석해 캐시에 채운다. (화면을 막지 않는다)

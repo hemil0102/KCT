@@ -38,6 +38,7 @@
 //  건드리지 않는 것 : 무엇을 시킬지 — 지시문과 프롬프트는 부르는 쪽이 쓴다
 //
 
+import OSLog   // Log.* (진단 기록) — MemberImportVisibility 라 쓰는 파일마다 가져온다
 import Foundation
 import FoundationModels
 
@@ -102,7 +103,7 @@ enum ModelCall {
     ///     ``GlossaryExampleWriter`` 가 세이프티 가드레일에 걸렸을 때
     ///     `session.logFeedbackAttachment(...)` 로 애플 신고용 첨부자료를 받아 가는 데 쓴다.
     ///     이 훅이 없으면 모델 호출을 공통 함수로 모으는 순간 그 기능이 사라진다.
-    static func generate<Content: Generable>(
+    static func generate<Content: Generable & Sendable>(
         job: String,
         questionID: Int,
         instructions: String,
@@ -132,7 +133,11 @@ enum ModelCall {
         } catch {
             // 이유를 버리면 화면에 남는 대체 문구가 왜 남는지 알 수 없고,
             // 무엇을 시켰는지 없으면 다시 만들어 볼 수가 없다.
-            print("❌ \(job) 실패 q\(questionID):", error)
+            // 회차를 나가서 멈춘 것(``ExplanationPrefetcher/cancelAll()``)은 모델의 실패가 아니다.
+            // model_failure 표에 적으면 안전 필터·환각을 보려는 표가 「취소」로 흐려진다.
+            if Task.isCancelled { return .empty }
+
+            Log.model.error("\(job, privacy: .public) 실패 q\(questionID): \(String(describing: error), privacy: .public)")
 
             onFailure?(session, error)
 

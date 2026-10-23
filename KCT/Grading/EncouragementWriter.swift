@@ -25,6 +25,7 @@
 //  건드리지 않는 것 : 언제 보여줄지 - QuizSession 이 정한다
 //
 
+import OSLog   // Log.* (진단 기록) — MemberImportVisibility 라 쓰는 파일마다 가져온다
 import Foundation
 import FoundationModels
 
@@ -112,7 +113,7 @@ struct EncouragementWriter {
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty && $0.count <= Self.maxLength }
         } catch {
-            print("❌ 응원 문구 실패:", error)
+            Log.model.error("응원 문구 실패: \(String(describing: error), privacy: .public)")
             return []
         }
     }

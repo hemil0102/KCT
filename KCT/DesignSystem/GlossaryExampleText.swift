@@ -175,7 +175,9 @@ struct GlossaryExampleText: View {
 
 /// 시트 위쪽 손잡이 모양. "^"를 옆으로 넓게 늘린 모양이다 — 시스템 기본 알약
 /// 모양 대신 이 모양을 그리려고 만들었다(``GlossaryPanel`` 의 `dragHandle`).
-struct WideChevronShape: Shape {
+///
+/// `nonisolated` — `Shape` 는 렌더링 쪽에서 메인 액터 밖에서도 불린다. 계산만 하는 값 타입이라 묶지 않는다.
+nonisolated struct WideChevronShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.minX, y: rect.maxY))

@@ -11,20 +11,20 @@
 //  ├─ matchingSetCatalog   연결 문제 세트(matchingSets.json). 별개 문제 체계라 따로 읽는다
 //  ├─ WindowGroup          RootView 를 담는 창
 //  ├─ .environment(...)          아래 모든 화면이 두 문제집을 꺼내 쓸 수 있게
-//  └─ .modelContainer(for:)      SwiftData 저장소 — 진척 · 하이라이트 캐시 · 관찰 기록
+//  └─ .modelContainer(_:)        SwiftData 저장소 — ModelStore.shared (버전 붙은 스키마 V1, 2차 리팩토링)
 //
 //  ── 흐름 ──────────────────────────────────────────────
 //  앱 실행
 //    → QuestionCatalog.loaded()      : 받아 둔 것 먼저, 없으면 번들 questions.json
 //    → MatchingSetCatalog.loaded()   : 받아 둔 것 먼저, 없으면 번들 matchingSets.json
 //                                      (두 줄 다 ContentFile.loadPreferringDownloaded 한 벌을 쓴다)
-//    → modelContainer : QuestionProgress·QuestionFocusRecord·ObsRecord·ModelFailure 를
-//                       저장할 곳 마련
+//    → modelContainer : ModelStore.shared — QuestionProgress·QuestionFocusRecord·ObsRecord·ModelFailure 를
+//                       저장할 곳 마련 (목록과 버전은 ModelStore.swift)
 //    → RootView(하단 탭바) → MyHistoryView·PracticeHomeView·QuizView 가 environment 에서 꺼내 씀
 //
 //  ── 연결 ──────────────────────────────────────────────
 //  불러 쓰는 곳 : 시스템 (@main)
-//  기대는 것    : QuestionCatalog·MatchingSetCatalog(문제집), QuestionProgress·QuestionFocusRecord(저장 타입), RootView
+//  기대는 것    : QuestionCatalog·MatchingSetCatalog(문제집), ModelStore(저장소), RootView
 //  건드리지 않는 것 : 출제·채점·화면 — 준비만 하고 판단은 아래에 맡긴다
 //
 
@@ -58,8 +58,7 @@ struct KCTApp: App {
                 .environment(questionCatalog)
                 .environment(matchingSetCatalog)
         }
-        // 디스크에 남길 타입들. 이 목록에 없으면 저장되지 않는다.
-        .modelContainer(for: [QuestionProgress.self, QuestionFocusRecord.self,
-                              ObsRecord.self, ModelFailure.self])
+        // 디스크 저장소. 모델 목록과 버전(V1)은 ModelStore.swift 한 곳에 있다.
+        .modelContainer(ModelStore.shared)
     }
 }

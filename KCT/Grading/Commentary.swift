@@ -14,6 +14,7 @@
 //  IncorrectCommentary   틀렸을 때 띄울 창의 내용 (고른 답 · 고른 답 설명 · 정답 · 해설)
 //  CorrectCommentary     맞혔을 때 띄울 창의 내용 (정답 · 해설)
 //  TrueFalseCommentary   O/X 창의 내용 (누른 라벨 · 맞았나 · 바르게 고친 문장 · 해설)
+//  PresentedCommentary   지금 떠 있는 창 — 위 셋 중 **하나만** (2차 리팩토링, 2026-10-23)
 //
 //  ── 이 파일이 생긴 이유 ────────────────────────────────
 //  두 타입이 ``QuizSession`` 안에 중첩돼 있었다. 그러면 창을 그리는 화면
@@ -160,4 +161,18 @@ struct TrueFalseCommentary: Identifiable {
 
     /// 기다림이 끝났는가. (``IncorrectCommentary/isReady`` 와 같은 이유)
     var isReady: Bool { commentary != CommentaryPlaceholder.waiting }
+}
+
+/// 지금 떠 있는 해설 창. **셋 중 하나만**, 또는 `nil`(창 없음).
+///
+/// 예전에는 ``QuizSession`` 이 창마다 옵셔널을 하나씩 들고 있어서, 「한 번에 하나만 뜬다」를 코드가 아니라
+/// **호출 순서**가 지켰다. 열거형 하나로 두면 둘이 동시에 뜬 상태를 만들 수 없다 —
+/// 결정 기록 「같은 모습은 같은 코드로 강제한다」와 같은 생각이다.
+enum PresentedCommentary {
+    /// 틀렸을 때 (선다·직접입력)
+    case incorrect(IncorrectCommentary)
+    /// 맞혔을 때 (선다·직접입력)
+    case correct(CorrectCommentary)
+    /// O/X — 맞혔든 틀렸든
+    case trueFalse(TrueFalseCommentary)
 }

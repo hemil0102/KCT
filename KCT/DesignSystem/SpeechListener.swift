@@ -43,10 +43,14 @@
 //  https://developer.apple.com/documentation/accelerate/vdsp_dft_zop_createsetup(_:_:_:)
 //
 
+import OSLog   // Log.* (진단 기록) — MemberImportVisibility 라 쓰는 파일마다 가져온다
 import Accelerate
 import AVFoundation
 import Observation
-import Speech
+// `@preconcurrency` — Speech 프레임워크의 인식 요청(SFSpeechAudioBufferRecognitionRequest)이
+// 아직 Sendable 표시가 없다. 애플 문서상 `append(_:)` 는 오디오 스레드에서 부르는 것이 정상 용법이라,
+// Swift 6 모드에서 이 모듈의 Sendable 검사만 경고로 낮춘다.
+@preconcurrency import Speech
 
 /// 마이크로 듣고 글자로 바꾸는 부품. 한 번 누를 때마다 한 번 듣는다.
 ///
@@ -146,7 +150,7 @@ final class SpeechListener {
             phase = .listening
             startDeadlineTimer()
         } catch {
-            print("❌ 음성 인식 시작 실패:", error)
+            Log.voice.error("음성 인식 시작 실패: \(String(describing: error), privacy: .public)")
             teardown()
             await restoreSessionIfNeeded()
             phase = .unavailable
@@ -349,8 +353,13 @@ final class SpeechListener {
 /// - Note: ``floorDB``·``rangeDB``·``silenceDB`` 는 실기기에서 맞출 값이다. 막대가 너무 낮으면
 ///   `floorDB` 를 내리고, 조용할 때도 막대가 남으면 `silenceDB` 를 올린다.
 ///
+/// `@unchecked Sendable` — Swift 6 모드에서 오디오 탭 클로저(@Sendable)가 이 객체를 들고 가야 한다.
+/// 컴파일러가 증명하지 못하는 부분(C 포인터 `setup`)을 사람이 약속하는 표시다. 약속의 근거:
+/// ① 저장 프로퍼티가 전부 `let` 이라 만든 뒤 바뀌지 않는다 ② 마이크 탭 하나에서만, 한 번에 하나씩 불린다.
+/// 이 객체를 다른 곳과 나눠 쓰기 시작하면 이 약속이 깨진다.
+///
 /// 참고: https://developer.apple.com/documentation/accelerate/vdsp_dft_zop_createsetup(_:_:_:)
-nonisolated final class BandAnalyzer {
+nonisolated final class BandAnalyzer: @unchecked Sendable {
     /// 한 번에 보는 샘플 수. DFT 는 2의 거듭제곱 길이에서 빠르다.
     static let size = 1024
 

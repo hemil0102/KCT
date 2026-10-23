@@ -14,6 +14,7 @@
 - **다음 할 일** — **실기기 확인.** 리팩토링은 동작이 안 바뀌어야 성공이라 빌드만으로는 부족합니다. 확인 목록 9개는 [Refactoring.md](History/Refactoring.md) 맨 아래에 있습니다 — 특히 ① 낱말 사전 시트가 아래로 쓸어내려 닫히는지(`blocksInteractiveDismiss: false`) ② 지문 **마지막 줄** 점선이 여전히 보이는지(`UnderlineLabel` 이사) ③ 흔들림 세 박자(`shake` 통합) ④ `#if DEBUG` 첨부자료가 여전히 남는지(`onFailure` 훅). 그다음은 [Brainstorm.md](Brainstorm.md) 의 도입 후보 중에서 고릅니다
 - **테스트 규칙 신설 (2026-10-03)** — `CLAUDE.md` 규칙 26 + `RULES.md` 「규칙 26」 + `GUIDE.md` 용어 8개. 기능을 더하면 「통과 기준 → 테스트 → 구현 → 화면」 순서로, Swift Testing. **아직 한 번도 지켜 보지 않았다.** **다음: ① `KCTTests` 타깃 만들기(사용자, Xcode — 위치는 저장소 루트, `KCT/KCT/` 안 금지) ② 첫 테스트 후보 — `nextDueAt` 이 맞힌 직후 미래 시각인가(열린 질문의 「늘 nil」과 같은 것), `questions.json` 의 id 중복 없음.**
 - **규칙을 프로젝트 밖으로 (2026-10-03)** — `Claude설정/` 에 범용(`01_working-agreement`)·학습 모드(`02_learning-mode`)·새 프로젝트 틀(`03_`)을 뽑아 두었다. **아직 `~/.claude/` 와 스킬로 내보내지 않았다**(사용자 몫 — `Claude설정/README.md`). 조사에서 나온 보완 후보 8개(규칙 1 `settings.json` 강제, SessionStart hook, CLAUDE.md 다이어트·`rules/` 분리, 빌드·테스트 명령 명시, 환경별 도구 대체, 두 번 실패 시 멈춤, `/compact` 지침, `/doctor prompt-audit`)는 **아직 적용 전**
+- **2차 리팩토링 적용 (2026-10-23)** — 브랜치 `refactor-2`, **미커밋.** Swift 6 언어 모드 · SwiftData 스키마 V1 · 이중 제출 막기 · `DispatchQueue`→`Beat` · `QuizSession` 에서 3덩어리 분리 · `print`→`Logger`. 빌드 오류 0·경고 0, 시뮬레이터 저장소 이전 시험 통과. **회차 흐름은 아직 손으로 못 봤다 — 실기기 목록 7개** → [Refactoring_2차_검토.md](History/Refactoring_2차_검토.md) 「적용 결과」
 - **막힌 것** — 없음. `model_failure` 표와 RLS 정책(`job = 'glossary_example'` 허용)은 11차에 해결됐습니다
 - **임시로 꺼 둔 것** — `KoreanText.swift` 의 형광펜(marker, 노란 배경)을 `showsMarkerHighlight = false` 로 잠시 껐습니다(밑줄 버그를 따로 보려는 진단용). 리팩토링에서도 **그대로 뒀습니다** — 되돌리려면 그 값을 `true` 로
 
@@ -60,6 +61,8 @@
 - **같은 모습은 같은 코드로 강제한다** (2026-09-23 리팩토링) — 「똑같이 생겼다」를 주석으로 약속하면 한쪽만 고쳐질 때 주석이 거짓이 된다. 세 해설 창은 `CommentarySheet.swift` 의 부품을 공유한다
 - **실측으로 정한 값은 리팩토링에서 절대 안 건드린다** — 0.75 진하기·150/260 시트 높이·21/28pt·`underlineGap` 기준·배너 18/17pt. 「통일하면 깔끔해 보이는」 자리도 인자로 각자 값을 넘긴다
 - **`ModelCall.generate` 에 `onFailure` 훅이 있는 이유** — `session.logFeedbackAttachment` 는 세션 객체가 있어야 부를 수 있다. 훅을 없애면 세이프티 신고 기능이 조용히 사라진다
+- **SwiftData 저장 모양은 `KCTSchemaV1` 로 얼렸다** (2026-10-23) — V1 의 모델 목록은 고치지 않는다. 칸을 바꾸거나 모델을 지우려면 V2 를 만들고 `KCTMigrationPlan` 에 단계를 넣는다 (`App/ModelStore.swift`)
+- **회차를 나가도 채점은 멈추지 않는다** — 채점 도중 취소하면 모델 판정이 실패로 끝나 맞힌 답이 오답으로 사다리에 적힌다. 멈추는 것은 아무도 결과를 안 볼 작업뿐(`QuizSession.leave()`)
 
 ---
 

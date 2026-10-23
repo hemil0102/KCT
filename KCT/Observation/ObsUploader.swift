@@ -41,6 +41,7 @@
 //     내려받는 코드가 없습니다. 기록을 보는 것은 Supabase 대시보드에서 합니다.
 //
 
+import OSLog   // Log.* (진단 기록) — MemberImportVisibility 라 쓰는 파일마다 가져온다
 import Foundation
 import SwiftData
 
@@ -230,14 +231,14 @@ struct ObsUploader {
         payload: (Row) -> Body,
         stamp: (Row, Date) -> Void
     ) async {
-        print("📤 안 올라간 \(label):", rows.count)
+        Log.upload.info("안 올라간 \(label, privacy: .public): \(rows.count)")
         guard !rows.isEmpty else { return }
 
         guard await send(rows.map(payload), to: path) else {
-            print("❌ \(label) 업로드 실패 — 다음 기회에 다시 시도")
+            Log.upload.error("\(label, privacy: .public) 업로드 실패 — 다음 기회에 다시 시도")
             return
         }
-        print("✅ \(label) 업로드 성공:", rows.count)
+        Log.upload.info("\(label, privacy: .public) 업로드 성공: \(rows.count)")
 
         let now = Date.now
         for row in rows { stamp(row, now) }
@@ -274,14 +275,15 @@ struct ObsUploader {
         guard let url = URL(string: SupabaseConfig.projectURL + path) else { return false }
 
         // 소수점 세 자리까지 살린 ISO 8601 (예: 2026-08-26T15:57:08.412Z)
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        // `ISO8601DateFormatter` 는 Sendable 이 아니라 @Sendable 인코딩 클로저에 못 들고 들어간다.
+        // 값 타입인 FormatStyle 은 Sendable 이고 결과 모양은 같다.
+        let iso = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         encoder.dateEncodingStrategy = .custom { date, encoder in
             var container = encoder.singleValueContainer()
-            try container.encode(iso.string(from: date))
+            try container.encode(iso.format(date))
         }
 
         var request = URLRequest(url: url)
@@ -299,11 +301,11 @@ struct ObsUploader {
             let ok = (200...299).contains(http.statusCode)
             if !ok {
                 let body = String(data: data, encoding: .utf8) ?? "(본문을 텍스트로 못 읽음)"
-                print("❌ Supabase 응답 \(http.statusCode):", body)
+                Log.upload.error("Supabase 응답 \(http.statusCode): \(body, privacy: .public)")
             }
             return ok
         } catch {
-            print("❌ Supabase 요청 자체가 실패:", error)
+            Log.upload.error("Supabase 요청 자체가 실패: \(String(describing: error), privacy: .public)")
             return false
         }
     }

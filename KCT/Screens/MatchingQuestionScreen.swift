@@ -17,7 +17,7 @@
 //  ├─ nextButton           PrimaryActionButton 재사용. 다 맞히기 전엔 눌러도
 //  │                       안내만 뜨고 넘어가지 않는다
 //  ├─ tapLeft / tapRight   고르기와 판정 — 이 화면의 유일한 판단
-//  ├─ shake(_:)            흔들림 세 박자. 왼쪽·오른쪽·「다음」이 **같은 것을 쓴다**
+//  ├─ (흔들림 세 박자)    Beat.shake — DesignSystem/MotionBeats.swift. 왼쪽·오른쪽·「다음」, 그리고 QuestionScreen 까지 **같은 것을 쓴다**
 //  └─ setToast(_:hideAfter:) 안내 문구 갈아 끼우기
 //
 //  판 부품(MatchCard · MatchLine · CardSlot · CardFrameKey)은 MatchBoard.swift 에,
@@ -278,7 +278,7 @@ struct MatchingQuestionScreen: View {
             if allMatched {
                 onComplete()
             } else {
-                shake { nextShakeOffset = $0 }
+                Beat.shake { nextShakeOffset = $0 }
                 setToast(Guide.notReady, hideAfter: 1.4)
                 UINotificationFeedbackGenerator().notificationOccurred(.warning)
             }
@@ -301,7 +301,7 @@ struct MatchingQuestionScreen: View {
 
     private func tapRight(_ id: Int) {
         guard let leftID = selectedLeftID else {
-            shake { cardOffsetX[CardSlot(side: .right, id: id)] = $0 }
+            Beat.shake { cardOffsetX[CardSlot(side: .right, id: id)] = $0 }
             setToast(Guide.pickLeft)
             return
         }
@@ -316,7 +316,7 @@ struct MatchingQuestionScreen: View {
                 setToast(Guide.allDone, hideAfter: 1.1)
             } else {
                 setToast(Guide.correct)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                Beat.after(.seconds(1.0)) {
                     if selectedLeftID == nil && !allMatched { setToast(Guide.pickLeft) }
                 }
             }
@@ -324,35 +324,17 @@ struct MatchingQuestionScreen: View {
             wrongLeftID = leftID
             wrongRightID = id
             selectedLeftID = nil
-            shake { cardOffsetX[CardSlot(side: .left, id: leftID)] = $0 }
-            shake { cardOffsetX[CardSlot(side: .right, id: id)] = $0 }
+            Beat.shake { cardOffsetX[CardSlot(side: .left, id: leftID)] = $0 }
+            Beat.shake { cardOffsetX[CardSlot(side: .right, id: id)] = $0 }
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+            Beat.after(.milliseconds(320)) {
                 wrongLeftID = nil
                 wrongRightID = nil
             }
             setToast(Guide.wrong)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            Beat.after(.seconds(1.1)) {
                 if selectedLeftID == nil && !allMatched { setToast(Guide.pickLeft) }
             }
-        }
-    }
-
-    /// 흔들림 세 박자. CSS 의 `25% -6px · 75% +6px` 을 그대로 옮긴 것이다.
-    ///
-    /// 예전에는 `shakeLeft`·`shakeRight`·`shakeNext` 세 함수가 **글자까지 똑같이**
-    /// 있었다. 다른 것은 "어디에 값을 넣는가" 하나뿐이라, 그 한 가지만 클로저로
-    /// 받으면 세 자리가 같은 코드를 쓴다 — 흔들림 박자를 고칠 때 한 곳만 본다.
-    ///
-    /// - Parameter apply: 오프셋 값을 받아 제 자리에 넣어 주는 클로저.
-    ///   (`shake { cardOffsetX[key] = $0 }` 처럼 쓴다)
-    private func shake(_ apply: @escaping (CGFloat) -> Void) {
-        withAnimation(.easeInOut(duration: 0.08)) { apply(-6) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            withAnimation(.easeInOut(duration: 0.16)) { apply(6) }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
-            withAnimation(.easeInOut(duration: 0.08)) { apply(0) }
         }
     }
 
@@ -360,7 +342,7 @@ struct MatchingQuestionScreen: View {
         toastText = text
         toastVisible = true
         if let hideAfter {
-            DispatchQueue.main.asyncAfter(deadline: .now() + hideAfter) {
+            Beat.after(.seconds(hideAfter)) {
                 if toastText == text { toastVisible = false }
             }
         }

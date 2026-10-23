@@ -107,7 +107,9 @@ struct MatchCard: View {
 }
 
 /// 맞은 두 카드 사이를 잇는 직선. `.trim(from:to:)` 으로 그려지는 애니메이션을 준다.
-struct MatchLine: Shape {
+///
+/// `nonisolated` — `Shape` 는 메인 액터 밖에서도 불린다(``WideChevronShape`` 와 같은 이유).
+nonisolated struct MatchLine: Shape {
     let start: CGPoint
     let end: CGPoint
 
